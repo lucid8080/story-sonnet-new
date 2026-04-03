@@ -22,3 +22,16 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Cursor (local scratchpad / rules — keep out of remote)
+.cursor/
+
+# Local TTS / experiment output (not app source)
+Local-voxtral-output/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Windows thumbnail cache
+Thumbs.db
