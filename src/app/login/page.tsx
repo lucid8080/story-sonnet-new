@@ -3,7 +3,7 @@
 import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { signIn } from 'next-auth/react';
+import { getSession, signIn } from 'next-auth/react';
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -23,10 +23,21 @@ function LoginForm() {
       redirect: false,
     });
     setSubmitting(false);
-    if (res?.error) {
-      setError('Invalid email or password.');
+
+    if (!res?.ok) {
+      // Auth.js v5 returns a rich response when `redirect: false`.
+      // Treat missing session/cookie cases as failures too.
+      setError(res?.error ? 'Invalid email or password.' : 'Login failed. Please try again.');
       return;
     }
+
+    // Verify that the session cookie was accepted for this host before redirecting.
+    const session = await getSession();
+    if (!session?.user) {
+      setError('Login succeeded but the session did not persist. Please try again.');
+      return;
+    }
+
     window.location.href = callbackUrl;
   };
 

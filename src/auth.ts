@@ -29,7 +29,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const ok = await bcrypt.compare(password, user.password);
         if (!ok) return null;
 
-        return user;
+        // Return a minimal, JSON-safe user payload to avoid leaking fields
+        // (like the password hash) into the JWT/session pipeline.
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+        };
       },
     }),
     ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
@@ -55,9 +62,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.sub as string;
-        session.user.role = (token.role as string) ?? 'user';
-        session.user.subscriptionStatus =
-          (token.subscriptionStatus as string) ?? 'free';
+        const userId = token.sub;
+        if (userId) {
+          try {
+            const p = await prisma.profile.findUnique({
+              where: { userId },
+              select: { role: true, subscriptionStatus: true },
+            });
+            session.user.role = p?.role ?? (token.role as string) ?? 'user';
+            session.user.subscriptionStatus =
+              p?.subscriptionStatus ??
+              (token.subscriptionStatus as string) ??
+              'free';
+          } catch (e) {
+            console.warn('[auth] session profile fetch failed', e);
+            session.user.role = (token.role as string) ?? 'user';
+            session.user.subscriptionStatus =
+              (token.subscriptionStatus as string) ?? 'free';
+          }
+        } else {
+          session.user.role = (token.role as string) ?? 'user';
+          session.user.subscriptionStatus =
+            (token.subscriptionStatus as string) ?? 'free';
+        }
       }
       return session;
     },
