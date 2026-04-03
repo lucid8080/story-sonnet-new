@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1250" viewBox="0 0 1000 1250" role="img" aria-labelledby="title desc">
+  <title id="title">Blocky Explores Mine World cover</title>
+  <desc id="desc">Block-world style cover with grass, stone, and cube shapes.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#86efac"/>
+    </linearGradient>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4ade80"/>
+      <stop offset="100%" stop-color="#166534"/>
+    </linearGradient>
+  </defs>
+  <rect width="1000" height="1250" fill="url(#sky)"/>
+  <rect x="0" y="820" width="1000" height="430" fill="url(#ground)"/>
+  <!-- cube hills -->
+  <rect x="120" y="640" width="140" height="140" fill="#78716c" rx="8"/>
+  <rect x="260" y="560" width="140" height="220" fill="#57534e" rx="8"/>
+  <rect x="580" y="600" width="160" height="180" fill="#a8a29e" rx="8"/>
+  <rect x="720" y="520" width="180" height="260" fill="#78716c" rx="8"/>
+  <!-- grass blocks -->
+  <rect x="380" y="720" width="100" height="100" fill="#22c55e" rx="6"/>
+  <rect x="480" y="680" width="100" height="140" fill="#16a34a" rx="6"/>
+  <rect x="320" y="780" width="80" height="80" fill="#4ade80" rx="6"/>
+  <!-- sun -->
+  <circle cx="820" cy="200" r="72" fill="#fde047" opacity="0.95"/>
+  <text x="500" y="130" text-anchor="middle" font-family="Georgia, serif" font-size="52" fill="#14532d">Blocky Explores</text>
+  <text x="500" y="210" text-anchor="middle" font-family="Georgia, serif" font-size="72" font-weight="bold" fill="#14532d">Mine World</text>
+  <text x="500" y="1160" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" fill="#14532d">Replace with final artwork when ready</text>
+</svg>

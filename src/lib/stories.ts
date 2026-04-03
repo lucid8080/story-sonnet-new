@@ -149,6 +149,27 @@ function mapDbStoryToApp(story: Story, episodes: Episode[]): AppStory {
   };
 }
 
+/** Catalog file was missing in repo; DB may still reference the old path. */
+const LEGACY_MISSING_COVER: Record<string, string> = {
+  '/covers/blocky-explores-mine-world/cover.webp':
+    '/covers/blocky-explores-mine-world/cover.svg',
+};
+
+function overlayCatalogCoverIfSuperseded(app: AppStory): AppStory {
+  const c = app.cover;
+  if (!c) return app;
+  if (LEGACY_MISSING_COVER[c]) {
+    return { ...app, cover: LEGACY_MISSING_COVER[c] };
+  }
+  if (c.endsWith('/covers/blocky-explores-mine-world/cover.webp')) {
+    return {
+      ...app,
+      cover: c.replace(/cover\.webp$/, 'cover.svg'),
+    };
+  }
+  return app;
+}
+
 function resolveStaticIsSeries(
   episodeCount: number,
   seedIsSeries?: boolean
@@ -256,9 +277,11 @@ export async function fetchStories(): Promise<AppStory[]> {
     for (const s of staticStories) {
       const dbRow = dbBySlug.get(s.slug);
       if (dbRow) {
-        merged.push(
-          mapDbStoryToApp(dbRow, episodesByStoryId[dbRow.id.toString()] || [])
+        const app = mapDbStoryToApp(
+          dbRow,
+          episodesByStoryId[dbRow.id.toString()] || []
         );
+        merged.push(overlayCatalogCoverIfSuperseded(app));
       } else {
         const staticApp = staticAppBySlug.get(s.slug);
         if (staticApp) merged.push(staticApp);
@@ -268,12 +291,11 @@ export async function fetchStories(): Promise<AppStory[]> {
     const staticSlugs = new Set(staticStories.map((x) => x.slug));
     for (const dbRow of dbStories) {
       if (!staticSlugs.has(dbRow.slug)) {
-        merged.push(
-          mapDbStoryToApp(
-            dbRow,
-            episodesByStoryId[dbRow.id.toString()] || []
-          )
+        const app = mapDbStoryToApp(
+          dbRow,
+          episodesByStoryId[dbRow.id.toString()] || []
         );
+        merged.push(overlayCatalogCoverIfSuperseded(app));
       }
     }
 
@@ -300,7 +322,7 @@ export async function fetchStoryBySlug(slug: string): Promise<AppStory | null> {
       orderBy: { episodeNumber: 'asc' },
     });
 
-    return mapDbStoryToApp(story, episodes);
+    return overlayCatalogCoverIfSuperseded(mapDbStoryToApp(story, episodes));
   } catch (e) {
     console.warn('[stories] fetchStoryBySlug DB failed, using static.', e);
     return mapStaticToApp().find((s) => s.slug === slug) ?? null;

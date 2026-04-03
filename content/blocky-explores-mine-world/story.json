@@ -6,7 +6,7 @@
   "voice": "EN - Paul, Neutral",
   "lengthTargetMinutes": 10,
   "audioFormat": "mp3",
-  "coverImage": "/covers/blocky-explores-mine-world/cover.webp",
+  "coverImage": "/covers/blocky-explores-mine-world/cover.svg",
   "audioFiles": [
     {
       "id": 1,

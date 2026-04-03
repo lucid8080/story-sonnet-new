@@ -168,7 +168,7 @@ export const stories = [
     durationLabel: '10 min',
     summary:
       'A lively block-world adventure series about building, exploring, teamwork, and funny near-disasters.',
-    cover: assetPath('/covers/blocky-explores-mine-world/cover.webp'),
+    cover: assetPath('/covers/blocky-explores-mine-world/cover.svg'),
     accent: '#22c55e',
     isPremium: false,
     episodes: [
