@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Env with secrets (use `.env.example` as template)
+.env
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -35,3 +38,10 @@ __pycache__/
 
 # Windows thumbnail cache
 Thumbs.db
+
+# Next.js
+.next/
+out/
+
+# TypeScript incremental
+*.tsbuildinfo

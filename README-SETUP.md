@@ -1,5 +1,7 @@
 ## Story Sonnet – Supabase & Stripe Setup
 
+> **Note (2026):** The app in this repo now targets **Next.js + Prisma + NextAuth + Stripe + S3-compatible storage**. Use [`.env.example`](.env.example), run `npx prisma db push`, and configure Neon (or any Postgres). The sections below describe the **legacy Supabase** layout for reference only.
+
 ### 1. Supabase project & auth
 
 - Create a new Supabase project.

@@ -1,4 +1,5 @@
-const ASSETS_BASE_URL = import.meta.env.VITE_ASSETS_BASE_URL || '';
+const ASSETS_BASE_URL =
+  (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_ASSETS_BASE_URL) || '';
 
 function assetPath(relativePath) {
   if (!ASSETS_BASE_URL) return relativePath;
@@ -211,6 +212,102 @@ export const stories = [
         audioSrc: assetPath('/audio/keepers-of-turtleshell-city/episode-1.mp3'),
         description:
           'When a hush falls through the pipes and a hidden bell begins to ring inside the turtle-city, the maintenance crew must follow the sound to help their great walking home rest safely.',
+      },
+    ],
+  },
+
+  {
+    slug: 'luna-and-the-starlight-garden',
+    seriesTitle: 'Luna and the Starlight Garden',
+    title: 'The Seeds That Hummed Goodnight',
+    ageGroup: '3–5',
+    durationLabel: '4 min',
+    summary:
+      'A gentle night garden visit where Luna learns that sleepy flowers glow brighter when everyone breathes slowly together.',
+    cover: assetPath('/covers/luna-and-the-starlight-garden/cover.webp'),
+    accent: '#a78bfa',
+    isPremium: false,
+    episodes: [
+      {
+        id: 1,
+        label: 'Episode 1',
+        title: 'The Seeds That Hummed Goodnight',
+        duration: '4:12',
+        audioSrc: assetPath('/audio/the-secret-map-of-the-7641-islands/episode-1.mp3'),
+        description:
+          'Luna follows tiny silver seeds that only open when the house is quiet enough for dreams.',
+      },
+    ],
+  },
+
+  {
+    slug: 'detective-chipmunks-first-case',
+    seriesTitle: 'Detective Chipmunk',
+    title: 'The Case of the Missing Acorn Crown',
+    ageGroup: '6–8',
+    durationLabel: '8 min',
+    summary:
+      'A woodland whodunit with clues, suspects, and a very serious chipmunk who takes notes on everything.',
+    cover: assetPath('/covers/detective-chipmunks-first-case/cover.webp'),
+    accent: '#b45309',
+    isPremium: false,
+    episodes: [
+      {
+        id: 1,
+        label: 'Episode 1',
+        title: 'The Case of the Missing Acorn Crown',
+        duration: '8:05',
+        audioSrc: assetPath('/audio/the-secret-map-of-the-7641-islands/episode-1.mp3'),
+        description:
+          'Detective Nutmeg interviews three squirrels and one very suspicious pile of leaves.',
+      },
+    ],
+  },
+
+  {
+    slug: 'teds-counting-train',
+    seriesTitle: "Ted's Number Line Express",
+    title: 'Ten Friendly Cars and a Quiet Tunnel',
+    ageGroup: '3–5',
+    durationLabel: '6 min',
+    summary:
+      'A calm counting ride with Ted the engine—perfect for little listeners who like patterns and gentle repetition.',
+    cover: assetPath('/covers/teds-counting-train/cover.webp'),
+    accent: '#ef4444',
+    isPremium: false,
+    episodes: [
+      {
+        id: 1,
+        label: 'Episode 1',
+        title: 'Ten Friendly Cars and a Quiet Tunnel',
+        duration: '6:02',
+        audioSrc: assetPath('/audio/the-secret-map-of-the-7641-islands/episode-1.mp3'),
+        description:
+          'Ted counts cars, tunnels, and sleepy sheep outside the window until the station arrives.',
+      },
+    ],
+  },
+
+  {
+    slug: 'maya-and-the-laughing-cloud',
+    seriesTitle: 'Maya and the Laughing Cloud',
+    title: 'The Giggle Storm',
+    ageGroup: '6–8',
+    durationLabel: '7 min',
+    summary:
+      'When a storm cloud catches the giggles, Maya helps it rain happy little surprises instead of grumbles.',
+    cover: assetPath('/covers/maya-and-the-laughing-cloud/cover.webp'),
+    accent: '#38bdf8',
+    isPremium: false,
+    episodes: [
+      {
+        id: 1,
+        label: 'Episode 1',
+        title: 'The Giggle Storm',
+        duration: '7:18',
+        audioSrc: assetPath('/audio/the-secret-map-of-the-7641-islands/episode-1.mp3'),
+        description:
+          'Maya trades frowns for funny faces until the sky remembers how to smile.',
       },
     ],
   },
