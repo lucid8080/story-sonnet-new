@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1250" viewBox="0 0 1000 1250" role="img" aria-labelledby="title desc">
+  <title id="title">The Adventures of Zubie and Robo-Rex cover placeholder</title>
+  <desc id="desc">Placeholder cover showing a warm cozy bedroom scene palette for Zubie, Dad, and Robo-Rex.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#7db9ff"/>
+      <stop offset="55%" stop-color="#f6d37a"/>
+      <stop offset="100%" stop-color="#c08c5a"/>
+    </linearGradient>
+  </defs>
+  <rect width="1000" height="1250" fill="url(#bg)"/>
+  <circle cx="780" cy="180" r="90" fill="#fff6d8" opacity="0.6"/>
+  <rect x="100" y="760" width="800" height="320" rx="40" fill="#f6efe5" opacity="0.88"/>
+  <rect x="140" y="680" width="300" height="140" rx="30" fill="#d6a96f" opacity="0.85"/>
+  <circle cx="360" cy="560" r="110" fill="#8a5a3b" opacity="0.95"/>
+  <rect x="285" y="640" width="150" height="170" rx="34" fill="#f4b85e"/>
+  <circle cx="610" cy="780" r="92" fill="#3d8de0"/>
+  <circle cx="582" cy="755" r="15" fill="#8dff84"/>
+  <circle cx="640" cy="755" r="15" fill="#8dff84"/>
+  <path d="M548 832 Q610 878 672 832" stroke="#204a76" stroke-width="18" fill="none" stroke-linecap="round"/>
+  <rect x="515" y="842" width="190" height="42" rx="21" fill="#2a6fb5"/>
+  <text x="500" y="150" text-anchor="middle" font-family="Georgia, serif" font-size="58" fill="#17324d">The Adventures of</text>
+  <text x="500" y="225" text-anchor="middle" font-family="Georgia, serif" font-size="78" font-weight="bold" fill="#17324d">Zubie and Robo-Rex</text>
+  <text x="500" y="1110" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" fill="#17324d">Placeholder cover ready for replacement via cover workflow</text>
+</svg>

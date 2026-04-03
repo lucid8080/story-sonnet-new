@@ -1,0 +1,42 @@
+{
+  "slug": "blocky-explores-mine-world",
+  "seriesTitle": "Blocky Explores Mine World",
+  "title": "Blocky Builds a Fort",
+  "ageGroup": "5\u20138",
+  "voice": "EN - Paul, Neutral",
+  "lengthTargetMinutes": 10,
+  "audioFormat": "mp3",
+  "coverImage": "/covers/blocky-explores-mine-world/cover.webp",
+  "audioFiles": [
+    {
+      "id": 1,
+      "label": "Episode 1",
+      "title": "Blocky Builds a Fort",
+      "audioSrc": "/audio/blocky-explores-mine-world/episode-1.mp3",
+      "duration": "10:33"
+    },
+    {
+      "id": 2,
+      "label": "Episode 2",
+      "title": "Blocky Finds a Shortcut That Wouldn't Stay Short",
+      "audioSrc": "/audio/blocky-explores-mine-world/episode-2.mp3",
+      "duration": "10:43",
+      "voice": "EN - Paul, Neutral"
+    }
+  ],
+  "tags": [
+    "adventure",
+    "building",
+    "friends",
+    "block world",
+    "exploring"
+  ],
+  "status": {
+    "storyDraft": true,
+    "coverPromptReady": true,
+    "coverImageGenerated": false,
+    "mp3Generated": true,
+    "appWired": true
+  },
+  "voiceNotes": "Episode 2 establishes EN - Paul, Neutral as the preferred ongoing narration voice for Blocky unless changed later."
+}

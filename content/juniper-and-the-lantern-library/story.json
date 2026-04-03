@@ -1,0 +1,37 @@
+{
+  "slug": "juniper-and-the-lantern-library",
+  "seriesTitle": "Juniper and the Lantern Library",
+  "title": "The Shelf That Needed a Song",
+  "ageGroup": "5–8",
+  "voice": "EN - Paul, Neutral",
+  "lengthTargetMinutes": 10,
+  "audioFormat": "mp3",
+  "coverImage": "/covers/juniper-and-the-lantern-library/cover.png",
+  "audioFiles": [
+    {
+      "id": 1,
+      "label": "Episode 1",
+      "title": "The Shelf That Needed a Song",
+      "audioSrc": "/audio/juniper-and-the-lantern-library/episode-1.mp3",
+      "duration": "10:14",
+      "voice": "EN - Paul, Neutral"
+    }
+  ],
+  "tags": [
+    "library",
+    "books",
+    "cozy",
+    "music",
+    "kindness",
+    "listening",
+    "magic"
+  ],
+  "status": {
+    "storyDraft": true,
+    "coverPromptReady": true,
+    "coverImageGenerated": false,
+    "mp3Generated": true,
+    "appWired": true
+  },
+  "voiceNotes": "Series established with EN - Paul, Neutral for consistency unless Andre changes direction."
+}

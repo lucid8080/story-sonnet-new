@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1250" viewBox="0 0 1000 1250" role="img" aria-labelledby="title desc">
+  <title id="title">The Keepers of Turtleshell City placeholder cover</title>
+  <desc id="desc">A placeholder cover showing a giant turtle carrying a lantern city while a maintenance crew stands on the shell.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f7c59f"/>
+      <stop offset="55%" stop-color="#d7eef3"/>
+      <stop offset="100%" stop-color="#8ec5a4"/>
+    </linearGradient>
+    <linearGradient id="shell" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3f7f5f"/>
+      <stop offset="100%" stop-color="#275947"/>
+    </linearGradient>
+  </defs>
+  <rect width="1000" height="1250" fill="url(#sky)"/>
+  <ellipse cx="500" cy="1020" rx="470" ry="120" fill="#7aa37e" opacity="0.35"/>
+  <ellipse cx="520" cy="760" rx="360" ry="210" fill="url(#shell)"/>
+  <ellipse cx="520" cy="740" rx="300" ry="145" fill="#6da47b"/>
+  <circle cx="820" cy="760" r="78" fill="#5a8d6c"/>
+  <circle cx="848" cy="745" r="10" fill="#163527"/>
+  <path d="M845 792 Q905 822 932 782" fill="none" stroke="#163527" stroke-width="6" stroke-linecap="round"/>
+  <rect x="248" y="592" width="110" height="90" rx="10" fill="#d98f5b"/>
+  <rect x="390" y="548" width="130" height="105" rx="10" fill="#c96f52"/>
+  <rect x="550" y="568" width="150" height="110" rx="10" fill="#d9a066"/>
+  <rect x="392" y="510" width="126" height="26" rx="8" fill="#6a4a37"/>
+  <rect x="566" y="528" width="118" height="22" rx="8" fill="#6a4a37"/>
+  <path d="M270 600 h80 v-35 h35 v35 h80" fill="none" stroke="#b77b52" stroke-width="10" stroke-linecap="round"/>
+  <path d="M690 590 h70 l40 -28" fill="none" stroke="#b77b52" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="300" cy="575" r="9" fill="#ffd37a"/>
+  <circle cx="332" cy="555" r="9" fill="#ffd37a"/>
+  <circle cx="470" cy="500" r="9" fill="#ffd37a"/>
+  <circle cx="610" cy="525" r="9" fill="#ffd37a"/>
+  <circle cx="742" cy="562" r="9" fill="#ffd37a"/>
+  <rect x="250" y="688" width="480" height="16" rx="8" fill="#8b6b4f"/>
+  <rect x="290" y="705" width="16" height="70" fill="#8b6b4f"/>
+  <rect x="672" y="705" width="16" height="70" fill="#8b6b4f"/>
+  <circle cx="330" cy="804" r="32" fill="#8a5a44"/>
+  <circle cx="390" cy="800" r="32" fill="#6c473d"/>
+  <circle cx="450" cy="804" r="32" fill="#e0b38f"/>
+  <circle cx="510" cy="800" r="32" fill="#9a6a52"/>
+  <circle cx="570" cy="804" r="32" fill="#c98f63"/>
+  <rect x="312" y="830" width="36" height="72" rx="10" fill="#d6a54f"/>
+  <rect x="372" y="826" width="36" height="76" rx="10" fill="#4a7ba0"/>
+  <rect x="432" y="832" width="36" height="70" rx="10" fill="#6a8f54"/>
+  <rect x="492" y="828" width="36" height="74" rx="10" fill="#b85b56"/>
+  <rect x="552" y="832" width="36" height="70" rx="10" fill="#e39b57"/>
+  <text x="500" y="138" font-family="Georgia, serif" font-size="64" text-anchor="middle" fill="#21443c">The Keepers of Turtleshell City</text>
+  <text x="500" y="198" font-family="Arial, sans-serif" font-size="28" text-anchor="middle" fill="#2c5b4b">Placeholder cover ready for final painted art</text>
+</svg>

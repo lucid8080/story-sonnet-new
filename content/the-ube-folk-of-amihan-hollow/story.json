@@ -1,0 +1,36 @@
+{
+  "slug": "the-ube-folk-of-amihan-hollow",
+  "seriesTitle": "The Ube Folk of Amihan Hollow",
+  "title": "The Glow Root Relay",
+  "ageGroup": "5–8",
+  "voice": "EN - Jane, Curious",
+  "lengthTargetMinutes": 11,
+  "audioFormat": "mp3",
+  "coverImage": "/covers/the-ube-folk-of-amihan-hollow/cover.svg",
+  "audioFiles": [
+    {
+      "id": 1,
+      "label": "Episode 1",
+      "title": "The Glow Root Relay",
+      "audioSrc": "/audio/the-ube-folk-of-amihan-hollow/episode-1.mp3",
+      "duration": "16:57"
+    }
+  ],
+  "tags": [
+    "ube",
+    "purple yam",
+    "sports",
+    "friendship",
+    "harvest",
+    "magic"
+  ],
+  "status": {
+    "storyDraft": true,
+    "coverPromptReady": true,
+    "coverImageGenerated": false,
+    "mp3Generated": true,
+    "appWired": true,
+    "transcriptWired": true
+  },
+  "voiceNotes": "Series default voice: EN - Jane, Curious. Main TTS path is Mistral."
+}

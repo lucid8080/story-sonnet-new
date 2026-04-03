@@ -1,0 +1,36 @@
+{
+  "slug": "the-adventures-of-zubie-and-robo-rex",
+  "seriesTitle": "The Adventures of Zubie and Robo-Rex",
+  "title": "The Broken Toy That Fixed Itself",
+  "ageGroup": "4–7",
+  "voice": "EN - Jane, Curious",
+  "lengthTargetMinutes": 9,
+  "audioFormat": "mp3",
+  "coverImage": "/covers/the-adventures-of-zubie-and-robo-rex/cover.svg",
+  "audioFiles": [
+    {
+      "id": 1,
+      "label": "Episode 1",
+      "title": "The Broken Toy That Fixed Itself",
+      "audioSrc": "/audio/the-adventures-of-zubie-and-robo-rex/episode-1.mp3",
+      "duration": "10:37 (est.)"
+    }
+  ],
+  "tags": [
+    "best friends",
+    "robot dinosaur",
+    "bedtime",
+    "family",
+    "detective",
+    "love"
+  ],
+  "status": {
+    "storyDraft": true,
+    "coverPromptReady": true,
+    "coverImageGenerated": false,
+    "mp3Generated": false,
+    "appWired": true,
+    "transcriptWired": true
+  },
+  "voiceNotes": "Series default voice: EN - Jane, Curious. Main TTS path is Mistral. Preserve Zubie and Dad as a Black family in both story and art."
+}

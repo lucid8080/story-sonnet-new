@@ -1,0 +1,27 @@
+{
+  "slug": "pip-and-the-moonlight-mailbox",
+  "seriesTitle": "Pip and the Moonlight Mailbox",
+  "title": "The Letter for the Bravest Good Helper",
+  "ageGroup": "4-6",
+  "voice": "EN - Jane, Curious",
+  "lengthTargetMinutes": 5,
+  "audioFormat": "mp3",
+  "coverImage": "/covers/pip-moonlight-mailbox-cover.png",
+  "audioFiles": [
+    {
+      "id": 1,
+      "label": "Episode 1",
+      "title": "The Letter for the Bravest Good Helper",
+      "audioSrc": "/audio/pip-and-the-moonlight-mailbox-ep1.mp3",
+      "duration": "~5:00"
+    }
+  ],
+  "tags": ["bedtime", "kindness", "adventure", "moonlight", "cozy"],
+  "status": {
+    "storyDraft": true,
+    "coverPromptReady": true,
+    "coverImageGenerated": false,
+    "mp3Generated": false,
+    "appWired": true
+  }
+}

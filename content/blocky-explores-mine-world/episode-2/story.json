@@ -1,0 +1,11 @@
+{
+  "id": 2,
+  "label": "Episode 2",
+  "title": "Blocky Finds a Shortcut That Wouldn't Stay Short",
+  "audioSrc": "/audio/blocky-explores-mine-world/episode-2.mp3",
+  "duration": "10:43",
+  "description": "Blocky tries to rush everyone to Glowberry Grove and learns that some shortcuts only work when friends slow down and help each other.",
+  "voice": "EN - Paul, Neutral",
+  "mp3Generated": true,
+  "narrationScript": "content/blocky-explores-mine-world/episode-2/narration-script.txt"
+}

@@ -1,0 +1,43 @@
+{
+  "slug": "nori-and-the-pocket-meadow",
+  "seriesTitle": "Nori and the Pocket Meadow",
+  "title": "The Crickets Who Misplaced Their Evening Song",
+  "ageGroup": "5–8",
+  "voice": "EN - Jane, Curious",
+  "voiceMode": "Mistral ref_audio",
+  "voiceReference": "public/audio/pip-and-the-moonlight-mailbox/episode-1.mp3 (trimmed sample used for generation)",
+  "lengthTargetMinutes": 10,
+  "audioFormat": "mp3",
+  "coverImage": "/covers/nori-and-the-pocket-meadow/cover.png",
+  "audioFiles": [
+    {
+      "id": 1,
+      "label": "Episode 1",
+      "title": "The Crickets Who Misplaced Their Evening Song",
+      "audioSrc": "/audio/nori-and-the-pocket-meadow/episode-1.mp3",
+      "duration": "14:53",
+      "description": "Nori helps a tiny cricket orchestra rebuild a missing piece of their twilight song so the stars can return in calm, glowing order.",
+      "voice": "EN - Jane, Curious",
+      "mp3Generated": true,
+      "narrationScript": "content/nori-and-the-pocket-meadow/episode-1/narration-script.txt"
+    }
+  ],
+  "tags": [
+    "meadow",
+    "twilight",
+    "music",
+    "cozy",
+    "kindness",
+    "listening",
+    "fireflies",
+    "nature magic"
+  ],
+  "status": {
+    "storyDraft": true,
+    "coverPromptReady": true,
+    "coverImageGenerated": true,
+    "mp3Generated": true,
+    "appWired": true
+  },
+  "voiceNotes": "Use EN - Jane, Curious style for this series. Long-term preference is to create a dedicated saved Mistral voice_id for Nori once a clean reference sample is approved."
+}

@@ -1,0 +1,11 @@
+{
+  "id": 1,
+  "label": "Episode 1",
+  "title": "The Broken Toy That Fixed Itself",
+  "audioSrc": "/audio/the-adventures-of-zubie-and-robo-rex/episode-1.mp3",
+  "duration": "10:37 (est.)",
+  "description": "When Robo-Rex suddenly goes quiet at bedtime, Zubie wakes to a miracle, follows a trail of tiny clues, and discovers that the real magic in his house wears a warm smile and knows how to use a screwdriver.",
+  "voice": "EN - Jane, Curious",
+  "mp3Generated": false,
+  "narrationScript": "content/the-adventures-of-zubie-and-robo-rex/episode-1/narration-script.txt"
+}

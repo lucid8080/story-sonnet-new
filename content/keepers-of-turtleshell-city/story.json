@@ -1,0 +1,35 @@
+{
+  "slug": "keepers-of-turtleshell-city",
+  "seriesTitle": "The Keepers of Turtleshell City",
+  "title": "The Bell Beneath the Lantern Streets",
+  "ageGroup": "5–8",
+  "voice": "EN - Jane, Curious",
+  "lengthTargetMinutes": 11,
+  "audioFormat": "mp3",
+  "coverImage": "/covers/keepers-of-turtleshell-city/cover.svg",
+  "audioFiles": [
+    {
+      "id": 1,
+      "label": "Episode 1",
+      "title": "The Bell Beneath the Lantern Streets",
+      "audioSrc": "/audio/keepers-of-turtleshell-city/episode-1.mp3",
+      "duration": "15:13"
+    }
+  ],
+  "tags": [
+    "giant turtle",
+    "city",
+    "maintenance",
+    "teamwork",
+    "wonder",
+    "cozy"
+  ],
+  "status": {
+    "storyDraft": true,
+    "coverPromptReady": true,
+    "coverImageGenerated": false,
+    "mp3Generated": true,
+    "appWired": true
+  },
+  "voiceNotes": "Series default voice: EN - Jane, Curious. Main TTS path is Mistral."
+}

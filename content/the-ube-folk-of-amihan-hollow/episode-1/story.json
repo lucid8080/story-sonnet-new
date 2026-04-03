@@ -1,0 +1,11 @@
+{
+  "id": 1,
+  "label": "Episode 1",
+  "title": "The Glow Root Relay",
+  "audioSrc": "/audio/the-ube-folk-of-amihan-hollow/episode-1.mp3",
+  "duration": "16:57",
+  "description": "On the day of the big relay against Taro Village, Mina and the Ube Folk must protect their moon-bright harvest from sneaky root thieves and still make it to the finish line with generous hearts.",
+  "voice": "EN - Jane, Curious",
+  "mp3Generated": true,
+  "narrationScript": "content/the-ube-folk-of-amihan-hollow/episode-1/narration-script.txt"
+}

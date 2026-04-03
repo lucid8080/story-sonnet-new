@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --primary: #4ECDC4;
+    --accent: #FF6B6B;
+    --bg: #FFE66D;
+    --text: #292F36;
+  }
+
+  body {
+    @apply bg-sunnyYellow text-deepViolet;
+    font-family: 'Outfit', sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* Global Noise Overlay */
+  body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0.05;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  }
+
+  /* Smooth scroll */
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer utilities {
+  .rounded-pill {
+    border-radius: 9999px;
+  }
+  
+  .mask-image-fade {
+    mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
+  }
+
+  .text-drama {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+  }
+
+  .text-data {
+    @apply font-mono;
+  }
+}
+
+/* Custom animations and smooth scroll plugins for GSAP */
+.lenis.lenis-smooth {
+  height: auto;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.lenis.lenis-scrolling iframe {
+  pointer-events: none;
+}
+
+
+.switch {
+  position: relative;
+  height: 1.5rem;
+  width: 3rem;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 9999px;
+  background-color: rgba(100, 116, 139, 0.377);
+  transition: all .3s ease;
+}
+
+.switch:checked {
+  background-color: rgba(236, 72, 153, 1);
+}
+
+.switch::before {
+  position: absolute;
+  content: "";
+  left: calc(1.5rem - 1.6rem);
+  top: calc(1.5rem - 1.6rem);
+  display: block;
+  height: 1.6rem;
+  width: 1.6rem;
+  cursor: pointer;
+  border: 1px solid rgba(100, 116, 139, 0.527);
+  border-radius: 9999px;
+  background-color: rgba(255, 255, 255, 1);
+  box-shadow: 0 3px 10px rgba(100, 116, 139, 0.327);
+  transition: all .3s ease;
+}
+
+.switch:hover::before {
+  box-shadow: 0 0 0px 8px rgba(0, 0, 0, .15)
+}
+
+.switch:checked:hover::before {
+  box-shadow: 0 0 0px 8px rgba(236, 72, 153, .15)
+}
+
+.switch:checked:before {
+  transform: translateX(100%);
+  border-color: rgba(236, 72, 153, 1);
+}

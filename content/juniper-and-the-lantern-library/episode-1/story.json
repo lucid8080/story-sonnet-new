@@ -1,0 +1,11 @@
+{
+  "id": 1,
+  "label": "Episode 1",
+  "title": "The Shelf That Needed a Song",
+  "audioSrc": "/audio/juniper-and-the-lantern-library/episode-1.mp3",
+  "duration": "10:14",
+  "description": "A cozy magical library-cart adventure where Juniper helps a sighing music shelf remember how to listen again.",
+  "voice": "EN - Paul, Neutral",
+  "mp3Generated": true,
+  "narrationScript": "content/juniper-and-the-lantern-library/episode-1/narration-script.txt"
+}

@@ -1,0 +1,16 @@
+NEW STORY CHECKLIST
+
+1. Title + concept approved
+2. Age group assigned
+3. story.md written
+4. narration-script.txt written
+5. cover-art-prompt.md written
+6. story.json written
+7. src/data.js updated
+8. cover saved to public/covers/
+9. MP3 saved to public/audio/
+10. Story tile visible on home page
+11. Story page opens and plays audio
+12. Generate audio with the primary Mistral TTS path
+13. Only use HF/Voxtral demo path as fallback if Mistral is unavailable
+14. Auto-scrolling transcript works on the story page

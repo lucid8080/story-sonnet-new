@@ -1,0 +1,11 @@
+{
+  "id": 1,
+  "label": "Episode 1",
+  "title": "The Bell Beneath the Lantern Streets",
+  "audioSrc": "/audio/keepers-of-turtleshell-city/episode-1.mp3",
+  "duration": "15:13",
+  "description": "When a hush falls through the pipes and a hidden bell begins to ring inside the turtle-city, the maintenance crew must follow the sound to help their great walking home rest safely.",
+  "voice": "EN - Jane, Curious",
+  "mp3Generated": true,
+  "narrationScript": "content/keepers-of-turtleshell-city/episode-1/narration-script.txt"
+}

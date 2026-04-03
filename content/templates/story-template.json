@@ -1,0 +1,27 @@
+{
+  "slug": "story-slug",
+  "seriesTitle": "Series Name",
+  "title": "Episode Title",
+  "ageGroup": "4-6",
+  "voice": "EN - Jane, Curious",
+  "lengthTargetMinutes": 5,
+  "audioFormat": "mp3",
+  "coverImage": "/covers/story-cover.png",
+  "audioFiles": [
+    {
+      "id": 1,
+      "label": "Episode 1",
+      "title": "Episode Title",
+      "audioSrc": "/audio/story-ep1.mp3",
+      "duration": "~5:00"
+    }
+  ],
+  "tags": ["cozy", "adventure"],
+  "status": {
+    "storyDraft": false,
+    "coverPromptReady": false,
+    "coverImageGenerated": false,
+    "mp3Generated": false,
+    "appWired": false
+  }
+}

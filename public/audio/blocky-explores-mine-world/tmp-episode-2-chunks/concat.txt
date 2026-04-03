@@ -1,0 +1,6 @@
+file '/mnt/synology/Story-Sonnet/story-app/public/audio/blocky-explores-mine-world/tmp-episode-2-chunks/chunk-01.mp3'
+file '/mnt/synology/Story-Sonnet/story-app/public/audio/blocky-explores-mine-world/tmp-episode-2-chunks/chunk-02.mp3'
+file '/mnt/synology/Story-Sonnet/story-app/public/audio/blocky-explores-mine-world/tmp-episode-2-chunks/chunk-03.mp3'
+file '/mnt/synology/Story-Sonnet/story-app/public/audio/blocky-explores-mine-world/tmp-episode-2-chunks/chunk-04.mp3'
+file '/mnt/synology/Story-Sonnet/story-app/public/audio/blocky-explores-mine-world/tmp-episode-2-chunks/chunk-05.mp3'
+file '/mnt/synology/Story-Sonnet/story-app/public/audio/blocky-explores-mine-world/tmp-episode-2-chunks/chunk-06.mp3'

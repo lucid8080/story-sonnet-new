@@ -1,0 +1,922 @@
+[
+  {
+    "id": 1,
+    "text": "Blocky Explores Mine World."
+  },
+  {
+    "id": 2,
+    "text": "Blocky Finds a Shortcut That Wouldn't Stay Short."
+  },
+  {
+    "id": 3,
+    "text": "Morning in Mine World arrived with square clouds, warm sunshine, and the clippy-cloppy sound of boots hurrying over stone paths."
+  },
+  {
+    "id": 4,
+    "text": "Today was Glowberry Grove Day."
+  },
+  {
+    "id": 5,
+    "text": "That meant lantern ribbons in the trees, glowberry tarts on long tables, and a sunset parade where everyone carried bright little lantern cubes through the grove while music bounced off the cliffs."
+  },
+  {
+    "id": 6,
+    "text": "It was, according to Zip, the sparkliest excellent day of the whole excellent year."
+  },
+  {
+    "id": 7,
+    "text": "And Blocky did not want to be late."
+  },
+  {
+    "id": 8,
+    "text": "If we leave now, Blocky said, spreading a map across a workbench, we can reach Glowberry Grove before the pie trays even finish cooling."
+  },
+  {
+    "id": 9,
+    "text": "Peb leaned over the map."
+  },
+  {
+    "id": 10,
+    "text": "That is the normal road, Peb said."
+  },
+  {
+    "id": 11,
+    "text": "It is safe, flat, and clearly marked. I approve."
+  },
+  {
+    "id": 12,
+    "text": "Too normal, said Blocky."
+  },
+  {
+    "id": 13,
+    "text": "Zip popped up beside them."
+  },
+  {
+    "id": 14,
+    "text": "Oho. That voice means a bad plan is nearby."
+  },
+  {
+    "id": 15,
+    "text": "Not bad, said Blocky. Brilliant."
+  },
+  {
+    "id": 16,
+    "text": "Glow set down a bundle of empty lantern frames."
+  },
+  {
+    "id": 17,
+    "text": "Does the brilliant plan also get us there early enough to pick the shiniest glowberries?"
+  },
+  {
+    "id": 18,
+    "text": "Absolutely, said Blocky."
+  },
+  {
+    "id": 19,
+    "text": "Moss arrived carrying a picnic satchel, three napkins, and a tiny wooden box of emergency trail biscuits."
+  },
+  {
+    "id": 20,
+    "text": "Does the brilliant plan include snacks? Moss asked."
+  },
+  {
+    "id": 21,
+    "text": "Every important expedition includes snacks, Blocky said. But more importantly, it includes this."
+  },
+  {
+    "id": 22,
+    "text": "Blocky tapped a faint dotted line on the map."
+  },
+  {
+    "id": 23,
+    "text": "The others squinted."
+  },
+  {
+    "id": 24,
+    "text": "The dotted line wriggled behind the town hill, crossed the Breezy Blocks, slipped past Crooked Stair Ridge, and ended near Glowberry Grove."
+  },
+  {
+    "id": 25,
+    "text": "What is that route? Glow asked."
+  },
+  {
+    "id": 26,
+    "text": "A shortcut, Blocky said."
+  },
+  {
+    "id": 27,
+    "text": "Peb frowned at once."
+  },
+  {
+    "id": 28,
+    "text": "That is not a road. That is a suggestion."
+  },
+  {
+    "id": 29,
+    "text": "Exactly, said Blocky. The best kind."
+  },
+  {
+    "id": 30,
+    "text": "Peb pointed at the map."
+  },
+  {
+    "id": 31,
+    "text": "It says, in tiny writing, route may shift with weather, echoes, and unnecessary rushing."
+  },
+  {
+    "id": 32,
+    "text": "Zip leaned in."
+  },
+  {
+    "id": 33,
+    "text": "That is the least comforting sign I have ever heard."
+  },
+  {
+    "id": 34,
+    "text": "But Blocky was already rolling up the map."
+  },
+  {
+    "id": 35,
+    "text": "If we take the shortcut, we get there first, pick the best glowberries, and maybe find something amazing along the way."
+  },
+  {
+    "id": 36,
+    "text": "Glow brightened."
+  },
+  {
+    "id": 37,
+    "text": "Something shiny?"
+  },
+  {
+    "id": 38,
+    "text": "Possibly very shiny, said Blocky."
+  },
+  {
+    "id": 39,
+    "text": "Moss smiled."
+  },
+  {
+    "id": 40,
+    "text": "Well, that does sound like us."
+  },
+  {
+    "id": 41,
+    "text": "Peb let out a long sigh that meant extra rope would be required."
+  },
+  {
+    "id": 42,
+    "text": "So the five friends set out together."
+  },
+  {
+    "id": 43,
+    "text": "At first, the shortcut seemed perfect."
+  },
+  {
+    "id": 44,
+    "text": "It slipped through a meadow of cube-shaped wildflowers that bobbed gently in the wind. It crossed a little brook on flat stepping stones. It wound between soft green hills where sheepy block-creatures munched clover in peaceful square bites."
+  },
+  {
+    "id": 45,
+    "text": "See? Blocky said, walking faster. Shortcuts are misunderstood."
+  },
+  {
+    "id": 46,
+    "text": "They are often understood exactly correctly, Peb replied."
+  },
+  {
+    "id": 47,
+    "text": "Still, everyone was in a good mood."
+  },
+  {
+    "id": 48,
+    "text": "Zip hopped from stone to stone."
+  },
+  {
+    "id": 49,
+    "text": "Glow collected smooth sparkly pebbles in one pocket."
+  },
+  {
+    "id": 50,
+    "text": "Moss handed around slices of apple bread."
+  },
+  {
+    "id": 51,
+    "text": "Even Peb admitted, very quietly, that the weather was acceptable."
+  },
+  {
+    "id": 52,
+    "text": "Then they reached the first signpost."
+  },
+  {
+    "id": 53,
+    "text": "It stood at the fork of three narrow paths."
+  },
+  {
+    "id": 54,
+    "text": "One sign pointed left and said, Glowberry Grove, steady walkers welcome."
+  },
+  {
+    "id": 55,
+    "text": "One sign pointed right and said, Glowberry Grove, quick feet, maybe."
+  },
+  {
+    "id": 56,
+    "text": "The last sign pointed straight ahead and said, Glowberry Grove, depends."
+  },
+  {
+    "id": 57,
+    "text": "Zip stared."
+  },
+  {
+    "id": 58,
+    "text": "That is not how signs are supposed to behave."
+  },
+  {
+    "id": 59,
+    "text": "Blocky folded their arms."
+  },
+  {
+    "id": 60,
+    "text": "Easy. We take the quick feet path."
+  },
+  {
+    "id": 61,
+    "text": "Peb stepped closer to the signpost."
+  },
+  {
+    "id": 62,
+    "text": "Notice the word maybe. That word is doing a lot of work."
+  },
+  {
+    "id": 63,
+    "text": "But Blocky had already marched onto the right-hand trail."
+  },
+  {
+    "id": 64,
+    "text": "Come on."
+  },
+  {
+    "id": 65,
+    "text": "The trail curved sharply between tall stone columns striped with moss. It dipped, rose, twisted, and split around giant ferns. After ten minutes, it narrowed so much they had to walk single file."
+  },
+  {
+    "id": 66,
+    "text": "Still efficient? Peb asked."
+  },
+  {
+    "id": 67,
+    "text": "Absolutely, said Blocky, though they no longer sounded quite as triumphant."
+  },
+  {
+    "id": 68,
+    "text": "Then the path delivered them directly back to the same signpost."
+  },
+  {
+    "id": 69,
+    "text": "Nobody said anything for a moment."
+  },
+  {
+    "id": 70,
+    "text": "A breeze rattled the signs."
+  },
+  {
+    "id": 71,
+    "text": "The quick feet, maybe arrow creaked and slowly turned upside down."
+  },
+  {
+    "id": 72,
+    "text": "Zip put both hands on their cheeks."
+  },
+  {
+    "id": 73,
+    "text": "The shortcut is making jokes."
+  },
+  {
+    "id": 74,
+    "text": "Fine, Blocky said. The path looped once. That means it got its silliness out. Now we take the depends trail."
+  },
+  {
+    "id": 75,
+    "text": "The depends trail looked promising for exactly two minutes."
+  },
+  {
+    "id": 76,
+    "text": "Then it crossed a field of low bouncing stones."
+  },
+  {
+    "id": 77,
+    "text": "Every time someone stepped on one, it boinged just enough to nudge them sideways."
+  },
+  {
+    "id": 78,
+    "text": "Zip loved this immediately."
+  },
+  {
+    "id": 79,
+    "text": "Bouncy road. Best road."
+  },
+  {
+    "id": 80,
+    "text": "Zip took three joyful hops, bounced into Glow, and sent a shower of lantern frames clinking into the grass."
+  },
+  {
+    "id": 81,
+    "text": "My nice straight corners, cried Glow."
+  },
+  {
+    "id": 82,
+    "text": "Moss knelt to gather them."
+  },
+  {
+    "id": 83,
+    "text": "No harm done. Nobody panic. We are still mostly in one piece."
+  },
+  {
+    "id": 84,
+    "text": "Blocky hurried from stone to stone."
+  },
+  {
+    "id": 85,
+    "text": "Just keep moving. The sooner we cross, the sooner we win."
+  },
+  {
+    "id": 86,
+    "text": "Peb crossed very carefully."
+  },
+  {
+    "id": 87,
+    "text": "It is not a race, Peb said."
+  },
+  {
+    "id": 88,
+    "text": "Everything is a little bit a race when pie is involved, Blocky replied."
+  },
+  {
+    "id": 89,
+    "text": "Halfway across, a gust of wind zipped over the hill."
+  },
+  {
+    "id": 90,
+    "text": "The bouncing stones wobbled in a new direction."
+  },
+  {
+    "id": 91,
+    "text": "The whole path shifted into a lazy curve."
+  },
+  {
+    "id": 92,
+    "text": "Glow yelped."
+  },
+  {
+    "id": 93,
+    "text": "The road moved."
+  },
+  {
+    "id": 94,
+    "text": "Roads should not move, Peb said, offended on principle."
+  },
+  {
+    "id": 95,
+    "text": "They finally reached solid ground and found another signpost."
+  },
+  {
+    "id": 96,
+    "text": "This one had only one sign."
+  },
+  {
+    "id": 97,
+    "text": "It read, if you are rushing, you are going the long way."
+  },
+  {
+    "id": 98,
+    "text": "Moss brushed grass from the picnic satchel."
+  },
+  {
+    "id": 99,
+    "text": "That feels important."
+  },
+  {
+    "id": 100,
+    "text": "Blocky crossed their arms."
+  },
+  {
+    "id": 101,
+    "text": "Or decorative. Some signs enjoy drama."
+  },
+  {
+    "id": 102,
+    "text": "But Blocky looked at the sun. It had crept a little higher. The shadows were shorter now."
+  },
+  {
+    "id": 103,
+    "text": "If we stop to analyze every rude sign, Blocky said, we will never get there."
+  },
+  {
+    "id": 104,
+    "text": "So they pushed on."
+  },
+  {
+    "id": 105,
+    "text": "The trail climbed Crooked Stair Ridge, where stone steps had been built into the hillside long ago. They were uneven, twisty, and just a little too narrow."
+  },
+  {
+    "id": 106,
+    "text": "At the bottom of the ridge sat an old snail with a mailbag shell and a tiny cap tipped over one eye."
+  },
+  {
+    "id": 107,
+    "text": "Morning, the snail said. Heading to the grove?"
+  },
+  {
+    "id": 108,
+    "text": "Yes, said Moss warmly."
+  },
+  {
+    "id": 109,
+    "text": "By the shortcut, said Blocky."
+  },
+  {
+    "id": 110,
+    "text": "The snail raised one patient eyebrow."
+  },
+  {
+    "id": 111,
+    "text": "Ah. Then I\u2019ll offer my traditional advice."
+  },
+  {
+    "id": 112,
+    "text": "Peb brightened."
+  },
+  {
+    "id": 113,
+    "text": "At last. A sensible development."
+  },
+  {
+    "id": 114,
+    "text": "The snail nodded toward the stairs."
+  },
+  {
+    "id": 115,
+    "text": "Step where the stairs are listening, not where they are showing off."
+  },
+  {
+    "id": 116,
+    "text": "Zip whispered, I think the stairs may be weirder than the signs."
+  },
+  {
+    "id": 117,
+    "text": "Blocky thanked the snail and charged upward."
+  },
+  {
+    "id": 118,
+    "text": "We\u2019ll be fine."
+  },
+  {
+    "id": 119,
+    "text": "The first few steps held."
+  },
+  {
+    "id": 120,
+    "text": "The next few tilted a little."
+  },
+  {
+    "id": 121,
+    "text": "The seventh made a hollow clonk."
+  },
+  {
+    "id": 122,
+    "text": "Blocky, Peb called, that one is showing off."
+  },
+  {
+    "id": 123,
+    "text": "Too late."
+  },
+  {
+    "id": 124,
+    "text": "The show-off step flipped up like a springboard and launched Blocky onto a wide flat ledge a few feet away."
+  },
+  {
+    "id": 125,
+    "text": "I meant to do that, Blocky said."
+  },
+  {
+    "id": 126,
+    "text": "Zip laughed so hard they had to sit down."
+  },
+  {
+    "id": 127,
+    "text": "Glow laughed too, though only after checking that Blocky was unharmed."
+  },
+  {
+    "id": 128,
+    "text": "Moss hurried over with a biscuit."
+  },
+  {
+    "id": 129,
+    "text": "Peb climbed carefully and offered a hand."
+  },
+  {
+    "id": 130,
+    "text": "You do know, Peb said, that rushing has now physically thrown you off the road."
+  },
+  {
+    "id": 131,
+    "text": "Blocky accepted the hand and sat very still for one whole breath."
+  },
+  {
+    "id": 132,
+    "text": "Below them, the old snail began climbing the ridge at a spectacularly unhurried pace."
+  },
+  {
+    "id": 133,
+    "text": "You are not late yet, the snail called up. But this shortcut dislikes being chased."
+  },
+  {
+    "id": 134,
+    "text": "Blocky looked down the rest of the ridge."
+  },
+  {
+    "id": 135,
+    "text": "The steps ahead were all slightly different. Some were solid. Some were wobbly. One seemed to be humming to itself."
+  },
+  {
+    "id": 136,
+    "text": "For the first time that morning, Blocky did not charge ahead."
+  },
+  {
+    "id": 137,
+    "text": "What does it mean, Blocky asked slowly, for stairs to be listening?"
+  },
+  {
+    "id": 138,
+    "text": "Peb crouched beside the next step and tapped it with one knuckle."
+  },
+  {
+    "id": 139,
+    "text": "This one sounds firm, Peb said. That one sounds hollow. The moss on the edges shows which ones people actually use."
+  },
+  {
+    "id": 140,
+    "text": "Moss pointed."
+  },
+  {
+    "id": 141,
+    "text": "And the safe ones have little worn corners, like they have been greeted kindly many times."
+  },
+  {
+    "id": 142,
+    "text": "Glow noticed tiny flecks in the stone."
+  },
+  {
+    "id": 143,
+    "text": "The wobbly ones sparkle more. I think they enjoy attention."
+  },
+  {
+    "id": 144,
+    "text": "Zip grinned."
+  },
+  {
+    "id": 145,
+    "text": "So the secret is not faster feet. It is smarter feet."
+  },
+  {
+    "id": 146,
+    "text": "Blocky looked embarrassed, but determined."
+  },
+  {
+    "id": 147,
+    "text": "All right, Blocky said. New plan. No racing the path. We read the path."
+  },
+  {
+    "id": 148,
+    "text": "The group liked that plan much better."
+  },
+  {
+    "id": 149,
+    "text": "They climbed together."
+  },
+  {
+    "id": 150,
+    "text": "Peb checked each step."
+  },
+  {
+    "id": 151,
+    "text": "Moss steadied the satchel and kept everyone calm."
+  },
+  {
+    "id": 152,
+    "text": "Glow spotted the flashy trick steps."
+  },
+  {
+    "id": 153,
+    "text": "Zip tested safe jumps only when Peb approved them."
+  },
+  {
+    "id": 154,
+    "text": "And Blocky, instead of charging ahead, listened."
+  },
+  {
+    "id": 155,
+    "text": "At the top of the ridge they found the last signpost."
+  },
+  {
+    "id": 156,
+    "text": "It was wrapped in flowering vines and glowing softly in the noon light."
+  },
+  {
+    "id": 157,
+    "text": "This sign said, Glowberry Grove, one song away. Travelers who help each other may proceed."
+  },
+  {
+    "id": 158,
+    "text": "That one, said Moss, is actually lovely."
+  },
+  {
+    "id": 159,
+    "text": "Then they heard a sniffly sound behind a boulder."
+  },
+  {
+    "id": 160,
+    "text": "A tiny cart with one wobbling wheel was stuck between two roots. Beside it stood a little lantern-maker named Brill, wringing both hands. The cart was full of glassy glow-caps for the evening parade."
+  },
+  {
+    "id": 161,
+    "text": "Oh no, Brill said. I tried the shortcut so I could deliver these early, and now my wheel is jammed and I\u2019ll never reach the grove before sunset."
+  },
+  {
+    "id": 162,
+    "text": "Blocky stared at the cart."
+  },
+  {
+    "id": 163,
+    "text": "Then at the sign."
+  },
+  {
+    "id": 164,
+    "text": "Then at their friends."
+  },
+  {
+    "id": 165,
+    "text": "So Blocky set down the map."
+  },
+  {
+    "id": 166,
+    "text": "We help first, Blocky said."
+  },
+  {
+    "id": 167,
+    "text": "Peb smiled a tiny smile."
+  },
+  {
+    "id": 168,
+    "text": "Together they got to work."
+  },
+  {
+    "id": 169,
+    "text": "Peb examined the wheel and found the trapped axle peg."
+  },
+  {
+    "id": 170,
+    "text": "Glow used a polished copper tile to reflect light into the cramped gap."
+  },
+  {
+    "id": 171,
+    "text": "Zip wriggled beneath the cart to retrieve the loose pin."
+  },
+  {
+    "id": 172,
+    "text": "Moss unpacked the rope and made a soft sling to lift the front corner."
+  },
+  {
+    "id": 173,
+    "text": "And Blocky braced the cart and followed every instruction exactly, even the slow ones."
+  },
+  {
+    "id": 174,
+    "text": "Especially the slow ones."
+  },
+  {
+    "id": 175,
+    "text": "With one careful heave, the wheel popped free."
+  },
+  {
+    "id": 176,
+    "text": "The cart rolled forward."
+  },
+  {
+    "id": 177,
+    "text": "The glow-caps chimed like tiny bells."
+  },
+  {
+    "id": 178,
+    "text": "Brill clapped with relief."
+  },
+  {
+    "id": 179,
+    "text": "Thank you. I thought I had ruined the whole parade."
+  },
+  {
+    "id": 180,
+    "text": "You didn\u2019t, Blocky said."
+  },
+  {
+    "id": 181,
+    "text": "You just hit a stuck part."
+  },
+  {
+    "id": 182,
+    "text": "The flowering signpost brightened."
+  },
+  {
+    "id": 183,
+    "text": "Its arrow turned golden."
+  },
+  {
+    "id": 184,
+    "text": "A hidden path opened through the vines, smooth and level and lined with little lantern buds."
+  },
+  {
+    "id": 185,
+    "text": "Zip gasped."
+  },
+  {
+    "id": 186,
+    "text": "The shortcut was waiting for us to stop being ridiculous."
+  },
+  {
+    "id": 187,
+    "text": "Actually, Blocky said, that includes me."
+  },
+  {
+    "id": 188,
+    "text": "So they walked the final path together, with Brill and the cart beside them."
+  },
+  {
+    "id": 189,
+    "text": "The air grew sweeter. Music floated through the trees. And soon the grove opened ahead in a warm green glow."
+  },
+  {
+    "id": 190,
+    "text": "Lantern ribbons swayed from branch to branch."
+  },
+  {
+    "id": 191,
+    "text": "Long tables shimmered with pastries, juice, and glowing fruit."
+  },
+  {
+    "id": 192,
+    "text": "Children raced through the grass with paper crowns."
+  },
+  {
+    "id": 193,
+    "text": "Cube lanterns swung overhead like friendly little moons."
+  },
+  {
+    "id": 194,
+    "text": "And they had made it in plenty of time."
+  },
+  {
+    "id": 195,
+    "text": "Glow rushed to the berry baskets."
+  },
+  {
+    "id": 196,
+    "text": "Still shiny. Still plentiful. Victory."
+  },
+  {
+    "id": 197,
+    "text": "Zip spun in a circle under the lantern strings."
+  },
+  {
+    "id": 198,
+    "text": "Moss arranged the picnic cloth in the nicest patch of shade."
+  },
+  {
+    "id": 199,
+    "text": "Peb accepted a slice of glowberry tart and said, very calmly, the normal road would also have been fine."
+  },
+  {
+    "id": 200,
+    "text": "Yes, Blocky admitted. But then I would not have learned that shortcuts can become very long when you try to boss them around."
+  },
+  {
+    "id": 201,
+    "text": "The old snail appeared a little while later, somehow already wearing a festival ribbon."
+  },
+  {
+    "id": 202,
+    "text": "You look less hurried, the snail observed."
+  },
+  {
+    "id": 203,
+    "text": "Blocky nodded."
+  },
+  {
+    "id": 204,
+    "text": "The shortcut kept trying to tell me something."
+  },
+  {
+    "id": 205,
+    "text": "And did you finally listen? asked the snail."
+  },
+  {
+    "id": 206,
+    "text": "Eventually, said Blocky. After the signposts, the bouncing stones, the stairs, and a surprise launch."
+  },
+  {
+    "id": 207,
+    "text": "A classic lesson sequence, said the snail."
+  },
+  {
+    "id": 208,
+    "text": "When evening came, the lantern parade began."
+  },
+  {
+    "id": 209,
+    "text": "Brill\u2019s repaired cart rolled smoothly at the front, full of glowing caps that lit up one by one as people took them."
+  },
+  {
+    "id": 210,
+    "text": "Each of Blocky\u2019s friends chose a lantern cube."
+  },
+  {
+    "id": 211,
+    "text": "Glow picked the brightest one."
+  },
+  {
+    "id": 212,
+    "text": "Moss chose a soft green lantern like a sleepy firefly."
+  },
+  {
+    "id": 213,
+    "text": "Zip found one that flashed in tiny zigzags."
+  },
+  {
+    "id": 214,
+    "text": "Peb selected the steadiest square lantern in the entire cart."
+  },
+  {
+    "id": 215,
+    "text": "And Blocky chose a warm gold lantern that glowed brighter whenever Blocky slowed down enough to notice it."
+  },
+  {
+    "id": 216,
+    "text": "As they walked beneath the darkening trees, the grove filled with floating colors and soft music and the happy murmur of neighbors enjoying a beautiful night."
+  },
+  {
+    "id": 217,
+    "text": "Blocky looked at the lantern light on their friends\u2019 faces and felt a different kind of early."
+  },
+  {
+    "id": 218,
+    "text": "Not first."
+  },
+  {
+    "id": 219,
+    "text": "Not fastest."
+  },
+  {
+    "id": 220,
+    "text": "Just right on time."
+  },
+  {
+    "id": 221,
+    "text": "Next year, Zip said, should we take the shortcut again?"
+  },
+  {
+    "id": 222,
+    "text": "Only if we bring patience, good snacks, and absolutely no yelling at the landscape, Blocky said."
+  },
+  {
+    "id": 223,
+    "text": "Moss laughed."
+  },
+  {
+    "id": 224,
+    "text": "That sounds wise."
+  },
+  {
+    "id": 225,
+    "text": "Glow lifted a berry tart."
+  },
+  {
+    "id": 226,
+    "text": "To wise shortcuts."
+  },
+  {
+    "id": 227,
+    "text": "To unwise shortcuts that become wise later, said Zip."
+  },
+  {
+    "id": 228,
+    "text": "Peb considered that."
+  },
+  {
+    "id": 229,
+    "text": "Acceptable amendment."
+  },
+  {
+    "id": 230,
+    "text": "And under the lantern glow of Glowberry Grove, with music bouncing softly through the trees and the long day finally settled into a golden evening, the five friends walked on together, not too fast, not too slow, and exactly the right amount of bright."
+  }
+]
