@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { MoonStar, Clock3 } from 'lucide-react';
 import { fetchStories } from '@/lib/stories';
 
@@ -45,10 +46,12 @@ export default async function HomePage() {
               style={{ backgroundColor: story.accent || '#cbd5e1' }}
             >
               {story.cover && (
-                <img
+                <Image
                   src={story.cover}
                   alt={`${story.title} cover art`}
-                  className="h-full w-full object-cover object-top transition duration-500 group-hover:scale-105"
+                  fill
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                  className="object-cover object-top transition duration-500 group-hover:scale-105"
                 />
               )}
               <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 translate-y-1 rounded-full bg-white/75 px-3 py-1 text-xs font-semibold text-slate-700 opacity-0 shadow-sm ring-1 ring-slate-100 backdrop-blur transition-all duration-200 ease-out group-hover:translate-y-0 group-hover:opacity-100">

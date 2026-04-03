@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Clock3, Sparkles, Star } from 'lucide-react';
 import type { BrowseStory } from '@/types/story';
 import { AGE_FILTER_OPTIONS } from '@/constants/storyFilters';
@@ -22,10 +23,12 @@ export default function StoryCard({ story }: Props) {
         style={{ backgroundColor: '#e2e8f0' }}
       >
         {story.coverImage ? (
-          <img
+          <Image
             src={story.coverImage}
             alt=""
-            className="h-full w-full object-cover object-top transition duration-500 group-hover:scale-105"
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+            className="object-cover object-top transition duration-500 group-hover:scale-105"
           />
         ) : null}
         <div className="pointer-events-none absolute left-2 top-2 flex flex-wrap gap-1">

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronLeft,
@@ -63,8 +64,8 @@ export function StoryPageClient({
   }, [locked, activeEpisodeIndex, story.slug]);
 
   const currentLineIndex = useMemo(() => {
-    if (!transcriptLines.length || !duration || !audioRef.current) return 0;
-    const currentTime = audioRef.current.currentTime || 0;
+    if (!transcriptLines.length || !duration) return 0;
+    const currentTime = (progress / 100) * duration;
     const normalized = currentTime / duration;
     return Math.min(
       transcriptLines.length - 1,
@@ -152,10 +153,13 @@ export function StoryPageClient({
               style={{ backgroundColor: story.accent || '#64748b' }}
             >
               {story.cover && (
-                <img
+                <Image
                   src={story.cover}
                   alt={`${story.title} cover art`}
-                  className="h-full w-full object-cover object-top"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 55vw"
+                  priority
+                  className="object-cover object-top"
                 />
               )}
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/85 via-slate-900/35 to-transparent p-5 sm:p-6">
