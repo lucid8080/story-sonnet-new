@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { MoonStar, Clock3 } from 'lucide-react';
+import { BookAudio, Clock3 } from 'lucide-react';
 import { fetchStories } from '@/lib/stories';
 
 export default async function HomePage() {
@@ -11,7 +11,7 @@ export default async function HomePage() {
       <div className="mb-8 grid gap-8 lg:grid-cols-1 lg:items-center">
         <div>
           <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 text-sm font-semibold text-rose-500 shadow-sm ring-1 ring-rose-100">
-            <MoonStar className="h-4 w-4" /> Organized for easy story
+            <BookAudio className="h-4 w-4" /> Organized for easy story
             browsing and listening
           </div>
           <h1 className="max-w-3xl text-5xl font-black tracking-tight text-slate-900 sm:text-6xl">

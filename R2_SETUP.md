@@ -21,7 +21,7 @@ You will upload files to paths under this bucket, for example:
 In your local `.env` (not committed), add:
 
 ```bash
-VITE_ASSETS_BASE_URL=https://assets.your-domain.com
+NEXT_PUBLIC_ASSETS_BASE_URL=https://assets.your-domain.com
 ```
 
 Notes:
@@ -53,8 +53,8 @@ You can upload via:
 The frontend will build URLs like:
 
 ```text
-${VITE_ASSETS_BASE_URL}/audio/…      # for MP3
-${VITE_ASSETS_BASE_URL}/covers/…     # for cover art
+${NEXT_PUBLIC_ASSETS_BASE_URL}/audio/…      # for MP3 (legacy public paths)
+${NEXT_PUBLIC_ASSETS_BASE_URL}/covers/…     # for cover art
 ```
 
 So once:

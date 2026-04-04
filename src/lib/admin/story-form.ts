@@ -10,8 +10,11 @@ export type EpisodeFormState = {
   durationMinutes: string;
   durationSeconds: string;
   audioUrl: string;
+  /** Private R2 object key (e.g. audio/slug/episode-1.mp3); optional if using public audio URL only */
+  audioStorageKey: string;
   isPublished: boolean;
   isPremium: boolean;
+  isFreePreview: boolean;
   label: string;
 };
 
@@ -61,8 +64,10 @@ export function emptyEpisodeForm(id: string, episodeNumber: number): EpisodeForm
     durationMinutes: '',
     durationSeconds: '',
     audioUrl: '',
+    audioStorageKey: '',
     isPublished: false,
     isPremium: false,
+    isFreePreview: false,
     label: '',
   };
 }

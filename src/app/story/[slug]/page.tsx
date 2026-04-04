@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { auth } from '@/auth';
-import { fetchStoryBySlug } from '@/lib/stories';
+import { fetchStoryBySlug, storyToPlayerPayload } from '@/lib/stories';
 import { StoryPageClient } from '@/components/story/StoryPageClient';
 
 export default async function StoryPage({
@@ -16,5 +16,7 @@ export default async function StoryPage({
   const sub = session?.user?.subscriptionStatus;
   const isSubscribed = sub === 'active' || sub === 'trialing';
 
-  return <StoryPageClient story={story} isSubscribed={isSubscribed} />;
+  const playerStory = storyToPlayerPayload(story, isSubscribed);
+
+  return <StoryPageClient story={playerStory} isSubscribed={isSubscribed} />;
 }

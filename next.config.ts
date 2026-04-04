@@ -47,9 +47,26 @@ function buildImageRemotePatterns(): NonNullable<
   return patterns;
 }
 
+/** Hostnames allowed to hit the dev server from another origin (e.g. phone on LAN). See `NEXT_DEV_ALLOWED_ORIGINS`. */
+function buildAllowedDevOrigins(): string[] {
+  const fromEnv = String(process.env.NEXT_DEV_ALLOWED_ORIGINS ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const fromNextAuth = hostFromUrl(process.env.NEXTAUTH_URL);
+  const fromSite = hostFromUrl(process.env.NEXT_PUBLIC_SITE_URL);
+  const merged = [...fromEnv, fromNextAuth, fromSite].filter(
+    (x): x is string => Boolean(x)
+  );
+  return [...new Set(merged)];
+}
+
+const allowedDevOrigins = buildAllowedDevOrigins();
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   outputFileTracingRoot: path.join(process.cwd()),
+  ...(allowedDevOrigins.length > 0 ? { allowedDevOrigins } : {}),
   images: {
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',

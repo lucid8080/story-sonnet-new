@@ -1,4 +1,6 @@
+import { canPlayEpisode } from '@/lib/audioEntitlement';
 import prisma from '@/lib/prisma';
+import { resolvePublicAssetUrl } from '@/lib/resolvePublicAssetUrl';
 import type { AdminStoryUpsertInput } from '@/lib/validation/storySchema';
 import type { Episode, Prisma, Story } from '@prisma/client';
 import { stories as staticStories } from '../data.js';
@@ -15,8 +17,12 @@ export type AppEpisode = {
   duration: string | null;
   durationSeconds: number | null;
   audioSrc: string | null;
+  /** Private R2 key; never send to client — use `storyToPlayerPayload`. */
+  audioStorageKey?: string | null;
   description: string | null;
   isPremium: boolean;
+  /** Playable without subscription when true (sample), even for premium series. */
+  isFreePreview: boolean;
   isPublished: boolean;
 };
 
@@ -60,6 +66,112 @@ export type AppStory = {
   isStaticOnly?: boolean;
 };
 
+/** Safe for client components: no raw R2 keys or permanent private URLs for DB episodes. */
+export type EpisodeForPlayer = {
+  id: string;
+  episodeNumber: number;
+  slug: string | null;
+  label: string;
+  title: string;
+  duration: string | null;
+  durationSeconds: number | null;
+  /** Direct URL only for static catalog episodes; DB episodes use signed URLs. */
+  audioSrc: string | null;
+  description: string | null;
+  isPremium: boolean;
+  isFreePreview: boolean;
+  isPublished: boolean;
+  useSignedPlayback: boolean;
+  playbackEpisodeId: string | null;
+};
+
+export type StoryForPlayer = Omit<AppStory, 'episodes'> & {
+  episodes: EpisodeForPlayer[];
+};
+
+export function storyToPlayerPayload(
+  story: AppStory,
+  isSubscribed: boolean
+): StoryForPlayer {
+  const episodes = story.episodes.map((ep) =>
+    episodeToPlayerEpisode(ep, story, isSubscribed)
+  );
+  return { ...story, episodes };
+}
+
+function episodeToPlayerEpisode(
+  ep: AppEpisode,
+  story: AppStory,
+  isSubscribed: boolean
+): EpisodeForPlayer {
+  const entitled = canPlayEpisode(
+    story.isPremium,
+    ep.isPremium,
+    ep.isFreePreview,
+    isSubscribed
+  );
+  const hasAudio = !!(
+    (ep.audioStorageKey && ep.audioStorageKey.trim()) ||
+    (ep.audioSrc && ep.audioSrc.trim())
+  );
+  const isDbEpisode = isNumericDbStoryId(ep.id) && !story.isStaticOnly;
+
+  if (!entitled || !hasAudio) {
+    return {
+      id: ep.id,
+      episodeNumber: ep.episodeNumber,
+      slug: ep.slug,
+      label: ep.label,
+      title: ep.title,
+      duration: ep.duration,
+      durationSeconds: ep.durationSeconds,
+      audioSrc: null,
+      description: ep.description,
+      isPremium: ep.isPremium,
+      isFreePreview: ep.isFreePreview,
+      isPublished: ep.isPublished,
+      useSignedPlayback: false,
+      playbackEpisodeId: null,
+    };
+  }
+
+  if (isDbEpisode) {
+    return {
+      id: ep.id,
+      episodeNumber: ep.episodeNumber,
+      slug: ep.slug,
+      label: ep.label,
+      title: ep.title,
+      duration: ep.duration,
+      durationSeconds: ep.durationSeconds,
+      audioSrc: null,
+      description: ep.description,
+      isPremium: ep.isPremium,
+      isFreePreview: ep.isFreePreview,
+      isPublished: ep.isPublished,
+      useSignedPlayback: true,
+      playbackEpisodeId: ep.id,
+    };
+  }
+
+  return {
+    id: ep.id,
+    episodeNumber: ep.episodeNumber,
+    slug: ep.slug,
+    label: ep.label,
+    title: ep.title,
+    duration: ep.duration,
+    durationSeconds: ep.durationSeconds,
+    audioSrc: ep.audioSrc,
+    description: ep.description,
+    isPremium: ep.isPremium,
+    isFreePreview: ep.isFreePreview,
+    isPublished: ep.isPublished,
+    useSignedPlayback: false,
+    playbackEpisodeId: null,
+  };
+}
+
 function parseStringArrayJson(value: Prisma.JsonValue | null | undefined): string[] {
   if (value == null || !Array.isArray(value)) return [];
   return value.filter((x): x is string => typeof x === 'string');
@@ -99,9 +211,11 @@ function mapDbStoryToApp(story: Story, episodes: Episode[]): AppStory {
     title: ep.title,
     duration: ep.duration,
     durationSeconds: ep.durationSeconds ?? null,
-    audioSrc: ep.audioUrl,
+    audioSrc: resolvePublicAssetUrl(ep.audioUrl),
+    audioStorageKey: ep.audioStorageKey ?? null,
     description: ep.description,
     isPremium: ep.isPremium,
+    isFreePreview: ep.isFreePreview,
     isPublished: ep.isPublished,
   }));
 
@@ -124,7 +238,7 @@ function mapDbStoryToApp(story: Story, episodes: Episode[]): AppStory {
     averageDurationLabel: computeAverageDuration(appEpisodes),
     summary: story.summary,
     fullDescription: story.fullDescription ?? null,
-    cover: story.coverUrl,
+    cover: resolvePublicAssetUrl(story.coverUrl),
     accent: story.accent,
     genre: genre && genre.length ? genre : null,
     mood: mood && mood.length ? mood : null,
@@ -146,27 +260,11 @@ function mapDbStoryToApp(story: Story, episodes: Episode[]): AppStory {
     metaTitle: story.metaTitle ?? null,
     metaDescription: story.metaDescription ?? null,
     episodes: appEpisodes,
+    isStaticOnly: false,
   };
 }
 
-/** Catalog file was missing in repo; DB may still reference the old path. */
-const LEGACY_MISSING_COVER: Record<string, string> = {
-  '/covers/blocky-explores-mine-world/cover.webp':
-    '/covers/blocky-explores-mine-world/cover.svg',
-};
-
 function overlayCatalogCoverIfSuperseded(app: AppStory): AppStory {
-  const c = app.cover;
-  if (!c) return app;
-  if (LEGACY_MISSING_COVER[c]) {
-    return { ...app, cover: LEGACY_MISSING_COVER[c] };
-  }
-  if (c.endsWith('/covers/blocky-explores-mine-world/cover.webp')) {
-    return {
-      ...app,
-      cover: c.replace(/cover\.webp$/, 'cover.svg'),
-    };
-  }
   return app;
 }
 
@@ -193,8 +291,10 @@ function mapStaticToApp(): AppStory[] {
         duration: ep.duration ?? null,
         durationSeconds: sec,
         audioSrc: ep.audioSrc ?? null,
+        audioStorageKey: null,
         description: ep.description ?? null,
         isPremium: !!(ep as { isPremium?: boolean }).isPremium,
+        isFreePreview: false,
         isPublished: true,
       };
     });
@@ -448,8 +548,10 @@ async function syncEpisodesForStory(
         durationMinutes: sec != null ? Math.floor(sec / 60) : null,
         durationSeconds: sec,
         audioUrl: ep.audioSrc ?? null,
+        audioStorageKey: null,
         isPublished: true,
         isPremium: !!ep.isPremium,
+        isFreePreview: false,
         label: ep.label ?? null,
       };
     });
@@ -496,8 +598,10 @@ async function syncEpisodesForStory(
       duration: durationLabel,
       durationSeconds,
       audioUrl: ep.audioUrl ?? null,
+      audioStorageKey: ep.audioStorageKey ?? null,
       isPublished: ep.isPublished,
       isPremium: ep.isPremium,
+      isFreePreview: ep.isFreePreview ?? false,
     };
 
     if (isNumericDbStoryId(ep.id) && existingIds.has(ep.id)) {
@@ -723,8 +827,10 @@ export async function duplicateStoryAdmin(id: string): Promise<Story> {
           duration: ep.duration,
           durationSeconds: ep.durationSeconds,
           audioUrl: ep.audioUrl,
+          audioStorageKey: ep.audioStorageKey,
           isPublished: ep.isPublished,
           isPremium: ep.isPremium,
+          isFreePreview: ep.isFreePreview,
         })),
       },
     },

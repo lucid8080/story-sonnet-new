@@ -60,8 +60,10 @@ export function appStoryToForm(story: AppStory): StoryFormState {
             durationSeconds:
               sec != null ? String(sec % 60) : '',
             audioUrl: ep.audioSrc ?? '',
+            audioStorageKey: ep.audioStorageKey ?? '',
             isPublished: ep.isPublished,
             isPremium: ep.isPremium,
+            isFreePreview: ep.isFreePreview ?? false,
             label: ep.label ?? '',
           };
         })
@@ -154,8 +156,11 @@ export function formToAdminUpsertPayload(form: StoryFormState): AdminStoryUpsert
       durationMinutes: dm,
       durationSeconds,
       audioUrl: ep.audioUrl.trim() === '' ? null : ep.audioUrl.trim(),
+      audioStorageKey:
+        ep.audioStorageKey.trim() === '' ? null : ep.audioStorageKey.trim(),
       isPublished: ep.isPublished,
       isPremium: ep.isPremium,
+      isFreePreview: ep.isFreePreview,
       label: ep.label.trim() === '' ? null : ep.label,
     };
   });

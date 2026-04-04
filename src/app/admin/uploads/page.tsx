@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 export default function AdminUploadsPage() {
   const [bucket, setBucket] = useState('');
+  const [assetKind, setAssetKind] = useState<'cover' | 'audio'>('cover');
   const [status, setStatus] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -19,6 +20,7 @@ export default function AdminUploadsPage() {
     }
     const fd = new FormData();
     fd.append('file', file);
+    fd.append('assetKind', assetKind);
     if (bucket) fd.append('bucket', bucket);
     setUploading(true);
     try {
@@ -28,7 +30,13 @@ export default function AdminUploadsPage() {
         setStatus(data.error || `Upload failed (${res.status})`);
         return;
       }
-      setStatus(`Uploaded: ${data.fileUrl}`);
+      if (data.storageKey) {
+        setStatus(
+          `Private audio key (paste in episode admin): ${data.storageKey}`
+        );
+      } else {
+        setStatus(`Uploaded: ${data.fileUrl}`);
+      }
       fileInput.value = '';
     } catch {
       setStatus('Network error');
@@ -41,9 +49,10 @@ export default function AdminUploadsPage() {
     <div>
       <h1 className="text-2xl font-black text-slate-900">Uploads</h1>
       <p className="mt-1 text-sm text-slate-500">
-        POST multipart to S3-compatible storage. Set <code>R2_BUCKET</code>{' '}
-        (or <code>S3_BUCKET</code>) or enter bucket below. Requires admin session
-        and R2 (or S3) credentials.
+        Covers use the <strong>public</strong> bucket (<code>R2_BUCKET</code> +
+        <code>R2_PUBLIC_BASE_URL</code>). MP3s use the <strong>private</strong>{' '}
+        audio bucket (<code>R2_PRIVATE_BUCKET</code> or fallback{' '}
+        <code>R2_BUCKET</code>) and return a storage key for the episode editor.
       </p>
       <form
         onSubmit={onSubmit}
@@ -51,13 +60,32 @@ export default function AdminUploadsPage() {
       >
         <div>
           <label className="text-xs font-semibold text-slate-500">
-            Bucket (optional if R2_BUCKET / S3_BUCKET env set)
+            Asset type
+          </label>
+          <select
+            value={assetKind}
+            onChange={(e) =>
+              setAssetKind(e.target.value === 'audio' ? 'audio' : 'cover')
+            }
+            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          >
+            <option value="cover">Cover (public URL)</option>
+            <option value="audio">Audio (private — returns storage key)</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-slate-500">
+            Bucket override (optional)
           </label>
           <input
             value={bucket}
             onChange={(e) => setBucket(e.target.value)}
             className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            placeholder="covers"
+            placeholder={
+              assetKind === 'audio'
+                ? 'Private audio bucket name'
+                : 'Public assets bucket'
+            }
           />
         </div>
         <div>

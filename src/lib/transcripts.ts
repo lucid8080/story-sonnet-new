@@ -20,9 +20,10 @@ const transcriptMap: Record<string, TranscriptLine[]> = {
   'keepers-of-turtleshell-city:1': keepersEp1 as unknown as TranscriptLine[],
 };
 
+/** `episodeNumber` is 1-based (matches JSON map keys), not the DB episode row id. */
 export function getTranscriptLines(
   slug: string,
-  episodeId: string | number
+  episodeNumber: string | number
 ): TranscriptLine[] {
-  return transcriptMap[`${slug}:${episodeId}`] || [];
+  return transcriptMap[`${slug}:${episodeNumber}`] || [];
 }

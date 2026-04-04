@@ -2,22 +2,65 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronLeft,
   Play,
   Pause,
   ListMusic,
 } from 'lucide-react';
-import type { AppStory } from '@/lib/stories';
+import {
+  canPlayEpisode,
+  needsSubscriptionForEpisode,
+} from '@/lib/audioEntitlement';
+import type { StoryForPlayer } from '@/lib/stories';
 import { getTranscriptLines } from '@/lib/transcripts';
 import SubscriptionGate from '@/components/auth/SubscriptionGate';
+
+function mediaErrorMessage(el: HTMLAudioElement | null): string {
+  const code = el?.error?.code;
+  if (code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+    return 'Audio format or source not supported';
+  }
+  if (code === MediaError.MEDIA_ERR_NETWORK) {
+    return 'Network error loading audio';
+  }
+  if (code === MediaError.MEDIA_ERR_DECODE) {
+    return 'Could not decode audio';
+  }
+  return 'Could not load audio file';
+}
+
+/** Wait until the element can play (or timeout) to avoid play() races right after src updates. */
+function waitForAudioReady(
+  el: HTMLAudioElement,
+  timeoutMs: number
+): Promise<void> {
+  if (el.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(() => {
+      el.removeEventListener('canplay', onReady);
+      el.removeEventListener('error', onReady);
+      resolve();
+    }, timeoutMs);
+    function onReady() {
+      window.clearTimeout(timer);
+      el.removeEventListener('canplay', onReady);
+      el.removeEventListener('error', onReady);
+      resolve();
+    }
+    el.addEventListener('canplay', onReady, { once: true });
+    el.addEventListener('error', onReady, { once: true });
+  });
+}
 
 export function StoryPageClient({
   story,
   isSubscribed,
 }: {
-  story: AppStory;
+  story: StoryForPlayer;
   isSubscribed: boolean;
 }) {
   const [activeEpisodeIndex, setActiveEpisodeIndex] = useState(0);
@@ -25,21 +68,40 @@ export function StoryPageClient({
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [showTranscript, setShowTranscript] = useState(false);
+  const [resolvedAudioSrc, setResolvedAudioSrc] = useState<string | null>(null);
+  const [audioLoading, setAudioLoading] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const transcriptScrollerRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<(HTMLParagraphElement | null)[]>([]);
 
   const activeEpisode = story.episodes[activeEpisodeIndex];
-  const episodePremium = !!(
+
+  const needsPaywall = !!(
     activeEpisode &&
-    (activeEpisode.isPremium || story.isPremium)
+    needsSubscriptionForEpisode(
+      story.isPremium,
+      activeEpisode.isPremium,
+      activeEpisode.isFreePreview
+    )
   );
-  const locked = episodePremium && !isSubscribed;
+
+  const entitled = !!(
+    activeEpisode &&
+    canPlayEpisode(
+      story.isPremium,
+      activeEpisode.isPremium,
+      activeEpisode.isFreePreview,
+      isSubscribed
+    )
+  );
+
+  const locked = !entitled;
 
   const transcriptLines = useMemo(
     () =>
       story && activeEpisode
-        ? getTranscriptLines(story.slug, activeEpisode.id)
+        ? getTranscriptLines(story.slug, activeEpisode.episodeNumber)
         : [],
     [story, activeEpisode]
   );
@@ -48,8 +110,72 @@ export function StoryPageClient({
     setProgress(0);
     setDuration(0);
     setIsPlaying(false);
-    lineRefs.current = [];
   }, [activeEpisodeIndex, story.slug]);
+
+  useEffect(() => {
+    if (!activeEpisode) return;
+    let cancelled = false;
+
+    if (!entitled) {
+      setResolvedAudioSrc(null);
+      setAudioLoading(false);
+      setAudioError(null);
+      return;
+    }
+
+    if (
+      activeEpisode.useSignedPlayback &&
+      activeEpisode.playbackEpisodeId
+    ) {
+      setAudioLoading(true);
+      setAudioError(null);
+      setResolvedAudioSrc(null);
+      fetch(
+        `/api/audio/play?episodeId=${encodeURIComponent(activeEpisode.playbackEpisodeId)}`,
+        { credentials: 'same-origin' }
+      )
+        .then(async (r) => {
+          const data = (await r.json().catch(() => ({}))) as {
+            error?: string;
+            url?: string;
+          };
+          if (cancelled) return;
+          if (!r.ok) {
+            setAudioError(data.error || 'Could not load audio');
+            setResolvedAudioSrc(null);
+            return;
+          }
+          if (data.url) setResolvedAudioSrc(data.url);
+          else setAudioError('No audio URL returned');
+        })
+        .catch(() => {
+          if (!cancelled) setAudioError('Could not load audio');
+        })
+        .finally(() => {
+          if (!cancelled) setAudioLoading(false);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setResolvedAudioSrc(activeEpisode.audioSrc);
+    setAudioLoading(false);
+    setAudioError(null);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    entitled,
+    activeEpisodeIndex,
+    story.slug,
+    isSubscribed,
+    story.isPremium,
+    activeEpisode?.id,
+    activeEpisode?.useSignedPlayback,
+    activeEpisode?.playbackEpisodeId,
+    activeEpisode?.audioSrc,
+  ]);
 
   useEffect(() => {
     if (!locked) return;
@@ -73,15 +199,22 @@ export function StoryPageClient({
     );
   }, [progress, duration, transcriptLines.length]);
 
-  useEffect(() => {
-    if (!showTranscript || !transcriptScrollerRef.current || !transcriptLines.length)
-      return;
+  useLayoutEffect(() => {
     const container = transcriptScrollerRef.current;
     const activeLine = lineRefs.current[currentLineIndex];
-    if (!activeLine) return;
-    const targetTop = activeLine.offsetTop - container.clientHeight * 0.38;
+    if (!showTranscript || !container || !transcriptLines.length || !activeLine)
+      return;
+    const lineRect = activeLine.getBoundingClientRect();
+    const boxRect = container.getBoundingClientRect();
+    const relTop = lineRect.top - boxRect.top + container.scrollTop;
+    const targetTop = relTop - container.clientHeight * 0.38;
     container.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
-  }, [currentLineIndex, showTranscript, transcriptLines.length, progress]);
+  }, [
+    currentLineIndex,
+    showTranscript,
+    transcriptLines.length,
+    activeEpisode?.id,
+  ]);
 
   if (!activeEpisode) {
     return (
@@ -91,16 +224,27 @@ export function StoryPageClient({
     );
   }
 
+  const canUsePlayer =
+    entitled && !audioLoading && !!resolvedAudioSrc && !audioError;
+  const playDisabled = locked || !canUsePlayer;
+
+  const handleAudioElementError = () => {
+    setAudioError(mediaErrorMessage(audioRef.current));
+    setIsPlaying(false);
+  };
+
   const togglePlay = async () => {
-    if (locked) return;
-    if (!audioRef.current) return;
+    if (playDisabled) return;
+    const el = audioRef.current;
+    if (!el) return;
     if (isPlaying) {
-      audioRef.current.pause();
+      el.pause();
       setIsPlaying(false);
       return;
     }
     try {
-      await audioRef.current.play();
+      await waitForAudioReady(el, 10_000);
+      await el.play();
       setIsPlaying(true);
     } catch (error) {
       console.log('Playback could not start yet:', error);
@@ -113,6 +257,9 @@ export function StoryPageClient({
     const current = audioRef.current.currentTime || 0;
     const total = audioRef.current.duration || 0;
     setProgress(total ? (current / total) * 100 : 0);
+    if (Number.isFinite(total) && total > 0) {
+      setDuration((d) => (d > 0 ? d : total));
+    }
   };
 
   const handleLoadedMetadata = () => {
@@ -121,7 +268,7 @@ export function StoryPageClient({
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (locked) return;
+    if (playDisabled) return;
     if (!audioRef.current) return;
     const value = Number(e.target.value);
     const newTime = duration ? (value / 100) * duration : 0;
@@ -178,20 +325,29 @@ export function StoryPageClient({
                 </div>
 
                 <SubscriptionGate
-                  isPremium={episodePremium}
+                  isPremium={needsPaywall}
                   isSubscribed={isSubscribed}
                 >
                   <div className="flex w-full flex-col gap-3">
+                    {entitled && audioLoading ? (
+                      <p className="text-center text-xs text-white/80">
+                        Preparing audio…
+                      </p>
+                    ) : null}
+                    {entitled && audioError ? (
+                      <p className="text-center text-xs text-rose-200">
+                        {audioError}
+                      </p>
+                    ) : null}
                     <audio
+                      key={`${activeEpisode.id}-${resolvedAudioSrc ?? 'none'}`}
                       ref={audioRef}
-                      src={
-                        locked
-                          ? undefined
-                          : activeEpisode.audioSrc || undefined
-                      }
+                      src={canUsePlayer ? resolvedAudioSrc || undefined : undefined}
+                      preload="auto"
                       onTimeUpdate={handleTimeUpdate}
                       onLoadedMetadata={handleLoadedMetadata}
                       onEnded={() => setIsPlaying(false)}
+                      onError={canUsePlayer ? handleAudioElementError : undefined}
                     />
                     <input
                       type="range"
@@ -199,9 +355,9 @@ export function StoryPageClient({
                       max={100}
                       value={progress}
                       onChange={handleSeek}
-                      disabled={locked}
+                      disabled={playDisabled}
                       className={`h-2 w-full appearance-none rounded-full bg-white/25 accent-rose-400 ${
-                        locked
+                        playDisabled
                           ? 'cursor-not-allowed opacity-50'
                           : 'cursor-pointer'
                       }`}
@@ -217,9 +373,9 @@ export function StoryPageClient({
                       <button
                         type="button"
                         onClick={togglePlay}
-                        disabled={locked}
+                        disabled={playDisabled}
                         className={`inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white shadow-lg shadow-rose-900/20 transition ${
-                          locked
+                          playDisabled
                             ? 'cursor-not-allowed opacity-50'
                             : 'hover:scale-105 active:scale-95'
                         }`}
@@ -367,6 +523,11 @@ export function StoryPageClient({
                               {episode.description}
                             </p>
                           )}
+                          {episode.isFreePreview ? (
+                            <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-emerald-600">
+                              Free preview
+                            </p>
+                          ) : null}
                         </div>
                         <div
                           className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] ${

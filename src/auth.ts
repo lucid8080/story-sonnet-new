@@ -51,11 +51,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user?.id) {
-        const p = await prisma.profile.findUnique({
-          where: { userId: user.id },
-        });
-        token.role = p?.role ?? 'user';
-        token.subscriptionStatus = p?.subscriptionStatus ?? 'free';
+        try {
+          const p = await prisma.profile.findUnique({
+            where: { userId: user.id },
+          });
+          token.role = p?.role ?? 'user';
+          token.subscriptionStatus = p?.subscriptionStatus ?? 'free';
+        } catch (e) {
+          console.warn('[auth] jwt profile fetch failed', e);
+          token.role = 'user';
+          token.subscriptionStatus = 'free';
+        }
       }
       return token;
     },

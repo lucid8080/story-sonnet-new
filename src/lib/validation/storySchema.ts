@@ -46,8 +46,10 @@ export const adminEpisodeSchema = z.object({
   durationMinutes: z.number().min(0).nullable().optional(),
   durationSeconds: z.number().int().min(0).nullable().optional(),
   audioUrl: z.string().nullable().optional(),
+  audioStorageKey: z.string().nullable().optional(),
   isPublished: z.boolean().optional().default(false),
   isPremium: z.boolean().optional().default(false),
+  isFreePreview: z.boolean().optional().default(false),
   label: z.string().nullable().optional(),
 });
 

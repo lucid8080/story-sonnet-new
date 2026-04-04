@@ -1,8 +1,10 @@
 import {
+  GetObjectCommand,
   PutObjectCommand,
   S3Client,
   type PutObjectCommandInput,
 } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 /** R2 S3 API endpoint when only account id is set */
 function r2EndpointFromAccount(): string | undefined {
@@ -61,6 +63,13 @@ export function getDefaultStorageBucket(): string | undefined {
   );
 }
 
+/** Private bucket for paywalled MP3s (no public read). Falls back to R2_BUCKET if unset. */
+export function getPrivateAudioBucket(): string | undefined {
+  const p = process.env.R2_PRIVATE_BUCKET?.trim();
+  if (p) return p;
+  return getDefaultStorageBucket();
+}
+
 export async function uploadPublicObject(params: {
   bucket: string;
   key: string;
@@ -91,4 +100,44 @@ export async function uploadPublicObject(params: {
 
   const url = `${base}/${params.key.replace(/^\/+/, '')}`;
   return { url };
+}
+
+/** Upload to private audio bucket; returns object key only (no public URL). */
+export async function uploadPrivateAudioObject(params: {
+  bucket: string;
+  key: string;
+  body: Buffer | Uint8Array;
+  contentType: string;
+}): Promise<{ key: string }> {
+  const client = getClient();
+  const input: PutObjectCommandInput = {
+    Bucket: params.bucket,
+    Key: params.key.replace(/^\/+/, ''),
+    Body: params.body,
+    ContentType: params.contentType,
+  };
+  await client.send(new PutObjectCommand(input));
+  return { key: input.Key as string };
+}
+
+const AUDIO_SIGN_DEFAULT_TTL_SEC = 900;
+
+export async function presignPrivateAudioGetUrl(params: {
+  key: string;
+  expiresIn?: number;
+}): Promise<string> {
+  const bucket = getPrivateAudioBucket();
+  if (!bucket) {
+    throw new Error('Set R2_PRIVATE_BUCKET or R2_BUCKET for private audio.');
+  }
+  const client = getClient();
+  const key = params.key.replace(/^\/+/, '');
+  const cmd = new GetObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    ResponseContentType: 'audio/mpeg',
+  });
+  return getSignedUrl(client, cmd, {
+    expiresIn: params.expiresIn ?? AUDIO_SIGN_DEFAULT_TTL_SEC,
+  });
 }

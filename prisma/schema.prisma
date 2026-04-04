@@ -127,10 +127,14 @@ model Episode {
   title          String
   duration       String?
   durationSeconds Int?    @map("duration_seconds")
-  audioUrl       String?  @map("audio_url")
-  description    String?
-  isPublished    Boolean  @default(false) @map("is_published")
-  isPremium      Boolean  @default(false) @map("is_premium")
+  audioUrl          String?  @map("audio_url")
+  /** R2 object key in the private audio bucket (no leading slash), e.g. audio/slug/episode-1.mp3 */
+  audioStorageKey   String?  @map("audio_storage_key")
+  description       String?
+  isPublished       Boolean  @default(false) @map("is_published")
+  isPremium         Boolean  @default(false) @map("is_premium")
+  /** When true, episode is playable without a subscription (sample), even if the series is premium. */
+  isFreePreview     Boolean  @default(false) @map("is_free_preview")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 

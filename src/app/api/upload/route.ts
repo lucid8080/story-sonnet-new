@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
-import { getDefaultStorageBucket, uploadPublicObject } from '@/lib/s3';
+import {
+  getDefaultStorageBucket,
+  getPrivateAudioBucket,
+  uploadPrivateAudioObject,
+  uploadPublicObject,
+} from '@/lib/s3';
 
 export const runtime = 'nodejs';
 
@@ -13,14 +18,23 @@ export async function POST(req: Request) {
 
   const formData = await req.formData();
   const file = formData.get('file') as File | null;
+  const assetKindRaw = (formData.get('assetKind') as string) || 'cover';
+  const assetKind =
+    assetKindRaw === 'audio' ? 'audio' : ('cover' as 'cover' | 'audio');
+
   const bucketField =
-    (formData.get('bucket') as string) || getDefaultStorageBucket();
+    (formData.get('bucket') as string) ||
+    (assetKind === 'audio'
+      ? getPrivateAudioBucket()
+      : getDefaultStorageBucket());
 
   if (!file || !bucketField) {
     return NextResponse.json(
       {
         error:
-          'Missing file or bucket (set R2_BUCKET or S3_BUCKET, or pass bucket in the form).',
+          assetKind === 'audio'
+            ? 'Missing file or private bucket (set R2_PRIVATE_BUCKET or R2_BUCKET, or pass bucket in the form).'
+            : 'Missing file or bucket (set R2_BUCKET or S3_BUCKET, or pass bucket in the form).',
       },
       { status: 400 }
     );
@@ -28,9 +42,39 @@ export async function POST(req: Request) {
 
   const buf = Buffer.from(await file.arrayBuffer());
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const key = `${Date.now()}-${safeName}`;
 
   try {
+    if (assetKind === 'audio') {
+      const key = `audio/${Date.now()}-${safeName}`;
+      const { key: storageKey } = await uploadPrivateAudioObject({
+        bucket: bucketField,
+        key,
+        body: buf,
+        contentType: file.type || 'audio/mpeg',
+      });
+
+      if (process.env.DATABASE_URL) {
+        await prisma.upload.create({
+          data: {
+            fileName: file.name,
+            fileType: file.type || 'audio/mpeg',
+            fileUrl: `r2-private:${storageKey}`,
+            storagePath: storageKey,
+            uploadedBy: session.user.id,
+          },
+        });
+      }
+
+      return NextResponse.json({
+        assetKind: 'audio',
+        storageKey,
+        fileUrl: null,
+        message:
+          'Paste storageKey into the episode “Private audio key” field in admin.',
+      });
+    }
+
+    const key = `covers/${Date.now()}-${safeName}`;
     const { url } = await uploadPublicObject({
       bucket: bucketField,
       key,
@@ -50,7 +94,11 @@ export async function POST(req: Request) {
       });
     }
 
-    return NextResponse.json({ fileUrl: url, storagePath: key });
+    return NextResponse.json({
+      assetKind: 'cover',
+      fileUrl: url,
+      storagePath: key,
+    });
   } catch (e) {
     console.error('[upload]', e);
     return NextResponse.json(

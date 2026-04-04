@@ -48,3 +48,11 @@ If your current local folder structure does not match the paths above, you have 
 
 Whichever option you choose, keep paths consistent so the app can build correct URLs to R2.
 
+### 4. Premium audio (paywalled) vs public covers
+
+- **Covers** stay on a **public** R2 bucket (or public prefix) and are referenced by `coverUrl` / `NEXT_PUBLIC_ASSETS_BASE_URL` as before.
+- **MP3s** for subscription content should live in a **private** bucket (`R2_PRIVATE_BUCKET`). Set each episode’s **Private audio key** in admin (e.g. `audio/blocky-explores-mine-world/episode-1.mp3`) to match the object key in that bucket. Playback uses `/api/audio/play` and short-lived presigned GET URLs.
+- **Legacy** episodes may still use **Audio URL** only (public). The play API returns that URL after the same entitlement checks, but the URL is not embedded in the initial page payload for database-backed stories.
+- Upload flow: Admin **Uploads** → choose **Audio (private)**; paste returned `storageKey` into the episode’s **Private audio key** field.
+- Run `npx prisma migrate deploy` (or `migrate dev`) so `episodes.audio_storage_key` and `episodes.is_free_preview` exist.
+- For **free samples** on a premium series, enable **Free preview (no subscription)** on the episode in admin.

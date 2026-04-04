@@ -186,12 +186,26 @@ export default function StoryEpisodesSection({
               </label>
               <label className="block sm:col-span-2">
                 <span className="text-[11px] font-bold text-slate-600">
-                  Audio URL
+                  Audio URL (legacy public MP3, optional)
                 </span>
                 <input
                   className={field}
                   value={ep.audioUrl}
                   onChange={(e) => updateEp(index, { audioUrl: e.target.value })}
+                  placeholder="https://… or /audio/… when not using private R2"
+                />
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="text-[11px] font-bold text-slate-600">
+                  Private audio key (R2 object key, paywalled)
+                </span>
+                <input
+                  className={field}
+                  value={ep.audioStorageKey}
+                  onChange={(e) =>
+                    updateEp(index, { audioStorageKey: e.target.value })
+                  }
+                  placeholder="e.g. audio/story-slug/episode-1.mp3"
                 />
               </label>
               <div className="flex flex-wrap gap-4 sm:col-span-2">
@@ -216,6 +230,17 @@ export default function StoryEpisodesSection({
                     className="h-4 w-4 rounded border-slate-300"
                   />
                   Premium
+                </label>
+                <label className="flex items-center gap-2 text-sm text-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={ep.isFreePreview}
+                    onChange={(e) =>
+                      updateEp(index, { isFreePreview: e.target.checked })
+                    }
+                    className="h-4 w-4 rounded border-slate-300"
+                  />
+                  Free preview (no subscription)
                 </label>
               </div>
             </div>
