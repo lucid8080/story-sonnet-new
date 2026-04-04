@@ -71,7 +71,7 @@ Users should be able to:
 
 ### Messaging / homepage copy
 Current preferred homepage wording:
-- **Worlds made for listening**
+- **Listening adventures**
 - **Organized for easy story browsing and listening**
 
 ---

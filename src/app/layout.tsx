@@ -24,7 +24,7 @@ const fira = Fira_Code({
 
 export const metadata: Metadata = {
   title: 'Story Sonnet',
-  description: 'Worlds made for listening',
+  description: 'Listening adventures',
 };
 
 export default function RootLayout({

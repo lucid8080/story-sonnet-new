@@ -50,7 +50,7 @@ export default function SiteHeader() {
               Story Sonnet
             </div>
             <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-              Worlds made for listening
+              Listening adventures
             </div>
           </div>
         </Link>
