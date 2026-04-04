@@ -25,6 +25,15 @@ const fira = Fira_Code({
 export const metadata: Metadata = {
   title: 'Story Sonnet',
   description: 'Listening adventures',
+  icons: {
+    icon: [
+      {
+        url: '/branding/favicon/favicon.svg',
+        type: 'image/svg+xml',
+      },
+    ],
+  },
+  manifest: '/branding/favicon/site.webmanifest',
 };
 
 export default function RootLayout({
