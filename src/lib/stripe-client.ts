@@ -28,7 +28,8 @@ export async function startCheckout(options?: { interval?: CheckoutInterval }) {
   const interval =
     options?.interval === 'year' ? 'year' : 'month';
   const { url } = await postJson('/api/stripe/checkout', {
-    returnUrlSuccess: `${base}/billing/success`,
+    // Stripe replaces {CHECKOUT_SESSION_ID}; server sync on /billing/success needs it.
+    returnUrlSuccess: `${base}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
     returnUrlCancel: `${base}/billing/cancel`,
     interval,
   });

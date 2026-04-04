@@ -87,6 +87,14 @@ export type EpisodeForPlayer = {
 
 export type StoryForPlayer = Omit<AppStory, 'episodes'> & {
   episodes: EpisodeForPlayer[];
+  /** Public theme URLs; set on the story page after server probe. */
+  themeIntroSrc: string | null;
+  themeFullSrc: string | null;
+  hasIntroTheme: boolean;
+  hasFullTheme: boolean;
+  /** Theme object is in private R2; client resolves URL via `/api/theme-audio/play`. */
+  themeIntroUseSignedPlayback: boolean;
+  themeFullUseSignedPlayback: boolean;
 };
 
 export function storyToPlayerPayload(
@@ -96,7 +104,16 @@ export function storyToPlayerPayload(
   const episodes = story.episodes.map((ep) =>
     episodeToPlayerEpisode(ep, story, isSubscribed)
   );
-  return { ...story, episodes };
+  return {
+    ...story,
+    episodes,
+    themeIntroSrc: null,
+    themeFullSrc: null,
+    hasIntroTheme: false,
+    hasFullTheme: false,
+    themeIntroUseSignedPlayback: false,
+    themeFullUseSignedPlayback: false,
+  };
 }
 
 function episodeToPlayerEpisode(

@@ -1,5 +1,7 @@
 import { notFound } from 'next/navigation';
 import { auth } from '@/auth';
+import { attachThemeAudioToPlayerStory } from '@/lib/attachThemeAudioToPlayerStory';
+import { probeThemeAudioAvailability } from '@/lib/themeAudioUrls';
 import { fetchStoryBySlug, storyToPlayerPayload } from '@/lib/stories';
 import { StoryPageClient } from '@/components/story/StoryPageClient';
 
@@ -17,6 +19,13 @@ export default async function StoryPage({
   const isSubscribed = sub === 'active' || sub === 'trialing';
 
   const playerStory = storyToPlayerPayload(story, isSubscribed);
+  const themeProbe = await probeThemeAudioAvailability(slug);
+  const playerWithTheme = attachThemeAudioToPlayerStory(
+    playerStory,
+    themeProbe
+  );
 
-  return <StoryPageClient story={playerStory} isSubscribed={isSubscribed} />;
+  return (
+    <StoryPageClient story={playerWithTheme} isSubscribed={isSubscribed} />
+  );
 }

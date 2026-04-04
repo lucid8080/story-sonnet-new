@@ -2,7 +2,13 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ChevronLeft,
   Play,
@@ -56,6 +62,12 @@ function waitForAudioReady(
   });
 }
 
+function skipIntroStorageKey(slug: string): string {
+  return `storyThemeSkipIntro:${slug}`;
+}
+
+type MainStreamKind = 'intro' | 'episode';
+
 export function StoryPageClient({
   story,
   isSubscribed,
@@ -71,9 +83,25 @@ export function StoryPageClient({
   const [resolvedAudioSrc, setResolvedAudioSrc] = useState<string | null>(null);
   const [audioLoading, setAudioLoading] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [mainStream, setMainStream] = useState<MainStreamKind>('episode');
+  const [skipIntroPref, setSkipIntroPref] = useState(false);
+  const [fullPlaying, setFullPlaying] = useState(false);
+  const [fullProgress, setFullProgress] = useState(0);
+  const [fullDuration, setFullDuration] = useState(0);
+  const [resolvedThemeIntroSrc, setResolvedThemeIntroSrc] = useState<
+    string | null
+  >(null);
+  const [resolvedThemeFullSrc, setResolvedThemeFullSrc] = useState<
+    string | null
+  >(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const preloadEpisodeRef = useRef<HTMLAudioElement>(null);
+  const fullAudioRef = useRef<HTMLAudioElement>(null);
+  const introDoneForEpisodeRef = useRef(false);
+  const playEpisodeAfterIntroRef = useRef(false);
   const transcriptScrollerRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<(HTMLParagraphElement | null)[]>([]);
+  const pendingPlayIntroRef = useRef(false);
 
   const activeEpisode = story.episodes[activeEpisodeIndex];
 
@@ -98,6 +126,88 @@ export function StoryPageClient({
 
   const locked = !entitled;
 
+  const effectiveThemeIntroSrc =
+    story.themeIntroSrc ?? resolvedThemeIntroSrc;
+  const effectiveThemeFullSrc = story.themeFullSrc ?? resolvedThemeFullSrc;
+
+  const showIntroChrome =
+    entitled && story.hasIntroTheme && !!effectiveThemeIntroSrc;
+  const showFullThemeBar =
+    entitled && story.hasFullTheme && !!effectiveThemeFullSrc;
+
+  useEffect(() => {
+    setResolvedThemeIntroSrc(null);
+    setResolvedThemeFullSrc(null);
+  }, [story.slug]);
+
+  useEffect(() => {
+    if (!entitled || !story.hasIntroTheme || story.themeIntroSrc) {
+      setResolvedThemeIntroSrc(null);
+      return;
+    }
+    if (!story.themeIntroUseSignedPlayback) {
+      setResolvedThemeIntroSrc(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(
+      `/api/theme-audio/play?slug=${encodeURIComponent(story.slug)}&kind=intro`,
+      { credentials: 'same-origin' }
+    )
+      .then(async (r) => {
+        const data = (await r.json().catch(() => ({}))) as { url?: string };
+        if (cancelled) return;
+        if (r.ok && data.url) setResolvedThemeIntroSrc(data.url);
+        else setResolvedThemeIntroSrc(null);
+      })
+      .catch(() => {
+        if (!cancelled) setResolvedThemeIntroSrc(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    entitled,
+    story.slug,
+    story.hasIntroTheme,
+    story.themeIntroSrc,
+    story.themeIntroUseSignedPlayback,
+  ]);
+
+  useEffect(() => {
+    if (!entitled || !story.hasFullTheme || story.themeFullSrc) {
+      setResolvedThemeFullSrc(null);
+      return;
+    }
+    if (!story.themeFullUseSignedPlayback) {
+      setResolvedThemeFullSrc(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(
+      `/api/theme-audio/play?slug=${encodeURIComponent(story.slug)}&kind=full`,
+      { credentials: 'same-origin' }
+    )
+      .then(async (r) => {
+        const data = (await r.json().catch(() => ({}))) as { url?: string };
+        if (cancelled) return;
+        if (r.ok && data.url) setResolvedThemeFullSrc(data.url);
+        else setResolvedThemeFullSrc(null);
+      })
+      .catch(() => {
+        if (!cancelled) setResolvedThemeFullSrc(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    entitled,
+    story.slug,
+    story.hasFullTheme,
+    story.themeFullSrc,
+    story.themeFullUseSignedPlayback,
+  ]);
+
   const transcriptLines = useMemo(
     () =>
       story && activeEpisode
@@ -107,9 +217,23 @@ export function StoryPageClient({
   );
 
   useEffect(() => {
+    try {
+      setSkipIntroPref(
+        localStorage.getItem(skipIntroStorageKey(story.slug)) === '1'
+      );
+    } catch {
+      setSkipIntroPref(false);
+    }
+  }, [story.slug]);
+
+  useEffect(() => {
     setProgress(0);
     setDuration(0);
     setIsPlaying(false);
+    pendingPlayIntroRef.current = false;
+    playEpisodeAfterIntroRef.current = false;
+    introDoneForEpisodeRef.current = false;
+    setMainStream('episode');
   }, [activeEpisodeIndex, story.slug]);
 
   useEffect(() => {
@@ -167,14 +291,11 @@ export function StoryPageClient({
     };
   }, [
     entitled,
+    activeEpisode,
     activeEpisodeIndex,
     story.slug,
     isSubscribed,
     story.isPremium,
-    activeEpisode?.id,
-    activeEpisode?.useSignedPlayback,
-    activeEpisode?.playbackEpisodeId,
-    activeEpisode?.audioSrc,
   ]);
 
   useEffect(() => {
@@ -184,12 +305,21 @@ export function StoryPageClient({
       a.pause();
       a.currentTime = 0;
     }
+    const f = fullAudioRef.current;
+    if (f) {
+      f.pause();
+      f.currentTime = 0;
+    }
+    setFullPlaying(false);
+    setFullProgress(0);
+    setFullDuration(0);
     setIsPlaying(false);
     setProgress(0);
     setDuration(0);
   }, [locked, activeEpisodeIndex, story.slug]);
 
   const currentLineIndex = useMemo(() => {
+    if (mainStream === 'intro') return 0;
     if (!transcriptLines.length || !duration) return 0;
     const currentTime = (progress / 100) * duration;
     const normalized = currentTime / duration;
@@ -197,9 +327,10 @@ export function StoryPageClient({
       transcriptLines.length - 1,
       Math.max(0, Math.floor(normalized * transcriptLines.length))
     );
-  }, [progress, duration, transcriptLines.length]);
+  }, [mainStream, progress, duration, transcriptLines.length]);
 
   useLayoutEffect(() => {
+    if (mainStream === 'intro') return;
     const container = transcriptScrollerRef.current;
     const activeLine = lineRefs.current[currentLineIndex];
     if (!showTranscript || !container || !transcriptLines.length || !activeLine)
@@ -210,11 +341,50 @@ export function StoryPageClient({
     const targetTop = relTop - container.clientHeight * 0.38;
     container.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
   }, [
+    mainStream,
     currentLineIndex,
     showTranscript,
     transcriptLines.length,
     activeEpisode?.id,
   ]);
+
+  useEffect(() => {
+    if (!playEpisodeAfterIntroRef.current) return;
+    if (mainStream !== 'episode') return;
+    if (!resolvedAudioSrc || !entitled) return;
+    playEpisodeAfterIntroRef.current = false;
+    const el = audioRef.current;
+    if (!el) return;
+    const f = fullAudioRef.current;
+    if (f && !f.paused) {
+      f.pause();
+      setFullPlaying(false);
+    }
+    void waitForAudioReady(el, 10_000)
+      .then(() => el.play())
+      .then(() => setIsPlaying(true))
+      .catch((err) => {
+        console.log('Episode autoplay after intro:', err);
+        setIsPlaying(false);
+      });
+  }, [mainStream, resolvedAudioSrc, entitled]);
+
+  useEffect(() => {
+    if (!pendingPlayIntroRef.current) return;
+    if (mainStream !== 'intro') return;
+    const src = effectiveThemeIntroSrc;
+    if (!src) return;
+    pendingPlayIntroRef.current = false;
+    const el = audioRef.current;
+    if (!el) return;
+    void waitForAudioReady(el, 10_000)
+      .then(() => el.play())
+      .then(() => setIsPlaying(true))
+      .catch((err) => {
+        console.log('Intro playback could not start:', err);
+        setIsPlaying(false);
+      });
+  }, [mainStream, effectiveThemeIntroSrc]);
 
   if (!activeEpisode) {
     return (
@@ -226,22 +396,106 @@ export function StoryPageClient({
 
   const canUsePlayer =
     entitled && !audioLoading && !!resolvedAudioSrc && !audioError;
-  const playDisabled = locked || !canUsePlayer;
+  const introBlockingPlay =
+    story.hasIntroTheme &&
+    !skipIntroPref &&
+    !effectiveThemeIntroSrc &&
+    !introDoneForEpisodeRef.current;
+  const playDisabled = locked || !canUsePlayer || introBlockingPlay;
 
-  const handleAudioElementError = () => {
-    setAudioError(mediaErrorMessage(audioRef.current));
+  const mainAudioSrc =
+    entitled && !audioError
+      ? mainStream === 'intro' && effectiveThemeIntroSrc
+        ? effectiveThemeIntroSrc
+        : canUsePlayer && resolvedAudioSrc
+          ? resolvedAudioSrc
+          : undefined
+      : undefined;
+
+  const pauseFullTheme = () => {
+    const f = fullAudioRef.current;
+    if (f && !f.paused) {
+      f.pause();
+      setFullPlaying(false);
+    }
+  };
+
+  const handleMainAudioError = () => {
+    setAudioError(
+      mainStream === 'intro'
+        ? 'Could not load theme intro'
+        : mediaErrorMessage(audioRef.current)
+    );
     setIsPlaying(false);
+  };
+
+  const handleMainEnded = () => {
+    if (mainStream === 'intro' && resolvedAudioSrc) {
+      introDoneForEpisodeRef.current = true;
+      playEpisodeAfterIntroRef.current = true;
+      setMainStream('episode');
+      return;
+    }
+    setIsPlaying(false);
+  };
+
+  const persistSkipIntro = (checked: boolean) => {
+    setSkipIntroPref(checked);
+    try {
+      if (checked) {
+        localStorage.setItem(skipIntroStorageKey(story.slug), '1');
+      } else {
+        localStorage.removeItem(skipIntroStorageKey(story.slug));
+      }
+    } catch {
+      /* ignore */
+    }
+    if (checked && mainStream === 'intro') {
+      introDoneForEpisodeRef.current = true;
+      playEpisodeAfterIntroRef.current = true;
+      audioRef.current?.pause();
+      setAudioError(null);
+      setMainStream('episode');
+    }
   };
 
   const togglePlay = async () => {
     if (playDisabled) return;
     const el = audioRef.current;
     if (!el) return;
+
+    pauseFullTheme();
+
     if (isPlaying) {
       el.pause();
       setIsPlaying(false);
       return;
     }
+
+    const shouldStartIntro =
+      story.hasIntroTheme &&
+      !!effectiveThemeIntroSrc &&
+      !skipIntroPref &&
+      !introDoneForEpisodeRef.current;
+
+    if (shouldStartIntro) {
+      if (mainStream === 'intro' && el.paused) {
+        try {
+          await waitForAudioReady(el, 10_000);
+          await el.play();
+          setIsPlaying(true);
+        } catch (error) {
+          console.log('Intro resume:', error);
+          setIsPlaying(false);
+        }
+        return;
+      }
+      pendingPlayIntroRef.current = true;
+      setMainStream('intro');
+      return;
+    }
+
+    setMainStream('episode');
     try {
       await waitForAudioReady(el, 10_000);
       await el.play();
@@ -249,6 +503,29 @@ export function StoryPageClient({
     } catch (error) {
       console.log('Playback could not start yet:', error);
       setIsPlaying(false);
+    }
+  };
+
+  const toggleFullTheme = async () => {
+    const f = fullAudioRef.current;
+    if (!f || !effectiveThemeFullSrc) return;
+    if (fullPlaying) {
+      f.pause();
+      setFullPlaying(false);
+      return;
+    }
+    const main = audioRef.current;
+    if (main && !main.paused) {
+      main.pause();
+      setIsPlaying(false);
+    }
+    try {
+      await waitForAudioReady(f, 10_000);
+      await f.play();
+      setFullPlaying(true);
+    } catch (err) {
+      console.log('Full theme playback:', err);
+      setFullPlaying(false);
     }
   };
 
@@ -265,6 +542,33 @@ export function StoryPageClient({
   const handleLoadedMetadata = () => {
     if (!audioRef.current) return;
     setDuration(audioRef.current.duration || 0);
+  };
+
+  const handleFullTimeUpdate = () => {
+    const f = fullAudioRef.current;
+    if (!f) return;
+    const current = f.currentTime || 0;
+    const total = f.duration || 0;
+    setFullProgress(total ? (current / total) * 100 : 0);
+    if (Number.isFinite(total) && total > 0) {
+      setFullDuration((d) => (d > 0 ? d : total));
+    }
+  };
+
+  const handleFullLoadedMetadata = () => {
+    const f = fullAudioRef.current;
+    if (!f) return;
+    setFullDuration(f.duration || 0);
+  };
+
+  const handleFullSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!effectiveThemeFullSrc) return;
+    const f = fullAudioRef.current;
+    if (!f) return;
+    const value = Number(e.target.value);
+    const total = f.duration || fullDuration;
+    f.currentTime = total ? (value / 100) * total : 0;
+    setFullProgress(value);
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -340,14 +644,30 @@ export function StoryPageClient({
                       </p>
                     ) : null}
                     <audio
-                      key={`${activeEpisode.id}-${resolvedAudioSrc ?? 'none'}`}
+                      ref={preloadEpisodeRef}
+                      src={
+                        canUsePlayer && resolvedAudioSrc
+                          ? resolvedAudioSrc
+                          : undefined
+                      }
+                      preload="auto"
+                      className="pointer-events-none absolute h-0 w-0 opacity-0"
+                      aria-hidden
+                      muted
+                    />
+                    <audio
+                      key={`main-${activeEpisode.id}-${mainStream}-${
+                        mainStream === 'intro'
+                          ? 'intro'
+                          : (resolvedAudioSrc ?? 'none')
+                      }`}
                       ref={audioRef}
-                      src={canUsePlayer ? resolvedAudioSrc || undefined : undefined}
+                      src={mainAudioSrc}
                       preload="auto"
                       onTimeUpdate={handleTimeUpdate}
                       onLoadedMetadata={handleLoadedMetadata}
-                      onEnded={() => setIsPlaying(false)}
-                      onError={canUsePlayer ? handleAudioElementError : undefined}
+                      onEnded={handleMainEnded}
+                      onError={mainAudioSrc ? handleMainAudioError : undefined}
                     />
                     <input
                       type="range"
@@ -401,20 +721,39 @@ export function StoryPageClient({
             </div>
           </div>
 
-          <div className="mt-4 flex items-center gap-3 px-1">
-            <input
-              id="transcript-toggle"
-              type="checkbox"
-              checked={showTranscript}
-              onChange={(e) => setShowTranscript(e.target.checked)}
-              className="switch"
-            />
-            <label
-              htmlFor="transcript-toggle"
-              className="cursor-pointer text-sm font-medium text-slate-600"
-            >
-              Auto-scrolling transcript
-            </label>
+          <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 px-1">
+            <div className="flex items-center gap-3">
+              <input
+                id="transcript-toggle"
+                type="checkbox"
+                checked={showTranscript}
+                onChange={(e) => setShowTranscript(e.target.checked)}
+                className="switch"
+              />
+              <label
+                htmlFor="transcript-toggle"
+                className="cursor-pointer text-sm font-medium text-slate-600"
+              >
+                Transcript
+              </label>
+            </div>
+            {showIntroChrome ? (
+              <div className="flex items-center gap-3">
+                <input
+                  id={`skip-intro-${story.slug}`}
+                  type="checkbox"
+                  checked={skipIntroPref}
+                  onChange={(e) => persistSkipIntro(e.target.checked)}
+                  className="switch"
+                />
+                <label
+                  htmlFor={`skip-intro-${story.slug}`}
+                  className="cursor-pointer text-sm font-medium text-slate-600"
+                >
+                  Skip intro music
+                </label>
+              </div>
+            ) : null}
           </div>
         </section>
 
@@ -483,6 +822,63 @@ export function StoryPageClient({
                   </p>
                 ) : null}
               </div>
+
+              {showFullThemeBar ? (
+                <div className="mb-4 mt-5 rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-3 shadow-sm ring-1 ring-slate-100">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                      Series theme
+                    </span>
+                    <span className="text-[11px] text-slate-400">Full track</span>
+                  </div>
+                  <audio
+                    ref={fullAudioRef}
+                    src={effectiveThemeFullSrc ?? undefined}
+                    preload="metadata"
+                    onTimeUpdate={handleFullTimeUpdate}
+                    onLoadedMetadata={handleFullLoadedMetadata}
+                    onEnded={() => setFullPlaying(false)}
+                    onPlay={() => setFullPlaying(true)}
+                    onPause={() => setFullPlaying(false)}
+                    className="hidden"
+                    aria-hidden
+                  />
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => void toggleFullTheme()}
+                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal-500 text-white shadow-sm transition hover:bg-teal-600"
+                      aria-label={
+                        fullPlaying ? 'Pause series theme' : 'Play series theme'
+                      }
+                    >
+                      {fullPlaying ? (
+                        <Pause className="h-4 w-4 fill-current" />
+                      ) : (
+                        <Play className="ml-0.5 h-4 w-4 fill-current" />
+                      )}
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={fullProgress}
+                        onChange={handleFullSeek}
+                        className="h-1 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-teal-500"
+                      />
+                      <div className="mt-1 flex justify-between font-mono text-[10px] text-slate-500">
+                        <span>
+                          {formatTime(
+                            fullDuration ? (fullProgress / 100) * fullDuration : 0
+                          )}
+                        </span>
+                        <span>{formatTime(fullDuration)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
 
               <div className="mb-4 mt-5 flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-100 text-sky-600">

@@ -1,5 +1,6 @@
 import {
   GetObjectCommand,
+  HeadObjectCommand,
   PutObjectCommand,
   S3Client,
   type PutObjectCommandInput,
@@ -121,6 +122,30 @@ export async function uploadPrivateAudioObject(params: {
 }
 
 const AUDIO_SIGN_DEFAULT_TTL_SEC = 900;
+
+/** Returns whether an object exists in the private audio bucket (for theme probe, etc.). */
+export async function headPrivateAudioObjectExists(
+  key: string
+): Promise<boolean> {
+  const bucket = getPrivateAudioBucket();
+  if (!bucket) return false;
+  const accessKeyId = getAccessKeyId();
+  const secretAccessKey = getSecretAccessKey();
+  if (!accessKeyId || !secretAccessKey) return false;
+  const normalized = key.replace(/^\/+/, '');
+  try {
+    const client = getClient();
+    await client.send(
+      new HeadObjectCommand({
+        Bucket: bucket,
+        Key: normalized,
+      })
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export async function presignPrivateAudioGetUrl(params: {
   key: string;

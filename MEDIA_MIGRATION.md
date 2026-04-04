@@ -56,3 +56,29 @@ Whichever option you choose, keep paths consistent so the app can build correct 
 - Upload flow: Admin **Uploads** → choose **Audio (private)**; paste returned `storageKey` into the episode’s **Private audio key** field.
 - Run `npx prisma migrate deploy` (or `migrate dev`) so `episodes.audio_storage_key` and `episodes.is_free_preview` exist.
 - For **free samples** on a premium series, enable **Free preview (no subscription)** on the episode in admin.
+
+### 5. Series theme audio (intro + full track)
+
+Optional theme music uses **fixed paths** per series slug. Upload to your **public** assets host (`NEXT_PUBLIC_ASSETS_BASE_URL` / `public/audio/...` locally)—not only a private episode bucket—so the app can `HEAD`/`GET` them like covers.
+
+The app tries, in order:
+
+1. Under a `music/` folder (common when organizing series assets):  
+   - `audio/<slug>/music/Intro_song/theme.mp3`  
+   - `audio/<slug>/music/full_song/theme.mp3`
+2. **Legacy** flat layout (still supported):  
+   - `audio/<slug>/Intro_song/theme.mp3`  
+   - `audio/<slug>/full_song/theme.mp3`
+
+Examples (preferred):
+
+- `audio/keepers-of-turtleshell-city/music/Intro_song/theme.mp3`
+- `audio/keepers-of-turtleshell-city/music/full_song/theme.mp3`
+
+Folder names are case-sensitive on some hosts (`Intro_song`, `full_song`). The story page probes these URLs on the server; the intro toggle and full-track bar only appear when the corresponding file returns successfully (for example HTTP 200 on `HEAD`).
+
+Theme files are treated as **public** URLs (same pattern as cover images). Episode audio may still be private R2 + signed playback as described above.
+
+**Local dev:** If you keep theme MP3s under `public/audio/...` only, the app detects them on disk even when a server `HEAD` to `localhost` fails (for example wrong port in `NEXT_PUBLIC_SITE_URL`). With `NEXT_PUBLIC_ASSETS_BASE_URL` set, development playback uses same-origin `/audio/...` for those files so they still play without uploading to R2.
+
+**Private bucket (R2_PRIVATE_BUCKET):** If theme files live only in the same private bucket as episode audio (no public read), use the same key layout as above (e.g. `audio/<slug>/music/Intro_song/theme.mp3`). The server uses `HeadObject` during the story page probe and playback URLs come from `GET /api/theme-audio/play` (presigned GET), same entitlement rules as the first episode.

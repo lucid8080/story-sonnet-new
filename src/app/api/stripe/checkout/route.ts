@@ -3,6 +3,13 @@ import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 import { siteUrl, stripe } from '@/lib/stripe-server';
 
+/** Stripe substitutes this in success_url; required for server-side subscription sync. */
+function ensureCheckoutSuccessUrlHasSessionTemplate(successUrl: string): string {
+  if (successUrl.includes('{CHECKOUT_SESSION_ID}')) return successUrl;
+  if (/[?&]session_id=/.test(successUrl)) return successUrl;
+  return `${successUrl}${successUrl.includes('?') ? '&' : '?'}session_id={CHECKOUT_SESSION_ID}`;
+}
+
 export async function POST(req: Request) {
   if (!stripe) {
     return NextResponse.json(
@@ -70,12 +77,15 @@ export async function POST(req: Request) {
   }
 
   const base = siteUrl();
+  const successRaw =
+    (body.returnUrlSuccess?.trim() || `${base}/billing/success`).trim();
+  const success_url = ensureCheckoutSuccessUrlHasSessionTemplate(successRaw);
+
   const checkoutSession = await stripe.checkout.sessions.create({
     mode: 'subscription',
     customer: customerId,
     line_items: [{ price: priceId, quantity: 1 }],
-    success_url:
-      body.returnUrlSuccess || `${base}/billing/success`,
+    success_url,
     cancel_url: body.returnUrlCancel || `${base}/billing/cancel`,
   });
 
