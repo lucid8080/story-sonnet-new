@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Headphones } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 
 function NavLink({
@@ -36,10 +36,15 @@ export default function SiteHeader() {
   return (
     <header className="border-b border-slate-200/80 bg-white/85 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3 sm:px-7 lg:px-8">
-        <Link href="/" className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-500 text-white shadow-md shadow-rose-200">
-            <Headphones className="h-5 w-5" />
-          </div>
+        <Link href="/" className="flex items-center gap-1.5">
+          <Image
+            src="/branding/logo.png"
+            alt="Story Sonnet"
+            width={120}
+            height={40}
+            className="h-10 w-auto max-w-[120px] object-contain object-left"
+            priority
+          />
           <div>
             <div className="text-sm font-black tracking-tight text-slate-900">
               Story Sonnet

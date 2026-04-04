@@ -1,7 +1,8 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
-import { SlidersHorizontal } from 'lucide-react';
+import { Bookmark, SlidersHorizontal } from 'lucide-react';
 import {
   defaultStoryFiltersState,
   type BrowseStory,
@@ -18,19 +19,30 @@ import EmptyResults from '@/components/library/EmptyResults';
 
 type Props = {
   initialStories: BrowseStory[];
+  savedSlugs?: string[];
+  isLoggedIn?: boolean;
 };
 
-export default function LibraryBrowseClient({ initialStories }: Props) {
+export default function LibraryBrowseClient({
+  initialStories,
+  savedSlugs = [],
+  isLoggedIn = false,
+}: Props) {
+  const router = useRouter();
   const [filters, setFilters] = useState<StoryFiltersState>(
     defaultStoryFiltersState
   );
   const [sort, setSort] = useState<SortOption>('newest');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [savedOnly, setSavedOnly] = useState(false);
 
-  const results = useMemo(
-    () => filterAndSortStories(initialStories, filters, sort),
-    [initialStories, filters, sort]
-  );
+  const savedSlugSet = useMemo(() => new Set(savedSlugs), [savedSlugs]);
+
+  const results = useMemo(() => {
+    const base = filterAndSortStories(initialStories, filters, sort);
+    if (!savedOnly) return base;
+    return base.filter((s) => savedSlugSet.has(s.slug));
+  }, [initialStories, filters, sort, savedOnly, savedSlugSet]);
 
   const clearFilters = () => setFilters(defaultStoryFiltersState());
 
@@ -57,7 +69,11 @@ export default function LibraryBrowseClient({ initialStories }: Props) {
         <p className="text-sm font-semibold text-slate-700" aria-live="polite">
           {results.length}{' '}
           {results.length === 1 ? 'story' : 'stories'}
-          {hasActiveFilters ? ' match your filters' : ' to explore'}
+          {savedOnly
+            ? ' in your saved list'
+            : hasActiveFilters
+              ? ' match your filters'
+              : ' to explore'}
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <button
@@ -67,6 +83,30 @@ export default function LibraryBrowseClient({ initialStories }: Props) {
           >
             <SlidersHorizontal className="h-5 w-5" aria-hidden />
             Filters
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!isLoggedIn) {
+                router.push(
+                  `/login?callbackUrl=${encodeURIComponent('/library')}`
+                );
+                return;
+              }
+              setSavedOnly((v) => !v);
+            }}
+            className={`inline-flex min-h-11 items-center gap-2 rounded-full px-4 py-2 text-sm font-bold shadow-md ring-1 transition ${
+              savedOnly
+                ? 'bg-sky-100 text-sky-900 ring-sky-200'
+                : 'bg-white text-slate-800 ring-slate-200 hover:bg-slate-50'
+            }`}
+            aria-pressed={savedOnly}
+          >
+            <Bookmark
+              className={`h-5 w-5 ${savedOnly ? 'fill-current' : ''}`}
+              aria-hidden
+            />
+            Saved
           </button>
           <SortSelect value={sort} onChange={setSort} />
         </div>
@@ -80,7 +120,27 @@ export default function LibraryBrowseClient({ initialStories }: Props) {
         <FilterSidebar filters={filters} onFiltersChange={setFilters} />
 
         <section aria-label="Story results">
-          {results.length === 0 ? (
+          {results.length === 0 && savedOnly && isLoggedIn ? (
+            <div
+              role="status"
+              className="flex flex-col items-center justify-center rounded-3xl bg-white/90 px-6 py-16 text-center shadow-inner ring-1 ring-slate-100"
+            >
+              <p className="text-lg font-black text-slate-900">
+                No saved series yet
+              </p>
+              <p className="mt-2 max-w-md text-sm text-slate-600">
+                Open any story, sign in, and tap &quot;Add to library&quot; to
+                collect favorites here.
+              </p>
+              <button
+                type="button"
+                onClick={() => setSavedOnly(false)}
+                className="mt-6 min-h-12 rounded-full bg-slate-900 px-6 text-sm font-bold text-white shadow-md hover:bg-slate-800"
+              >
+                Browse all stories
+              </button>
+            </div>
+          ) : results.length === 0 ? (
             <EmptyResults onClearFilters={clearFilters} />
           ) : (
             <ul className="grid list-none gap-6 p-0 sm:grid-cols-2 xl:grid-cols-3">

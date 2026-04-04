@@ -18,6 +18,9 @@ model User {
   accounts      Account[]
   sessions      Session[]
   profile       Profile?
+  storySeriesLikes    StorySeriesLike[]
+  userSavedStories    UserSavedStory[]
+  storySeriesComments StorySeriesComment[]
 }
 
 model Account {
@@ -155,4 +158,43 @@ model Upload {
   createdAt   DateTime @default(now()) @map("created_at")
 
   @@map("uploads")
+}
+
+model StorySeriesLike {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  storySlug String   @map("story_slug")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, storySlug])
+  @@index([storySlug])
+  @@map("story_series_likes")
+}
+
+model UserSavedStory {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  storySlug String   @map("story_slug")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, storySlug])
+  @@index([storySlug])
+  @@map("user_saved_stories")
+}
+
+model StorySeriesComment {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  storySlug String   @map("story_slug")
+  body      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([storySlug, createdAt])
+  @@map("story_series_comments")
 }

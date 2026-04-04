@@ -10,7 +10,9 @@ import {
   useState,
 } from 'react';
 import {
+  ChevronDown,
   ChevronLeft,
+  ChevronUp,
   Play,
   Pause,
   ListMusic,
@@ -22,6 +24,11 @@ import {
 import type { StoryForPlayer } from '@/lib/stories';
 import { getTranscriptLines } from '@/lib/transcripts';
 import SubscriptionGate from '@/components/auth/SubscriptionGate';
+import {
+  StoryEngagementProvider,
+  StorySeriesActionsBar,
+  StorySeriesCommentsPanel,
+} from '@/components/story/StorySeriesEngagement';
 
 function sameOriginPlaceholderAudioUrl(): string {
   return new URL('/api/audio/placeholder', window.location.origin).href;
@@ -72,6 +79,8 @@ function skipIntroStorageKey(slug: string): string {
 
 type MainStreamKind = 'intro' | 'episode';
 
+const EPISODE_WINDOW_SIZE = 3;
+
 export function StoryPageClient({
   story,
   isSubscribed,
@@ -109,8 +118,46 @@ export function StoryPageClient({
   const usedEpisodePlaceholderFallbackRef = useRef(false);
   const usedIntroPlaceholderFallbackRef = useRef(false);
   const [usingPlaceholderAudio, setUsingPlaceholderAudio] = useState(false);
+  const [episodeWindowStart, setEpisodeWindowStart] = useState(0);
 
   const activeEpisode = story.episodes[activeEpisodeIndex];
+  const episodeCount = story.episodes.length;
+  const maxEpisodeWindowStart = Math.max(0, episodeCount - EPISODE_WINDOW_SIZE);
+  const useEpisodeWindow = episodeCount > EPISODE_WINDOW_SIZE;
+  const visibleEpisodeIndices = useMemo(() => {
+    if (!useEpisodeWindow) {
+      return story.episodes.map((_, i) => i);
+    }
+    const out: number[] = [];
+    for (
+      let i = episodeWindowStart;
+      i < episodeWindowStart + EPISODE_WINDOW_SIZE && i < episodeCount;
+      i += 1
+    ) {
+      out.push(i);
+    }
+    return out;
+  }, [episodeCount, episodeWindowStart, story.episodes, useEpisodeWindow]);
+
+  useEffect(() => {
+    setEpisodeWindowStart(0);
+  }, [story.slug]);
+
+  useEffect(() => {
+    if (!useEpisodeWindow) return;
+    setEpisodeWindowStart((prev) => {
+      if (
+        activeEpisodeIndex >= prev &&
+        activeEpisodeIndex < prev + EPISODE_WINDOW_SIZE
+      ) {
+        return prev;
+      }
+      return Math.min(
+        Math.max(0, activeEpisodeIndex - EPISODE_WINDOW_SIZE + 1),
+        maxEpisodeWindowStart
+      );
+    });
+  }, [activeEpisodeIndex, maxEpisodeWindowStart, useEpisodeWindow]);
 
   const needsPaywall = !!(
     activeEpisode &&
@@ -698,8 +745,9 @@ export function StoryPageClient({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-violet-50 text-slate-800">
-      <main className="mx-auto grid max-w-6xl gap-8 px-5 py-5 sm:px-7 lg:grid-cols-[0.88fr_1.12fr] lg:px-8 lg:py-6">
+    <StoryEngagementProvider storySlug={story.slug}>
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-violet-50 text-slate-800">
+        <main className="mx-auto grid max-w-6xl gap-8 px-5 py-5 sm:px-7 lg:grid-cols-[0.88fr_1.12fr] lg:px-8 lg:py-6">
         <section>
           <Link
             href="/"
@@ -937,6 +985,7 @@ export function StoryPageClient({
                     {story.fullDescription}
                   </p>
                 ) : null}
+                <StorySeriesActionsBar />
               </div>
 
               {showFullThemeBar ? (
@@ -996,20 +1045,61 @@ export function StoryPageClient({
                 </div>
               ) : null}
 
-              <div className="mb-4 mt-5 flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-100 text-sky-600">
-                  <ListMusic className="h-6 w-6" />
+              <div className="mb-4 mt-5 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-100 text-sky-600">
+                    <ListMusic className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-slate-900">Episodes</h2>
+                    <p className="text-sm text-slate-500">
+                      Choose an episode and play it from the cover.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-xl font-black text-slate-900">Episodes</h2>
-                  <p className="text-sm text-slate-500">
-                    Choose an episode and play it from the cover.
-                  </p>
-                </div>
+                {useEpisodeWindow ? (
+                  <div className="flex flex-col items-end gap-1">
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEpisodeWindowStart((s) => Math.max(0, s - 1))
+                        }
+                        disabled={episodeWindowStart <= 0}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:pointer-events-none disabled:opacity-40"
+                        aria-label="Show earlier episodes"
+                      >
+                        <ChevronUp className="h-5 w-5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEpisodeWindowStart((s) =>
+                            Math.min(maxEpisodeWindowStart, s + 1)
+                          )
+                        }
+                        disabled={episodeWindowStart >= maxEpisodeWindowStart}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:pointer-events-none disabled:opacity-40"
+                        aria-label="Show later episodes"
+                      >
+                        <ChevronDown className="h-5 w-5" />
+                      </button>
+                    </div>
+                    <span className="text-xs font-medium text-slate-400">
+                      {episodeWindowStart + 1}–
+                      {Math.min(
+                        episodeWindowStart + EPISODE_WINDOW_SIZE,
+                        episodeCount
+                      )}{' '}
+                      of {episodeCount}
+                    </span>
+                  </div>
+                ) : null}
               </div>
 
-              <div className="space-y-3">
-                {story.episodes.map((episode, index) => {
+              <div className="space-y-3" aria-live="polite">
+                {visibleEpisodeIndices.map((index) => {
+                  const episode = story.episodes[index];
                   const active = index === activeEpisodeIndex;
                   return (
                     <button
@@ -1058,7 +1148,11 @@ export function StoryPageClient({
             </>
           )}
         </section>
-      </main>
-    </div>
+        </main>
+        <div className="mx-auto max-w-6xl px-5 pb-12 sm:px-7 lg:px-8">
+          <StorySeriesCommentsPanel className="mt-2" />
+        </div>
+      </div>
+    </StoryEngagementProvider>
   );
 }

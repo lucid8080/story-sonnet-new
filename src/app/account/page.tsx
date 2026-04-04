@@ -1,6 +1,11 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { auth, signOut } from '@/auth';
+import StoryCard from '@/components/library/StoryCard';
+import {
+  browseStoriesForSavedSlugs,
+  fetchSavedStorySlugs,
+} from '@/lib/userSavedStories';
 
 function SignOutButton() {
   return (
@@ -54,6 +59,9 @@ export default async function AccountPage() {
   const sub = session.user.subscriptionStatus;
   const isSubscribed = sub === 'active' || sub === 'trialing';
 
+  const savedSlugs = await fetchSavedStorySlugs(session.user.id);
+  const savedBrowseStories = await browseStoriesForSavedSlugs(savedSlugs);
+
   return (
     <div className="min-h-[70vh] bg-gradient-to-b from-amber-50 via-rose-50/40 to-sky-50">
       <div className="mx-auto max-w-2xl px-5 py-10 sm:px-0">
@@ -98,6 +106,34 @@ export default async function AccountPage() {
             )}
             <SignOutButton />
           </div>
+        </div>
+
+        <div className="mt-8 rounded-3xl bg-white p-6 shadow-xl ring-1 ring-slate-100">
+          <h2 className="text-xl font-black text-slate-900">Your saved series</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Stories you added from a series page appear here and in the library
+            &quot;Saved&quot; view.
+          </p>
+          {savedBrowseStories.length === 0 ? (
+            <p className="mt-6 text-sm text-slate-600">
+              Nothing saved yet.{' '}
+              <Link
+                href="/library"
+                className="font-bold text-rose-600 underline-offset-2 hover:underline"
+              >
+                Browse the library
+              </Link>{' '}
+              and tap &quot;Add to library&quot; on a story you love.
+            </p>
+          ) : (
+            <ul className="mt-6 grid list-none gap-6 p-0 sm:grid-cols-2">
+              {savedBrowseStories.map((story) => (
+                <li key={story.slug}>
+                  <StoryCard story={story} />
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </div>
