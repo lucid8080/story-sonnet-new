@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { auth } from '@/auth';
-import { agentDebugLog } from '@/lib/agent-debug-log';
 import { stripe } from '@/lib/stripe-server';
 import { syncSubscriptionFromCheckoutReturn } from '@/lib/syncSubscriptionFromCheckoutReturn';
 
@@ -12,21 +11,12 @@ export default async function BillingSuccessPage({
   const { session_id } = await searchParams;
   const session = await auth();
 
-  if (session?.user?.id && session_id?.trim() && stripe) {
+  if (session_id?.trim() && stripe) {
     await syncSubscriptionFromCheckoutReturn({
       stripe,
-      userId: session.user.id,
       checkoutSessionId: session_id.trim(),
+      sessionUserId: session?.user?.id ?? null,
     });
-  } else if (session?.user?.id && !session_id?.trim()) {
-    // #region agent log
-    agentDebugLog({
-      location: 'billing/success/page.tsx',
-      message: 'no session_id on success URL — checkout success_url missing template',
-      hypothesisId: 'H7',
-      hasStripe: !!stripe,
-    });
-    // #endregion
   }
 
   return (

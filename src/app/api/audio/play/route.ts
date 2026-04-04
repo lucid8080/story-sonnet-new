@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { canPlayEpisode } from '@/lib/audioEntitlement';
+import { fetchStoryBySlug } from '@/lib/stories';
 import prisma from '@/lib/prisma';
 import { resolvePublicAssetUrl } from '@/lib/resolvePublicAssetUrl';
+import { getResolvedCatalogEpisodeAudioSrc } from '@/lib/catalogAudio';
 import {
   getPrivateAudioBucket,
+  headPrivateAudioObjectExists,
   presignPrivateAudioGetUrl,
 } from '@/lib/s3';
 
@@ -17,45 +20,30 @@ function isSubscribedFromSession(
 }
 
 /**
- * MP3s often live only in R2_PRIVATE_BUCKET while DB still has a public CDN URL that 404s.
- * When R2_PRIVATE_BUCKET is set and the legacy URL targets the same host as NEXT_PUBLIC_ASSETS_BASE_URL
- * under /audio/..., presign GET from the private bucket using that object key.
+ * All catalog/legacy audio paths are shaped like `/audio/<slug>/episode-n.mp3`.
+ * If objects live only in the private bucket, presign using that key — no need for
+ * NEXT_PUBLIC_ASSETS_BASE_URL hostname to match (private bucket is not a public CDN origin).
  */
-async function tryPresignLegacyAudioFromPrivateBucket(
+async function tryPresignPrivateAudioByCatalogPath(
   legacyUrl: string
 ): Promise<string | null> {
-  if (!process.env.R2_PRIVATE_BUCKET?.trim()) return null;
-
-  const baseRaw =
-    process.env.NEXT_PUBLIC_ASSETS_BASE_URL?.trim().replace(/\/+$/, '') ?? '';
-  if (!baseRaw) return null;
-
   if (!getPrivateAudioBucket()) return null;
 
   const resolved = resolvePublicAssetUrl(legacyUrl) ?? legacyUrl;
-  let u: URL;
+  let pathname: string;
   try {
-    u = new URL(resolved);
+    pathname = new URL(resolved).pathname;
   } catch {
-    return null;
+    const t = resolved.trim();
+    if (!t.startsWith('/')) return null;
+    pathname = (t.split('?')[0] ?? '').split('#')[0] ?? '';
   }
+  if (pathname.includes('..')) return null;
+  if (!pathname.toLowerCase().startsWith('/audio/')) return null;
 
-  if (!u.pathname.toLowerCase().startsWith('/audio/')) {
-    return null;
-  }
+  const key = pathname.replace(/^\/+/, '');
+  if (!key) return null;
 
-  let pub: URL;
-  try {
-    pub = new URL(baseRaw.includes('://') ? baseRaw : `https://${baseRaw}`);
-  } catch {
-    return null;
-  }
-
-  if (u.hostname !== pub.hostname) {
-    return null;
-  }
-
-  const key = u.pathname.replace(/^\/+/, '');
   try {
     return await presignPrivateAudioGetUrl({ key });
   } catch {
@@ -66,29 +54,15 @@ async function tryPresignLegacyAudioFromPrivateBucket(
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const rawId = searchParams.get('episodeId')?.trim();
-  if (!rawId || !/^\d+$/.test(rawId)) {
-    return NextResponse.json({ error: 'Invalid episodeId' }, { status: 400 });
-  }
-
-  if (!process.env.DATABASE_URL) {
+  const slug = searchParams.get('slug')?.trim() ?? '';
+  const rawEpisodeNumber = searchParams.get('episodeNumber')?.trim() ?? '';
+  const hasNumericEpisodeId = !!(rawId && /^\d+$/.test(rawId));
+  const hasSlugEpisode = !!(slug && /^\d+$/.test(rawEpisodeNumber));
+  if (!hasNumericEpisodeId && !hasSlugEpisode) {
     return NextResponse.json(
-      { error: 'Audio API requires a configured database.' },
-      { status: 503 }
+      { error: 'Provide episodeId OR slug+episodeNumber' },
+      { status: 400 }
     );
-  }
-
-  const episodeId = BigInt(rawId);
-  const episode = await prisma.episode.findUnique({
-    where: { id: episodeId },
-    include: { story: true },
-  });
-
-  if (!episode || !episode.story) {
-    return NextResponse.json({ error: 'Episode not found' }, { status: 404 });
-  }
-
-  if (!episode.isPublished || !episode.story.isPublished) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
   const session = await auth();
@@ -96,10 +70,68 @@ export async function GET(req: Request) {
     session?.user?.subscriptionStatus
   );
 
+  let requestEpisodeRef = rawId ?? `${slug}:${rawEpisodeNumber}`;
+  let storySlug = '';
+  let storyIsPremium = false;
+  let episodeIsPremium = false;
+  let episodeIsFreePreview = false;
+  let episodeNumber = 0;
+  let key = '';
+  let legacyUrl = '';
+
+  if (hasNumericEpisodeId) {
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json(
+        { error: 'Audio API requires a configured database.' },
+        { status: 503 }
+      );
+    }
+    const episodeId = BigInt(rawId as string);
+    const episode = await prisma.episode.findUnique({
+      where: { id: episodeId },
+      include: { story: true },
+    });
+
+    if (!episode || !episode.story) {
+      return NextResponse.json({ error: 'Episode not found' }, { status: 404 });
+    }
+
+    if (!episode.isPublished || !episode.story.isPublished) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
+    storySlug = episode.story.slug;
+    storyIsPremium = episode.story.isPremium;
+    episodeIsPremium = episode.isPremium;
+    episodeIsFreePreview = episode.isFreePreview;
+    episodeNumber = episode.episodeNumber;
+    key = episode.audioStorageKey?.trim() ?? '';
+    legacyUrl = episode.audioUrl?.trim() ?? '';
+  } else {
+    const epNum = Number(rawEpisodeNumber);
+    const story = await fetchStoryBySlug(slug);
+    if (!story?.isPublished) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+    const ep = story.episodes.find((x) => x.episodeNumber === epNum);
+    if (!ep || !ep.isPublished) {
+      return NextResponse.json({ error: 'Episode not found' }, { status: 404 });
+    }
+
+    requestEpisodeRef = `${slug}:${epNum}`;
+    storySlug = story.slug;
+    storyIsPremium = story.isPremium;
+    episodeIsPremium = ep.isPremium;
+    episodeIsFreePreview = ep.isFreePreview;
+    episodeNumber = epNum;
+    key = ep.audioStorageKey?.trim() ?? '';
+    legacyUrl = ep.audioSrc?.trim() ?? '';
+  }
+
   const canPlay = canPlayEpisode(
-    episode.story.isPremium,
-    episode.isPremium,
-    episode.isFreePreview,
+    storyIsPremium,
+    episodeIsPremium,
+    episodeIsFreePreview,
     isSubscribed
   );
 
@@ -107,12 +139,25 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const key = episode.audioStorageKey?.trim();
-  const legacyUrl = episode.audioUrl?.trim();
+  const catalogUrl =
+    getResolvedCatalogEpisodeAudioSrc(
+      storySlug,
+      episodeNumber
+    )?.trim() ?? '';
+  /** Without R2 key, catalog `data.js` URL wins over DB `audioUrl` (fixes bad seeds / empty URLs). */
+  const effectiveLegacy = catalogUrl || legacyUrl;
 
+  let storageKeyToPresign: string | null = null;
   if (key) {
+    const exists = await headPrivateAudioObjectExists(key);
+    if (exists) {
+      storageKeyToPresign = key;
+    }
+  }
+
+  if (storageKeyToPresign) {
     try {
-      const url = await presignPrivateAudioGetUrl({ key });
+      const url = await presignPrivateAudioGetUrl({ key: storageKeyToPresign });
       return NextResponse.json({ url });
     } catch (e) {
       console.error('[audio/play] presign failed', e);
@@ -123,15 +168,48 @@ export async function GET(req: Request) {
     }
   }
 
-  if (legacyUrl) {
-    const privateSigned = await tryPresignLegacyAudioFromPrivateBucket(legacyUrl);
+  if (effectiveLegacy) {
+    const privateSigned =
+      await tryPresignPrivateAudioByCatalogPath(effectiveLegacy);
     if (privateSigned) {
       return NextResponse.json({ url: privateSigned });
     }
 
-    const url = resolvePublicAssetUrl(legacyUrl) ?? legacyUrl;
+    const url = resolvePublicAssetUrl(effectiveLegacy) ?? effectiveLegacy;
     return NextResponse.json({ url });
   }
 
+  if (key) {
+    try {
+      const url = await presignPrivateAudioGetUrl({ key });
+      console.error(
+        '[audio/play]',
+        JSON.stringify({
+          branch: 'presignLastResort',
+          episodeId: requestEpisodeRef,
+          storySlug,
+          keyPrefix: key.slice(0, 48),
+          note: 'HEAD was false or no catalog/legacy; presigning storage key anyway',
+        })
+      );
+      return NextResponse.json({ url });
+    } catch (e) {
+      console.error('[audio/play] presign last-resort failed', e);
+      return NextResponse.json(
+        { error: 'Could not prepare audio URL' },
+        { status: 500 }
+      );
+    }
+  }
+
+  console.error(
+    '[audio/play]',
+    JSON.stringify({
+      branch: 'noAudio',
+      episodeId: requestEpisodeRef,
+      storySlug,
+      hasCatalog: !!catalogUrl,
+    })
+  );
   return NextResponse.json({ error: 'No audio for this episode' }, { status: 404 });
 }

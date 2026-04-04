@@ -1,6 +1,5 @@
 import Stripe from 'stripe';
 import prisma from '@/lib/prisma';
-import { agentDebugLog } from '@/lib/agent-debug-log';
 
 function customerIdFromStripe(
   customer:
@@ -24,48 +23,45 @@ function mapStripeSubscriptionToProfileStatus(status: string): string {
 }
 
 /**
- * After Checkout redirect, sync Prisma profile from the Checkout Session so
- * subscription works even if webhooks are missing, misconfigured, or delayed.
+ * After Checkout redirect, sync Prisma profile from the Checkout Session.
+ * Uses `client_reference_id` (set when creating the session) so this works
+ * even when the NextAuth session cookie is missing right after Stripe redirect.
  */
 export async function syncSubscriptionFromCheckoutReturn(options: {
   stripe: InstanceType<typeof Stripe>;
-  userId: string;
   checkoutSessionId: string;
+  /** If set, must match the session's `client_reference_id`. */
+  sessionUserId?: string | null;
 }): Promise<{ ok: boolean; reason: string }> {
-  const { stripe, userId, checkoutSessionId } = options;
+  const { stripe, checkoutSessionId, sessionUserId } = options;
 
   try {
     const cs = await stripe.checkout.sessions.retrieve(checkoutSessionId, {
       expand: ['subscription'],
     });
 
+    const refUserId = cs.client_reference_id || null;
+    if (!refUserId) {
+      return { ok: false, reason: 'no_client_reference_id' };
+    }
+
+    if (sessionUserId && sessionUserId !== refUserId) {
+      return { ok: false, reason: 'session_user_mismatch' };
+    }
+
+    const userId = refUserId;
+
     if (cs.mode !== 'subscription') {
-      agentDebugLog({
-        location: 'syncSubscriptionFromCheckoutReturn',
-        message: 'skip: not subscription mode',
-        hypothesisId: 'H6',
-        data: { mode: cs.mode },
-      });
       return { ok: false, reason: 'not_subscription_mode' };
     }
 
     const customerId = customerIdFromStripe(cs.customer);
     if (!customerId) {
-      agentDebugLog({
-        location: 'syncSubscriptionFromCheckoutReturn',
-        message: 'skip: no customer id',
-        hypothesisId: 'H6',
-      });
       return { ok: false, reason: 'no_customer' };
     }
 
     const profile = await prisma.profile.findUnique({ where: { userId } });
     if (!profile) {
-      agentDebugLog({
-        location: 'syncSubscriptionFromCheckoutReturn',
-        message: 'skip: no profile',
-        hypothesisId: 'H6',
-      });
       return { ok: false, reason: 'no_profile' };
     }
 
@@ -85,12 +81,6 @@ export async function syncSubscriptionFromCheckoutReturn(options: {
     }
 
     if (!allowed) {
-      agentDebugLog({
-        location: 'syncSubscriptionFromCheckoutReturn',
-        message: 'skip: session not owned by user',
-        hypothesisId: 'H6',
-        data: { customerIdTail: customerId.slice(-6) },
-      });
       return { ok: false, reason: 'ownership_mismatch' };
     }
 
@@ -104,11 +94,6 @@ export async function syncSubscriptionFromCheckoutReturn(options: {
     }
 
     if (!stripeStatus) {
-      agentDebugLog({
-        location: 'syncSubscriptionFromCheckoutReturn',
-        message: 'skip: no subscription on session',
-        hypothesisId: 'H6',
-      });
       return { ok: false, reason: 'no_subscription' };
     }
 
@@ -122,27 +107,8 @@ export async function syncSubscriptionFromCheckoutReturn(options: {
       },
     });
 
-    agentDebugLog({
-      location: 'syncSubscriptionFromCheckoutReturn',
-      message: 'profile synced from checkout return',
-      hypothesisId: 'H6',
-      data: {
-        stripeStatus,
-        profileStatus,
-        customerIdTail: customerId.slice(-6),
-      },
-    });
-
     return { ok: true, reason: 'updated' };
-  } catch (e) {
-    agentDebugLog({
-      location: 'syncSubscriptionFromCheckoutReturn',
-      message: 'sync threw',
-      hypothesisId: 'H6',
-      data: {
-        err: e instanceof Error ? e.message.slice(0, 200) : 'unknown',
-      },
-    });
+  } catch {
     return { ok: false, reason: 'error' };
   }
 }

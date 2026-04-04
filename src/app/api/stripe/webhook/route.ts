@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import prisma from '@/lib/prisma';
-import { agentDebugLog } from '@/lib/agent-debug-log';
 import { stripe } from '@/lib/stripe-server';
 
 export const runtime = 'nodejs';
@@ -26,14 +25,6 @@ async function handleSubscriptionChange(
   status: string
 ) {
   if (!customerId) {
-    // #region agent log
-    agentDebugLog({
-      location: 'webhook/route.ts:handleSubscriptionChange',
-      message: 'skipped: missing customer id',
-      hypothesisId: 'H3',
-      incomingStatus: status,
-    });
-    // #endregion
     return;
   }
 
@@ -51,19 +42,6 @@ async function handleSubscriptionChange(
     data: { subscriptionStatus: profileStatus },
   });
 
-  // #region agent log
-  agentDebugLog({
-    location: 'webhook/route.ts:handleSubscriptionChange',
-    message: 'subscription update attempt',
-    hypothesisId: 'H2',
-    customerIdLen: customerId?.length ?? 0,
-    customerIdTail: customerId ? customerId.slice(-6) : null,
-    incomingStatus: status,
-    profileStatus,
-    rowsUpdated: result.count,
-  });
-  // #endregion
-
   if (result.count === 0 && stripe) {
     try {
       const cust = await stripe.customers.retrieve(customerId);
@@ -80,15 +58,6 @@ async function handleSubscriptionChange(
             stripeCustomerId: customerId,
           },
         });
-        // #region agent log
-        agentDebugLog({
-          location: 'webhook/route.ts:handleSubscriptionChange fallback',
-          message: 'subscription update via customer metadata',
-          hypothesisId: 'H2',
-          rowsUpdated: r2.count,
-          profileStatus,
-        });
-        // #endregion
         if (r2.count > 0) {
           return;
         }
@@ -102,7 +71,7 @@ async function handleSubscriptionChange(
     console.warn(
       '[stripe webhook] No profile for customer',
       customerId,
-      '(debug: subscription mapping skipped)'
+      '(subscription mapping skipped)'
     );
   }
 }
@@ -118,17 +87,6 @@ async function syncSubscriptionFromCheckoutSession(
       | Stripe.DeletedCustomer
       | null
   );
-  // #region agent log
-  agentDebugLog({
-    location: 'webhook/route.ts:syncSubscriptionFromCheckoutSession',
-    message: 'checkout session subscription sync',
-    hypothesisId: 'H3',
-    customerType: rawCustomer == null ? 'null' : typeof rawCustomer,
-    hasCustomerId: !!customerId,
-    mode: sessionObj.mode ?? null,
-    hasSubscriptionField: !!sessionObj.subscription,
-  });
-  // #endregion
   if (
     sessionObj.mode === 'subscription' &&
     sessionObj.subscription &&
@@ -140,15 +98,6 @@ async function syncSubscriptionFromCheckoutSession(
 
 export async function POST(req: Request) {
   if (!stripe || !process.env.STRIPE_WEBHOOK_SECRET) {
-    // #region agent log
-    agentDebugLog({
-      location: 'webhook/route.ts:POST early',
-      message: 'webhook unavailable',
-      hypothesisId: 'H1',
-      hasStripe: !!stripe,
-      hasWebhookSecret: !!process.env.STRIPE_WEBHOOK_SECRET,
-    });
-    // #endregion
     return NextResponse.json(
       { error: 'Stripe webhook not configured.' },
       { status: 503 }
@@ -179,16 +128,6 @@ export async function POST(req: Request) {
   }
 
   try {
-    // #region agent log
-    agentDebugLog({
-      location: 'webhook/route.ts:POST',
-      message: 'stripe event received',
-      hypothesisId: 'H1',
-      eventType: event.type,
-      apiVersion: event.api_version ?? null,
-    });
-    // #endregion
-
     switch (event.type) {
       case 'checkout.session.completed':
       case 'checkout.session.async_payment_succeeded': {
@@ -229,15 +168,6 @@ export async function POST(req: Request) {
         break;
     }
   } catch (e) {
-    // #region agent log
-    agentDebugLog({
-      location: 'webhook/route.ts:POST catch',
-      message: 'webhook handler threw',
-      hypothesisId: 'H5',
-      errName: e instanceof Error ? e.name : 'unknown',
-      errMessage: e instanceof Error ? e.message.slice(0, 200) : 'non-Error',
-    });
-    // #endregion
     console.error('[stripe webhook] handler error', e);
     return NextResponse.json({ error: 'Handler failed' }, { status: 500 });
   }

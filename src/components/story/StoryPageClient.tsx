@@ -23,6 +23,10 @@ import type { StoryForPlayer } from '@/lib/stories';
 import { getTranscriptLines } from '@/lib/transcripts';
 import SubscriptionGate from '@/components/auth/SubscriptionGate';
 
+function sameOriginPlaceholderAudioUrl(): string {
+  return new URL('/api/audio/placeholder', window.location.origin).href;
+}
+
 function mediaErrorMessage(el: HTMLAudioElement | null): string {
   const code = el?.error?.code;
   if (code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
@@ -102,6 +106,9 @@ export function StoryPageClient({
   const transcriptScrollerRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<(HTMLParagraphElement | null)[]>([]);
   const pendingPlayIntroRef = useRef(false);
+  const usedEpisodePlaceholderFallbackRef = useRef(false);
+  const usedIntroPlaceholderFallbackRef = useRef(false);
+  const [usingPlaceholderAudio, setUsingPlaceholderAudio] = useState(false);
 
   const activeEpisode = story.episodes[activeEpisodeIndex];
 
@@ -157,11 +164,18 @@ export function StoryPageClient({
       .then(async (r) => {
         const data = (await r.json().catch(() => ({}))) as { url?: string };
         if (cancelled) return;
-        if (r.ok && data.url) setResolvedThemeIntroSrc(data.url);
-        else setResolvedThemeIntroSrc(null);
+        if (r.ok && data.url) {
+          setResolvedThemeIntroSrc(data.url);
+          return;
+        }
+        setUsingPlaceholderAudio(true);
+        setResolvedThemeIntroSrc(sameOriginPlaceholderAudioUrl());
       })
       .catch(() => {
-        if (!cancelled) setResolvedThemeIntroSrc(null);
+        if (!cancelled) {
+          setUsingPlaceholderAudio(true);
+          setResolvedThemeIntroSrc(sameOriginPlaceholderAudioUrl());
+        }
       });
     return () => {
       cancelled = true;
@@ -191,11 +205,18 @@ export function StoryPageClient({
       .then(async (r) => {
         const data = (await r.json().catch(() => ({}))) as { url?: string };
         if (cancelled) return;
-        if (r.ok && data.url) setResolvedThemeFullSrc(data.url);
-        else setResolvedThemeFullSrc(null);
+        if (r.ok && data.url) {
+          setResolvedThemeFullSrc(data.url);
+          return;
+        }
+        setUsingPlaceholderAudio(true);
+        setResolvedThemeFullSrc(sameOriginPlaceholderAudioUrl());
       })
       .catch(() => {
-        if (!cancelled) setResolvedThemeFullSrc(null);
+        if (!cancelled) {
+          setUsingPlaceholderAudio(true);
+          setResolvedThemeFullSrc(sameOriginPlaceholderAudioUrl());
+        }
       });
     return () => {
       cancelled = true;
@@ -233,6 +254,9 @@ export function StoryPageClient({
     pendingPlayIntroRef.current = false;
     playEpisodeAfterIntroRef.current = false;
     introDoneForEpisodeRef.current = false;
+    usedEpisodePlaceholderFallbackRef.current = false;
+    usedIntroPlaceholderFallbackRef.current = false;
+    setUsingPlaceholderAudio(false);
     setMainStream('episode');
   }, [activeEpisodeIndex, story.slug]);
 
@@ -265,15 +289,25 @@ export function StoryPageClient({
           };
           if (cancelled) return;
           if (!r.ok) {
-            setAudioError(data.error || 'Could not load audio');
-            setResolvedAudioSrc(null);
+            setUsingPlaceholderAudio(true);
+            setResolvedAudioSrc(sameOriginPlaceholderAudioUrl());
+            setAudioError(null);
             return;
           }
-          if (data.url) setResolvedAudioSrc(data.url);
-          else setAudioError('No audio URL returned');
+          if (data.url) {
+            setResolvedAudioSrc(data.url);
+            return;
+          }
+          setUsingPlaceholderAudio(true);
+          setResolvedAudioSrc(sameOriginPlaceholderAudioUrl());
+          setAudioError(null);
         })
         .catch(() => {
-          if (!cancelled) setAudioError('Could not load audio');
+          if (!cancelled) {
+            setUsingPlaceholderAudio(true);
+            setResolvedAudioSrc(sameOriginPlaceholderAudioUrl());
+            setAudioError(null);
+          }
         })
         .finally(() => {
           if (!cancelled) setAudioLoading(false);
@@ -283,9 +317,52 @@ export function StoryPageClient({
       };
     }
 
-    setResolvedAudioSrc(activeEpisode.audioSrc);
-    setAudioLoading(false);
+    setAudioLoading(true);
     setAudioError(null);
+    setResolvedAudioSrc(null);
+    fetch(
+      `/api/audio/play?slug=${encodeURIComponent(story.slug)}&episodeNumber=${encodeURIComponent(String(activeEpisode.episodeNumber))}`,
+      { credentials: 'same-origin' }
+    )
+      .then(async (r) => {
+        const data = (await r.json().catch(() => ({}))) as {
+          error?: string;
+          url?: string;
+        };
+        if (cancelled) return;
+        if (r.ok && data.url) {
+          setUsingPlaceholderAudio(false);
+          setResolvedAudioSrc(data.url);
+          setAudioError(null);
+          return;
+        }
+        const direct = activeEpisode.audioSrc?.trim();
+        if (direct) {
+          setUsingPlaceholderAudio(false);
+          setResolvedAudioSrc(direct);
+          setAudioError(null);
+          return;
+        }
+        setUsingPlaceholderAudio(true);
+        setResolvedAudioSrc(sameOriginPlaceholderAudioUrl());
+        setAudioError(null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        const direct = activeEpisode.audioSrc?.trim();
+        if (direct) {
+          setUsingPlaceholderAudio(false);
+          setResolvedAudioSrc(direct);
+          setAudioError(null);
+          return;
+        }
+        setUsingPlaceholderAudio(true);
+        setResolvedAudioSrc(sameOriginPlaceholderAudioUrl());
+        setAudioError(null);
+      })
+      .finally(() => {
+        if (!cancelled) setAudioLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -421,10 +498,43 @@ export function StoryPageClient({
   };
 
   const handleMainAudioError = () => {
+    const el = audioRef.current;
+    const errCode = el?.error?.code ?? null;
+
+    const tryIntroPlaceholder =
+      mainStream === 'intro' &&
+      !usedIntroPlaceholderFallbackRef.current &&
+      (errCode === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED ||
+        errCode === MediaError.MEDIA_ERR_NETWORK ||
+        errCode === MediaError.MEDIA_ERR_DECODE);
+
+    if (tryIntroPlaceholder) {
+      usedIntroPlaceholderFallbackRef.current = true;
+      setUsingPlaceholderAudio(true);
+      setResolvedThemeIntroSrc(sameOriginPlaceholderAudioUrl());
+      setAudioError(null);
+      return;
+    }
+
+    const tryPlaceholder =
+      mainStream === 'episode' &&
+      !usedEpisodePlaceholderFallbackRef.current &&
+      (errCode === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED ||
+        errCode === MediaError.MEDIA_ERR_NETWORK ||
+        errCode === MediaError.MEDIA_ERR_DECODE);
+
+    if (tryPlaceholder) {
+      usedEpisodePlaceholderFallbackRef.current = true;
+      setUsingPlaceholderAudio(true);
+      setAudioError(null);
+      setResolvedAudioSrc(sameOriginPlaceholderAudioUrl());
+      return;
+    }
+
     setAudioError(
       mainStream === 'intro'
         ? 'Could not load theme intro'
-        : mediaErrorMessage(audioRef.current)
+        : mediaErrorMessage(el)
     );
     setIsPlaying(false);
   };
@@ -641,6 +751,12 @@ export function StoryPageClient({
                     {entitled && audioError ? (
                       <p className="text-center text-xs text-rose-200">
                         {audioError}
+                      </p>
+                    ) : null}
+                    {entitled && usingPlaceholderAudio && !audioError ? (
+                      <p className="text-center text-xs text-amber-100/95">
+                        Placeholder audio — upload the MP3 or fix the CDN path
+                        when ready.
                       </p>
                     ) : null}
                     <audio

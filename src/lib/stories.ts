@@ -1,4 +1,5 @@
 import { canPlayEpisode } from '@/lib/audioEntitlement';
+import { getResolvedCatalogEpisodeAudioSrc } from '@/lib/catalogAudio';
 import prisma from '@/lib/prisma';
 import { resolvePublicAssetUrl } from '@/lib/resolvePublicAssetUrl';
 import type { AdminStoryUpsertInput } from '@/lib/validation/storySchema';
@@ -281,6 +282,25 @@ function mapDbStoryToApp(story: Story, episodes: Episode[]): AppStory {
   };
 }
 
+/**
+ * When a story is in the static catalog, use `data.js` public MP3 paths for episodes
+ * that do not use `audioStorageKey`, so admin DB rows cannot point at wrong/missing URLs.
+ */
+function mergeCatalogPublicAudioIntoDbApp(app: AppStory): AppStory {
+  if (app.isStaticOnly) return app;
+  const episodes = app.episodes.map((ep) => {
+    if (ep.audioStorageKey?.trim()) return ep;
+    const catalog = getResolvedCatalogEpisodeAudioSrc(app.slug, ep.episodeNumber);
+    if (!catalog?.trim()) return ep;
+    return { ...ep, audioSrc: catalog };
+  });
+  return {
+    ...app,
+    episodes,
+    averageDurationLabel: computeAverageDuration(episodes),
+  };
+}
+
 function overlayCatalogCoverIfSuperseded(app: AppStory): AppStory {
   return app;
 }
@@ -394,9 +414,11 @@ export async function fetchStories(): Promise<AppStory[]> {
     for (const s of staticStories) {
       const dbRow = dbBySlug.get(s.slug);
       if (dbRow) {
-        const app = mapDbStoryToApp(
-          dbRow,
-          episodesByStoryId[dbRow.id.toString()] || []
+        const app = mergeCatalogPublicAudioIntoDbApp(
+          mapDbStoryToApp(
+            dbRow,
+            episodesByStoryId[dbRow.id.toString()] || []
+          )
         );
         merged.push(overlayCatalogCoverIfSuperseded(app));
       } else {
@@ -408,9 +430,11 @@ export async function fetchStories(): Promise<AppStory[]> {
     const staticSlugs = new Set(staticStories.map((x) => x.slug));
     for (const dbRow of dbStories) {
       if (!staticSlugs.has(dbRow.slug)) {
-        const app = mapDbStoryToApp(
-          dbRow,
-          episodesByStoryId[dbRow.id.toString()] || []
+        const app = mergeCatalogPublicAudioIntoDbApp(
+          mapDbStoryToApp(
+            dbRow,
+            episodesByStoryId[dbRow.id.toString()] || []
+          )
         );
         merged.push(overlayCatalogCoverIfSuperseded(app));
       }
@@ -439,7 +463,9 @@ export async function fetchStoryBySlug(slug: string): Promise<AppStory | null> {
       orderBy: { episodeNumber: 'asc' },
     });
 
-    return overlayCatalogCoverIfSuperseded(mapDbStoryToApp(story, episodes));
+    return overlayCatalogCoverIfSuperseded(
+      mergeCatalogPublicAudioIntoDbApp(mapDbStoryToApp(story, episodes))
+    );
   } catch (e) {
     console.warn('[stories] fetchStoryBySlug DB failed, using static.', e);
     return mapStaticToApp().find((s) => s.slug === slug) ?? null;

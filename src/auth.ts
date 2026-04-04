@@ -4,7 +4,6 @@ import Credentials from 'next-auth/providers/credentials';
 import Google from 'next-auth/providers/google';
 import bcrypt from 'bcryptjs';
 import prisma from '@/lib/prisma';
-import { agentDebugLog } from '@/lib/agent-debug-log';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -81,31 +80,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               p?.subscriptionStatus ??
               (token.subscriptionStatus as string) ??
               'free';
-            // #region agent log
-            agentDebugLog({
-              location: 'auth.ts:session callback',
-              message: 'session subscription from profile',
-              hypothesisId: 'H4',
-              userIdTail: userId.slice(-6),
-              hasProfile: !!p,
-              dbSub: p?.subscriptionStatus ?? null,
-              resolvedSub: session.user.subscriptionStatus,
-            });
-            // #endregion
           } catch (e) {
             console.warn('[auth] session profile fetch failed', e);
             session.user.role = (token.role as string) ?? 'user';
             session.user.subscriptionStatus =
               (token.subscriptionStatus as string) ?? 'free';
-            // #region agent log
-            agentDebugLog({
-              location: 'auth.ts:session callback catch',
-              message: 'profile fetch failed using token',
-              hypothesisId: 'H4',
-              userIdTail: userId.slice(-6),
-              tokenSub: (token.subscriptionStatus as string) ?? null,
-            });
-            // #endregion
           }
         } else {
           session.user.role = (token.role as string) ?? 'user';
