@@ -377,9 +377,51 @@ function mapStaticToApp(): AppStory[] {
   });
 }
 
-export async function fetchStories(): Promise<AppStory[]> {
+/** `public` = only published stories and published episodes (for site + APIs). `all` = admin. */
+export type StoryVisibility = 'public' | 'all';
+
+export type FetchStoriesOptions = {
+  visibility?: StoryVisibility;
+};
+
+export type FetchStoryBySlugOptions = {
+  visibility?: StoryVisibility;
+};
+
+function storyVisibleToPublic(story: AppStory): AppStory {
+  return {
+    ...story,
+    episodes: story.episodes.filter((ep) => ep.isPublished),
+  };
+}
+
+function applyStoryVisibility(
+  stories: AppStory[],
+  visibility: StoryVisibility
+): AppStory[] {
+  if (visibility === 'all') return stories;
+  return stories
+    .filter((s) => s.isPublished)
+    .map(storyVisibleToPublic);
+}
+
+function finalizeStoryForVisibility(
+  story: AppStory | null,
+  visibility: StoryVisibility
+): AppStory | null {
+  if (!story) return null;
+  if (visibility === 'all') return story;
+  if (!story.isPublished) return null;
+  return storyVisibleToPublic(story);
+}
+
+export async function fetchStories(
+  options?: FetchStoriesOptions
+): Promise<AppStory[]> {
+  const visibility = options?.visibility ?? 'public';
+
   if (!process.env.DATABASE_URL) {
-    return mapStaticToApp();
+    return applyStoryVisibility(mapStaticToApp(), visibility);
   }
 
   try {
@@ -388,7 +430,7 @@ export async function fetchStories(): Promise<AppStory[]> {
     });
 
     if (!dbStories.length) {
-      return mapStaticToApp();
+      return applyStoryVisibility(mapStaticToApp(), visibility);
     }
 
     const storyIds = dbStories.map((s) => s.id);
@@ -440,22 +482,30 @@ export async function fetchStories(): Promise<AppStory[]> {
       }
     }
 
-    return merged;
+    return applyStoryVisibility(merged, visibility);
   } catch (e) {
     console.warn('[stories] DB failed, using static data.', e);
-    return mapStaticToApp();
+    return applyStoryVisibility(mapStaticToApp(), visibility);
   }
 }
 
-export async function fetchStoryBySlug(slug: string): Promise<AppStory | null> {
+export async function fetchStoryBySlug(
+  slug: string,
+  options?: FetchStoryBySlugOptions
+): Promise<AppStory | null> {
+  const visibility = options?.visibility ?? 'public';
+
   if (!process.env.DATABASE_URL) {
-    return mapStaticToApp().find((s) => s.slug === slug) ?? null;
+    const found = mapStaticToApp().find((s) => s.slug === slug) ?? null;
+    return finalizeStoryForVisibility(found, visibility);
   }
 
   try {
     const story = await prisma.story.findUnique({ where: { slug } });
     if (!story) {
-      return mapStaticToApp().find((s) => s.slug === slug) ?? null;
+      const fallback =
+        mapStaticToApp().find((s) => s.slug === slug) ?? null;
+      return finalizeStoryForVisibility(fallback, visibility);
     }
 
     const episodes = await prisma.episode.findMany({
@@ -463,12 +513,14 @@ export async function fetchStoryBySlug(slug: string): Promise<AppStory | null> {
       orderBy: { episodeNumber: 'asc' },
     });
 
-    return overlayCatalogCoverIfSuperseded(
+    const app = overlayCatalogCoverIfSuperseded(
       mergeCatalogPublicAudioIntoDbApp(mapDbStoryToApp(story, episodes))
     );
+    return finalizeStoryForVisibility(app, visibility);
   } catch (e) {
     console.warn('[stories] fetchStoryBySlug DB failed, using static.', e);
-    return mapStaticToApp().find((s) => s.slug === slug) ?? null;
+    const fallback = mapStaticToApp().find((s) => s.slug === slug) ?? null;
+    return finalizeStoryForVisibility(fallback, visibility);
   }
 }
 
