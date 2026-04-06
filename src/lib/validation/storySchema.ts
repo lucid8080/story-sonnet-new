@@ -5,6 +5,9 @@ import {
   GENRE_FILTER_OPTIONS,
   MOOD_FILTER_OPTIONS,
 } from '@/constants/storyFilters';
+import { STORY_SLUG_REGEX } from '@/lib/slug';
+
+const slugRegex = STORY_SLUG_REGEX;
 
 const ageTuple = AGE_FILTER_OPTIONS.map((o) => o.id) as [
   string,
@@ -24,8 +27,6 @@ export const ageRangeIdSchema = z.enum(ageTuple);
 export const genreIdSchema = z.enum(genreTuple);
 export const moodIdSchema = z.enum(moodTuple);
 export const durationBucketIdSchema = z.enum(durationBucketTuple);
-
-const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export const adminEpisodeSchema = z.object({
   id: z.string().min(1),

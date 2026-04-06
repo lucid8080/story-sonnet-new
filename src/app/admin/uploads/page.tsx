@@ -4,6 +4,8 @@ import { useState } from 'react';
 
 export default function AdminUploadsPage() {
   const [bucket, setBucket] = useState('');
+  const [storySlug, setStorySlug] = useState('');
+  const [audioSubPath, setAudioSubPath] = useState('');
   const [assetKind, setAssetKind] = useState<'cover' | 'audio'>('cover');
   const [status, setStatus] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -22,6 +24,10 @@ export default function AdminUploadsPage() {
     fd.append('file', file);
     fd.append('assetKind', assetKind);
     if (bucket) fd.append('bucket', bucket);
+    if (storySlug.trim()) fd.append('storySlug', storySlug.trim());
+    if (assetKind === 'audio' && audioSubPath.trim()) {
+      fd.append('audioSubPath', audioSubPath.trim());
+    }
     setUploading(true);
     try {
       const res = await fetch('/api/upload', { method: 'POST', body: fd });
@@ -53,6 +59,13 @@ export default function AdminUploadsPage() {
         <code>R2_PUBLIC_BASE_URL</code>). MP3s use the <strong>private</strong>{' '}
         audio bucket (<code>R2_PRIVATE_BUCKET</code> or fallback{' '}
         <code>R2_BUCKET</code>) and return a storage key for the episode editor.
+        Object keys use your <strong>filename</strong> only (no timestamp);
+        uploading again to the same path <strong>overwrites</strong> the file.
+        <strong> Bucket override</strong> is the bucket <em>name</em> only (no
+        slashes). Use <strong>Story slug</strong> and (for audio){' '}
+        <strong>Audio subfolder</strong> to build paths like{' '}
+        <code>covers/my-story/cover.webp</code> or{' '}
+        <code>audio/my-story/music/theme.mp3</code>.
       </p>
       <form
         onSubmit={onSubmit}
@@ -73,6 +86,39 @@ export default function AdminUploadsPage() {
             <option value="audio">Audio (private — returns storage key)</option>
           </select>
         </div>
+        <div>
+          <label className="text-xs font-semibold text-slate-500">
+            Story slug (optional)
+          </label>
+          <input
+            value={storySlug}
+            onChange={(e) => setStorySlug(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            placeholder="e.g. the-adventures-of-zubie-and-robo-rex"
+            autoComplete="off"
+          />
+          <p className="mt-1 text-xs text-slate-400">
+            Lowercase letters, numbers, hyphens — same as the story slug in admin.
+          </p>
+        </div>
+        {assetKind === 'audio' && (
+          <div>
+            <label className="text-xs font-semibold text-slate-500">
+              Audio subfolder (optional)
+            </label>
+            <input
+              value={audioSubPath}
+              onChange={(e) => setAudioSubPath(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              placeholder="e.g. music"
+              autoComplete="off"
+            />
+            <p className="mt-1 text-xs text-slate-400">
+              Requires story slug. Use segments like <code>music</code> or{' '}
+              <code>music/extra</code> (each segment slug-shaped).
+            </p>
+          </div>
+        )}
         <div>
           <label className="text-xs font-semibold text-slate-500">
             Bucket override (optional)

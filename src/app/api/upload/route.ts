@@ -1,6 +1,14 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import {
+  buildCoverKey,
+  buildPrivateAudioKey,
+  parseAudioSubPathSegments,
+  sanitizeUploadFileName,
+  UploadKeyValidationError,
+  validateStorySlugInput,
+} from '@/lib/media-upload-keys';
 import {
   getDefaultStorageBucket,
   getPrivateAudioBucket,
@@ -40,12 +48,34 @@ export async function POST(req: Request) {
     );
   }
 
+  const safeName = sanitizeUploadFileName(file.name);
+
+  let storySlug = '';
+  let audioSubPathSegments: string[] = [];
+
+  try {
+    storySlug = validateStorySlugInput(formData.get('storySlug') as string);
+    if (assetKind === 'audio') {
+      audioSubPathSegments = parseAudioSubPathSegments(
+        formData.get('audioSubPath') as string
+      );
+    }
+  } catch (e) {
+    if (e instanceof UploadKeyValidationError) {
+      return NextResponse.json({ error: e.message }, { status: 400 });
+    }
+    throw e;
+  }
+
   const buf = Buffer.from(await file.arrayBuffer());
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
 
   try {
     if (assetKind === 'audio') {
-      const key = `audio/${Date.now()}-${safeName}`;
+      const key = buildPrivateAudioKey({
+        storySlug: storySlug || undefined,
+        subPathSegments: audioSubPathSegments,
+        safeFileName: safeName,
+      });
       const { key: storageKey } = await uploadPrivateAudioObject({
         bucket: bucketField,
         key,
@@ -70,11 +100,14 @@ export async function POST(req: Request) {
         storageKey,
         fileUrl: null,
         message:
-          'Paste storageKey into the episode “Private audio key” field in admin.',
+          'Paste storageKey into the episode "Private audio key" field in admin.',
       });
     }
 
-    const key = `covers/${Date.now()}-${safeName}`;
+    const key = buildCoverKey({
+      storySlug: storySlug || undefined,
+      safeFileName: safeName,
+    });
     const { url } = await uploadPublicObject({
       bucket: bucketField,
       key,
@@ -100,6 +133,9 @@ export async function POST(req: Request) {
       storagePath: key,
     });
   } catch (e) {
+    if (e instanceof UploadKeyValidationError) {
+      return NextResponse.json({ error: e.message }, { status: 400 });
+    }
     console.error('[upload]', e);
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Upload failed' },
