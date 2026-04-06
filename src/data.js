@@ -219,9 +219,9 @@ export const stories = [
   {
     slug: 'luna-and-the-starlight-garden',
     seriesTitle: 'Luna and the Starlight Garden',
-    title: 'The Seeds That Hummed Goodnight',
+    title: 'The First Moonbeam',
     ageGroup: '3–5',
-    durationLabel: '4 min',
+    durationLabel: '11 min',
     summary:
       'A gentle night garden visit where Luna learns that sleepy flowers glow brighter when everyone breathes slowly together.',
     cover: assetPath('/covers/luna-and-the-starlight-garden/cover.webp'),
@@ -231,11 +231,11 @@ export const stories = [
       {
         id: 1,
         label: 'Episode 1',
-        title: 'The Seeds That Hummed Goodnight',
-        duration: '4:12',
-        audioSrc: assetPath('/audio/the-secret-map-of-the-7641-islands/episode-1.mp3'),
+        title: 'The First Moonbeam',
+        duration: '11:07',
+        audioSrc: assetPath('/audio/luna-and-the-starlight-garden/episode-1.mp3'),
         description:
-          'Luna follows tiny silver seeds that only open when the house is quiet enough for dreams.',
+          'In the moonlit Starlight Garden, Luna listens as Fig the tree explains how the place speaks in kindness and wonder — then meets Moss, a tiny glowing friend who thanks her for waiting, watching, and not rushing.',
       },
     ],
   },
