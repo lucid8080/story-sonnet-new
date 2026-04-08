@@ -27,7 +27,8 @@ export async function GET(
   const userId = session?.user?.id ?? null;
 
   try {
-    const [likeCount, likedRow, savedRow, comments] = await Promise.all([
+    const [likeCount, likedRow, savedRow, comments, ratingStats, myRatingRow] =
+      await Promise.all([
       prisma.storySeriesLike.count({ where: { storySlug: decoded } }),
       userId
         ? prisma.storySeriesLike.findUnique({
@@ -51,21 +52,42 @@ export async function GET(
         take: COMMENTS_TAKE,
         select: {
           id: true,
+          commentRating: true,
           body: true,
           createdAt: true,
+          updatedAt: true,
+          userId: true,
           user: { select: { name: true, image: true } },
         },
       }),
+      prisma.storySeriesRating.aggregate({
+        where: { storySlug: decoded },
+        _avg: { rating: true },
+        _count: { rating: true },
+      }),
+      userId
+        ? prisma.storySeriesRating.findUnique({
+            where: {
+              userId_storySlug: { userId, storySlug: decoded },
+            },
+            select: { rating: true },
+          })
+        : Promise.resolve(null),
     ]);
-
     return NextResponse.json({
       likeCount,
       likedByMe: !!likedRow,
       inLibrary: !!savedRow,
+      ratingAverage: ratingStats._avg.rating,
+      ratingCount: ratingStats._count.rating,
+      myRating: myRatingRow?.rating ?? null,
       comments: comments.map((c) => ({
         id: c.id,
+        authorId: c.userId,
+        authorRating: c.commentRating ?? null,
         body: c.body,
         createdAt: c.createdAt.toISOString(),
+        updatedAt: c.updatedAt.toISOString(),
         authorName: c.user.name ?? 'Listener',
         authorImage: c.user.image,
       })),

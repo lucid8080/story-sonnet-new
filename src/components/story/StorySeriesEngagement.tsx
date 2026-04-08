@@ -11,13 +11,16 @@ import {
   useState,
 } from 'react';
 import { useSession } from 'next-auth/react';
-import { Bookmark, Heart, Loader2, MessageCircle } from 'lucide-react';
+import { Bookmark, Heart, Loader2, MessageCircle, Star } from 'lucide-react';
 import { COMMENT_MAX } from '@/lib/storyEngagementApi';
 
 export type EngagementComment = {
   id: string;
+  authorId: string;
+  authorRating: number | null;
   body: string;
   createdAt: string;
+  updatedAt: string;
   authorName: string;
   authorImage: string | null;
 };
@@ -26,6 +29,9 @@ type EngagementPayload = {
   likeCount: number;
   likedByMe: boolean;
   inLibrary: boolean;
+  ratingAverage: number | null;
+  ratingCount: number;
+  myRating: number | null;
   comments: EngagementComment[];
 };
 
@@ -43,6 +49,9 @@ type EngagementContextValue = {
   likeCount: number;
   likedByMe: boolean;
   inLibrary: boolean;
+  ratingAverage: number | null;
+  ratingCount: number;
+  myRating: number | null;
   comments: EngagementComment[];
   likeBusy: boolean;
   libraryBusy: boolean;
@@ -50,9 +59,15 @@ type EngagementContextValue = {
   setCommentText: (v: string) => void;
   commentBusy: boolean;
   commentError: string | null;
+  ratingBusy: boolean;
+  ratingError: string | null;
   toggleLike: () => Promise<void>;
   toggleLibrary: () => Promise<void>;
+  setMyRating: (rating: number) => Promise<void>;
+  clearMyRating: () => Promise<void>;
   submitComment: (e: React.FormEvent) => Promise<void>;
+  updateComment: (commentId: string, body: string) => Promise<void>;
+  deleteComment: (commentId: string) => Promise<void>;
 };
 
 const StoryEngagementContext = createContext<EngagementContextValue | null>(
@@ -82,12 +97,17 @@ export function StoryEngagementProvider({
   const [likeCount, setLikeCount] = useState(0);
   const [likedByMe, setLikedByMe] = useState(false);
   const [inLibrary, setInLibrary] = useState(false);
+  const [ratingAverage, setRatingAverage] = useState<number | null>(null);
+  const [ratingCount, setRatingCount] = useState(0);
+  const [myRating, setMyRatingState] = useState<number | null>(null);
   const [comments, setComments] = useState<EngagementComment[]>([]);
   const [likeBusy, setLikeBusy] = useState(false);
   const [libraryBusy, setLibraryBusy] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [commentBusy, setCommentBusy] = useState(false);
   const [commentError, setCommentError] = useState<string | null>(null);
+  const [ratingBusy, setRatingBusy] = useState(false);
+  const [ratingError, setRatingError] = useState<string | null>(null);
 
   const loggedIn = status === 'authenticated' && !!session?.user;
   const callbackUrl = `/story/${encodeURIComponent(storySlug)}`;
@@ -115,6 +135,11 @@ export function StoryEngagementProvider({
       setLikeCount(data.likeCount ?? 0);
       setLikedByMe(!!data.likedByMe);
       setInLibrary(!!data.inLibrary);
+      setRatingAverage(
+        typeof data.ratingAverage === 'number' ? data.ratingAverage : null
+      );
+      setRatingCount(typeof data.ratingCount === 'number' ? data.ratingCount : 0);
+      setMyRatingState(typeof data.myRating === 'number' ? data.myRating : null);
       setComments(Array.isArray(data.comments) ? data.comments : []);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load engagement.');
@@ -198,6 +223,83 @@ export function StoryEngagementProvider({
     }
   }, [inLibrary, libraryBusy, loggedIn, storySlug]);
 
+  const setMyRating = useCallback(
+    async (rating: number) => {
+      if (!loggedIn || ratingBusy) return;
+      setRatingBusy(true);
+      setRatingError(null);
+      try {
+        const res = await fetch(apiPath(storySlug, 'rating'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ rating }),
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          myRating?: number | null;
+          ratingAverage?: number | null;
+          ratingCount?: number;
+          error?: string;
+          debug?: string;
+        };
+        if (!res.ok) {
+          setRatingError(
+            data.error
+              ? `${data.error}${data.debug ? ` (${data.debug})` : ''}`
+              : 'Could not save rating.'
+          );
+          return;
+        }
+        setMyRatingState(typeof data.myRating === 'number' ? data.myRating : null);
+        setRatingAverage(
+          typeof data.ratingAverage === 'number' ? data.ratingAverage : null
+        );
+        setRatingCount(typeof data.ratingCount === 'number' ? data.ratingCount : 0);
+      } catch {
+        setRatingError('Could not save rating (network).');
+      } finally {
+        setRatingBusy(false);
+      }
+    },
+    [loggedIn, ratingBusy, storySlug]
+  );
+
+  const clearMyRating = useCallback(async () => {
+    if (!loggedIn || ratingBusy) return;
+    setRatingBusy(true);
+    setRatingError(null);
+    try {
+      const res = await fetch(apiPath(storySlug, 'rating'), {
+        method: 'DELETE',
+        credentials: 'same-origin',
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        myRating?: number | null;
+        ratingAverage?: number | null;
+        ratingCount?: number;
+        error?: string;
+        debug?: string;
+      };
+      if (!res.ok) {
+        setRatingError(
+          data.error
+            ? `${data.error}${data.debug ? ` (${data.debug})` : ''}`
+            : 'Could not clear rating.'
+        );
+        return;
+      }
+      setMyRatingState(null);
+      setRatingAverage(
+        typeof data.ratingAverage === 'number' ? data.ratingAverage : null
+      );
+      setRatingCount(typeof data.ratingCount === 'number' ? data.ratingCount : 0);
+    } catch {
+      setRatingError('Could not clear rating (network).');
+    } finally {
+      setRatingBusy(false);
+    }
+  }, [loggedIn, ratingBusy, storySlug]);
+
   const submitComment = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -246,6 +348,60 @@ export function StoryEngagementProvider({
     [commentBusy, commentText, loggedIn, storySlug]
   );
 
+  const updateComment = useCallback(
+    async (commentId: string, body: string) => {
+      const trimmed = body.trim();
+      if (!trimmed) throw new Error('Write something first.');
+      if (trimmed.length > COMMENT_MAX) {
+        throw new Error(`Max ${COMMENT_MAX} characters.`);
+      }
+      const res = await fetch(apiPath(storySlug, `comments/${commentId}`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ body: trimmed }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        comment?: EngagementComment;
+        error?: string;
+        debug?: string;
+      };
+      if (!res.ok) {
+        throw new Error(
+          data.error
+            ? `${data.error}${data.debug ? ` (${data.debug})` : ''}`
+            : 'Could not update comment.'
+        );
+      }
+      if (data.comment) {
+        setComments((prev) =>
+          prev.map((c) => (c.id === commentId ? data.comment! : c))
+        );
+      }
+    },
+    [storySlug]
+  );
+
+  const deleteComment = useCallback(async (commentId: string) => {
+    const res = await fetch(apiPath(storySlug, `comments/${commentId}`), {
+      method: 'DELETE',
+      credentials: 'same-origin',
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      deletedId?: string;
+      error?: string;
+      debug?: string;
+    };
+    if (!res.ok) {
+      throw new Error(
+        data.error
+          ? `${data.error}${data.debug ? ` (${data.debug})` : ''}`
+          : 'Could not delete comment.'
+      );
+    }
+    setComments((prev) => prev.filter((c) => c.id !== commentId));
+  }, [storySlug]);
+
   const sessionStatus: EngagementContextValue['status'] =
     status === 'loading'
       ? 'loading'
@@ -264,6 +420,9 @@ export function StoryEngagementProvider({
       likeCount,
       likedByMe,
       inLibrary,
+      ratingAverage,
+      ratingCount,
+      myRating,
       comments,
       likeBusy,
       libraryBusy,
@@ -271,9 +430,15 @@ export function StoryEngagementProvider({
       setCommentText,
       commentBusy,
       commentError,
+      ratingBusy,
+      ratingError,
       toggleLike,
       toggleLibrary,
+      setMyRating,
+      clearMyRating,
       submitComment,
+      updateComment,
+      deleteComment,
     }),
     [
       storySlug,
@@ -285,15 +450,24 @@ export function StoryEngagementProvider({
       likeCount,
       likedByMe,
       inLibrary,
+      ratingAverage,
+      ratingCount,
+      myRating,
       comments,
       likeBusy,
       libraryBusy,
       commentText,
       commentBusy,
       commentError,
+      ratingBusy,
+      ratingError,
       toggleLike,
       toggleLibrary,
+      setMyRating,
+      clearMyRating,
       submitComment,
+      updateComment,
+      deleteComment,
     ]
   );
 
@@ -415,59 +589,134 @@ export function StorySeriesCommentsPanel({
 }: {
   className?: string;
 }) {
+  const { data: session } = useSession();
   const {
     storySlug,
     loggedIn,
+    loginHref,
     comments,
+    ratingAverage,
+    ratingCount,
+    myRating,
+    ratingBusy,
+    ratingError,
+    setMyRating,
+    clearMyRating,
     commentText,
     setCommentText,
     commentBusy,
     commentError,
     submitComment,
+    updateComment,
+    deleteComment,
   } = useStoryEngagement();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
+  const [commentActionBusyId, setCommentActionBusyId] = useState<string | null>(
+    null
+  );
+  const [commentActionError, setCommentActionError] = useState<string | null>(null);
+
+  const viewerId = session?.user?.id ?? null;
+  const viewerRole = session?.user?.role ?? null;
+  const canModerate = viewerRole === 'admin' || viewerRole === 'moderator';
 
   return (
     <div
-      className={`rounded-[1.6rem] bg-white p-5 shadow-lg ring-1 ring-slate-100 ${className}`}
+      className={`${className}`}
     >
       <div className="mb-3 flex items-center gap-2 text-slate-800">
         <MessageCircle className="h-5 w-5 text-violet-500" aria-hidden />
         <h2 className="text-lg font-black text-slate-900">Comments</h2>
       </div>
 
-      {loggedIn ? (
-        <form onSubmit={submitComment} className="mb-5">
-          <label htmlFor={`comment-${storySlug}`} className="sr-only">
-            Add a comment
-          </label>
-          <textarea
-            id={`comment-${storySlug}`}
-            value={commentText}
-            onChange={(e) => setCommentText(e.target.value)}
-            rows={3}
-            maxLength={COMMENT_MAX}
-            placeholder="Share a kind note about this series…"
-            className="w-full resize-y rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-slate-800 placeholder:text-slate-400 focus:border-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-200"
-          />
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs text-slate-400">
-              {commentText.length}/{COMMENT_MAX}
-            </span>
-            <button
-              type="submit"
-              disabled={commentBusy}
-              className="rounded-full bg-violet-600 px-4 py-2 text-xs font-bold uppercase tracking-[0.15em] text-white transition hover:bg-violet-700 disabled:opacity-60"
-            >
-              {commentBusy ? 'Posting…' : 'Post comment'}
-            </button>
+      <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-bold text-slate-900">Rate and comment</p>
+          <p className="text-xs text-slate-600">
+            {ratingCount > 0 && typeof ratingAverage === 'number'
+              ? `${ratingAverage.toFixed(1)} / 5 (${ratingCount} rating${ratingCount === 1 ? '' : 's'})`
+              : 'No ratings yet'}
+          </p>
+        </div>
+
+        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <div className="flex items-center gap-1" aria-label="Rate this story">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                disabled={!loggedIn || ratingBusy}
+                onClick={() => void setMyRating(star)}
+                className="rounded p-1 text-amber-500 transition hover:scale-105 disabled:opacity-60"
+                aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
+              >
+                <Star
+                  className={`h-5 w-5 ${(myRating ?? 0) >= star ? 'fill-current' : ''}`}
+                  aria-hidden
+                />
+              </button>
+            ))}
           </div>
-          {commentError ? (
-            <p className="mt-2 text-sm text-rose-600" role="alert">
-              {commentError}
-            </p>
+          {loggedIn && myRating ? (
+            <button
+              type="button"
+              onClick={() => void clearMyRating()}
+              disabled={ratingBusy}
+              className="text-xs font-bold text-violet-700 underline underline-offset-2 disabled:opacity-60"
+            >
+              Clear my rating
+            </button>
           ) : null}
-        </form>
-      ) : null}
+          {!loggedIn ? (
+            <Link
+              href={loginHref}
+              className="text-xs font-bold text-violet-700 underline underline-offset-2"
+            >
+              Log in to rate and comment
+            </Link>
+          ) : null}
+        </div>
+        {ratingError ? (
+          <p className="mb-2 text-sm text-rose-600" role="alert">
+            {ratingError}
+          </p>
+        ) : null}
+
+        {loggedIn ? (
+          <form onSubmit={submitComment}>
+            <label htmlFor={`comment-${storySlug}`} className="sr-only">
+              Add a comment
+            </label>
+            <textarea
+              id={`comment-${storySlug}`}
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              rows={3}
+              maxLength={COMMENT_MAX}
+              placeholder="Share a kind note about this series…"
+              className="w-full resize-y rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 placeholder:text-slate-400 focus:border-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-200"
+            />
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs text-slate-400">
+                {commentText.length}/{COMMENT_MAX}
+              </span>
+              <button
+                type="submit"
+                disabled={commentBusy}
+                className="rounded-full bg-violet-600 px-4 py-2 text-xs font-bold uppercase tracking-[0.15em] text-white transition hover:bg-violet-700 disabled:opacity-60"
+              >
+                {commentBusy ? 'Posting…' : 'Post comment'}
+              </button>
+            </div>
+            {commentError ? (
+              <p className="mt-2 text-sm text-rose-600" role="alert">
+                {commentError}
+              </p>
+            ) : null}
+          </form>
+        ) : null}
+      </div>
 
       {comments.length === 0 ? (
         <p className="text-sm text-slate-500">
@@ -503,6 +752,12 @@ export function StorySeriesCommentsPanel({
                     <span className="font-bold text-slate-900">
                       {c.authorName}
                     </span>
+                    {typeof c.authorRating === 'number' ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
+                        <Star className="h-3.5 w-3.5 fill-current" aria-hidden />
+                        {c.authorRating}/5
+                      </span>
+                    ) : null}
                     <time
                       dateTime={c.createdAt}
                       className="text-xs text-slate-400"
@@ -512,16 +767,119 @@ export function StorySeriesCommentsPanel({
                         timeStyle: 'short',
                       })}
                     </time>
+                    {c.updatedAt !== c.createdAt ? (
+                      <span className="text-xs text-slate-400">(edited)</span>
+                    ) : null}
                   </div>
-                  <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
-                    {c.body}
-                  </p>
+                  {editingId === c.id ? (
+                    <div className="mt-2">
+                      <textarea
+                        value={editingText}
+                        onChange={(e) => setEditingText(e.target.value)}
+                        rows={3}
+                        maxLength={COMMENT_MAX}
+                        className="w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                      />
+                      <div className="mt-2 flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={commentActionBusyId === c.id}
+                          className="rounded-full bg-violet-600 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.12em] text-white disabled:opacity-60"
+                          onClick={async () => {
+                            setCommentActionError(null);
+                            setCommentActionBusyId(c.id);
+                            try {
+                              await updateComment(c.id, editingText);
+                              setEditingId(null);
+                              setEditingText('');
+                            } catch (e) {
+                              setCommentActionError(
+                                e instanceof Error
+                                  ? e.message
+                                  : 'Could not update comment.'
+                              );
+                            } finally {
+                              setCommentActionBusyId(null);
+                            }
+                          }}
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          disabled={commentActionBusyId === c.id}
+                          className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-700 disabled:opacity-60"
+                          onClick={() => {
+                            setEditingId(null);
+                            setEditingText('');
+                            setCommentActionError(null);
+                          }}
+                        >
+                          Cancel
+                        </button>
+                        <span className="text-xs text-slate-400">
+                          {editingText.length}/{COMMENT_MAX}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
+                      {c.body}
+                    </p>
+                  )}
+                  {viewerId && (c.authorId === viewerId || canModerate) ? (
+                    <div className="mt-2 flex items-center gap-3">
+                      <button
+                        type="button"
+                        disabled={commentActionBusyId === c.id}
+                        className="text-xs font-bold text-violet-700 underline underline-offset-2 disabled:opacity-60"
+                        onClick={() => {
+                          setCommentActionError(null);
+                          setEditingId(c.id);
+                          setEditingText(c.body);
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        disabled={commentActionBusyId === c.id}
+                        className="text-xs font-bold text-rose-700 underline underline-offset-2 disabled:opacity-60"
+                        onClick={async () => {
+                          setCommentActionError(null);
+                          setCommentActionBusyId(c.id);
+                          try {
+                            await deleteComment(c.id);
+                            if (editingId === c.id) {
+                              setEditingId(null);
+                              setEditingText('');
+                            }
+                          } catch (e) {
+                            setCommentActionError(
+                              e instanceof Error
+                                ? e.message
+                                : 'Could not delete comment.'
+                            );
+                          } finally {
+                            setCommentActionBusyId(null);
+                          }
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </li>
           ))}
         </ul>
       )}
+      {commentActionError ? (
+        <p className="mt-3 text-sm text-rose-600" role="alert">
+          {commentActionError}
+        </p>
+      ) : null}
     </div>
   );
 }

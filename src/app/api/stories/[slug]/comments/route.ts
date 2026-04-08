@@ -49,20 +49,25 @@ export async function GET(
       skip,
       select: {
         id: true,
+        userId: true,
+        commentRating: true,
         body: true,
         createdAt: true,
+        updatedAt: true,
         user: { select: { name: true, image: true } },
       },
     });
 
     const hasMore = comments.length > take;
     const list = hasMore ? comments.slice(0, take) : comments;
-
     return NextResponse.json({
       comments: list.map((c) => ({
         id: c.id,
+        authorId: c.userId,
+        authorRating: c.commentRating ?? null,
         body: c.body,
         createdAt: c.createdAt.toISOString(),
+        updatedAt: c.updatedAt.toISOString(),
         authorName: c.user.name ?? 'Listener',
         authorImage: c.user.image,
       })),
@@ -123,16 +128,26 @@ export async function POST(
   }
 
   try {
+    const currentRating = await prisma.storySeriesRating.findUnique({
+      where: {
+        userId_storySlug: { userId: session.user.id, storySlug: decoded },
+      },
+      select: { rating: true },
+    });
     const row = await prisma.storySeriesComment.create({
       data: {
         userId: session.user.id,
         storySlug: decoded,
         body: parsed.body,
+        commentRating: currentRating?.rating ?? null,
       },
       select: {
         id: true,
+        userId: true,
+        commentRating: true,
         body: true,
         createdAt: true,
+        updatedAt: true,
         user: { select: { name: true, image: true } },
       },
     });
@@ -140,8 +155,11 @@ export async function POST(
     return NextResponse.json({
       comment: {
         id: row.id,
+        authorId: row.userId,
+        authorRating: row.commentRating ?? null,
         body: row.body,
         createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString(),
         authorName: row.user.name ?? 'Listener',
         authorImage: row.user.image,
       },

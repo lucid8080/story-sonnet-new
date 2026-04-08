@@ -21,6 +21,7 @@ model User {
   storySeriesLikes    StorySeriesLike[]
   userSavedStories    UserSavedStory[]
   storySeriesComments StorySeriesComment[]
+  storySeriesRatings  StorySeriesRating[]
 }
 
 model Account {
@@ -191,10 +192,27 @@ model StorySeriesComment {
   userId    String   @map("user_id")
   storySlug String   @map("story_slug")
   body      String
+  commentRating Int? @map("comment_rating")
   createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([storySlug, createdAt])
   @@map("story_series_comments")
+}
+
+model StorySeriesRating {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  storySlug String   @map("story_slug")
+  rating    Int
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, storySlug])
+  @@index([storySlug])
+  @@map("story_series_ratings")
 }
