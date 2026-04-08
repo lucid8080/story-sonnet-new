@@ -48,6 +48,16 @@ export default function StoryEpisodesSection({
     });
   };
 
+  const durationHint = (secondsRaw: string) => {
+    const seconds = Number.parseInt(secondsRaw, 10);
+    if (!Number.isFinite(seconds) || seconds <= 0) {
+      return 'Duration is derived from the MP3 on save.';
+    }
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `Last derived duration: ${m}:${String(s).padStart(2, '0')}`;
+  };
+
   return (
     <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -155,35 +165,14 @@ export default function StoryEpisodesSection({
                   onChange={(e) => updateEp(index, { summary: e.target.value })}
                 />
               </label>
-              <label className="block">
+              <div className="block sm:col-span-2">
                 <span className="text-[11px] font-bold text-slate-600">
-                  Minutes
+                  Duration
                 </span>
-                <input
-                  type="number"
-                  min={0}
-                  className={field}
-                  value={ep.durationMinutes}
-                  onChange={(e) =>
-                    updateEp(index, { durationMinutes: e.target.value })
-                  }
-                />
-              </label>
-              <label className="block">
-                <span className="text-[11px] font-bold text-slate-600">
-                  Extra seconds
-                </span>
-                <input
-                  type="number"
-                  min={0}
-                  max={59}
-                  className={field}
-                  value={ep.durationSeconds}
-                  onChange={(e) =>
-                    updateEp(index, { durationSeconds: e.target.value })
-                  }
-                />
-              </label>
+                <p className="mt-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-600">
+                  {durationHint(ep.durationSeconds)}
+                </p>
+              </div>
               <label className="block sm:col-span-2">
                 <span className="text-[11px] font-bold text-slate-600">
                   Audio URL (legacy public MP3, optional)

@@ -44,6 +44,7 @@ export const adminEpisodeSchema = z.object({
       message: 'Episode slug must be lowercase letters, numbers, and hyphens',
     }),
   summary: z.string().nullable().optional(),
+  // Legacy/manual fallback only; server prefers duration parsed from audio object.
   durationMinutes: z.number().min(0).nullable().optional(),
   durationSeconds: z.number().int().min(0).nullable().optional(),
   audioUrl: z.string().nullable().optional(),

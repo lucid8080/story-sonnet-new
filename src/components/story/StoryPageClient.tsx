@@ -781,9 +781,6 @@ export function StoryPageClient({
                       {activeEpisode.title}
                     </div>
                   </div>
-                  <div className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-white backdrop-blur">
-                    {activeEpisode.duration}
-                  </div>
                 </div>
 
                 <SubscriptionGate

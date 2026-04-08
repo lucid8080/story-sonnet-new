@@ -6,6 +6,7 @@ import {
   type PutObjectCommandInput,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import type { Readable } from 'stream';
 
 /** R2 S3 API endpoint when only account id is set */
 function r2EndpointFromAccount(): string | undefined {
@@ -165,4 +166,63 @@ export async function presignPrivateAudioGetUrl(params: {
   return getSignedUrl(client, cmd, {
     expiresIn: params.expiresIn ?? AUDIO_SIGN_DEFAULT_TTL_SEC,
   });
+}
+
+async function bodyToBuffer(
+  body:
+    | Readable
+    | Blob
+    | ReadableStream
+    | { transformToByteArray?: () => Promise<Uint8Array> }
+): Promise<Buffer> {
+  if (
+    typeof body === 'object' &&
+    body != null &&
+    'transformToByteArray' in body &&
+    typeof body.transformToByteArray === 'function'
+  ) {
+    const bytes = await body.transformToByteArray();
+    return Buffer.from(bytes);
+  }
+
+  if (body instanceof Blob) {
+    return Buffer.from(await body.arrayBuffer());
+  }
+
+  const chunks: Buffer[] = [];
+  const stream = body as Readable;
+  for await (const chunk of stream) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
+}
+
+/**
+ * Downloads a private audio object as a Buffer. Returns null when unavailable.
+ */
+export async function getPrivateAudioObjectBuffer(
+  key: string
+): Promise<Buffer | null> {
+  const bucket = getPrivateAudioBucket();
+  if (!bucket) return null;
+  const accessKeyId = getAccessKeyId();
+  const secretAccessKey = getSecretAccessKey();
+  if (!accessKeyId || !secretAccessKey) return null;
+
+  const normalized = key.replace(/^\/+/, '');
+  if (!normalized) return null;
+
+  try {
+    const client = getClient();
+    const response = await client.send(
+      new GetObjectCommand({
+        Bucket: bucket,
+        Key: normalized,
+      })
+    );
+    if (!response.Body) return null;
+    return await bodyToBuffer(response.Body);
+  } catch {
+    return null;
+  }
 }

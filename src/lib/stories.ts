@@ -1,13 +1,31 @@
 import { canPlayEpisode } from '@/lib/audioEntitlement';
+import {
+  parseAudioDurationSecondsFromBuffer,
+  parseAudioDurationSecondsFromUrl,
+} from '@/lib/audio-duration';
 import { getResolvedCatalogEpisodeAudioSrc } from '@/lib/catalogAudio';
 import prisma from '@/lib/prisma';
 import { resolvePublicAssetUrl } from '@/lib/resolvePublicAssetUrl';
+import { getPrivateAudioObjectBuffer } from '@/lib/s3';
 import type { AdminStoryUpsertInput } from '@/lib/validation/storySchema';
 import type { Episode, Prisma, Story } from '@prisma/client';
 import { stories as staticStories } from '../data.js';
 import { getBrowseSeedForSlug } from '@/data/storyBrowseSeed';
 import type { AgeRangeId, DurationBucketId, GenreId, MoodId } from '@/constants/storyFilters';
 import { parseDurationToSeconds } from '@/utils/parseDuration';
+
+function privateAudioKeyFromLegacyUrl(urlRaw: string | null | undefined): string | null {
+  const raw = urlRaw?.trim();
+  if (!raw) return null;
+  try {
+    const path = new URL(raw).pathname;
+    if (!path.toLowerCase().startsWith('/audio/')) return null;
+    return path.replace(/^\/+/, '');
+  } catch {
+    if (!raw.toLowerCase().startsWith('/audio/')) return null;
+    return raw.split('?')[0].split('#')[0].replace(/^\/+/, '');
+  }
+}
 
 export type AppEpisode = {
   id: string;
@@ -677,13 +695,63 @@ async function syncEpisodesForStory(
     });
   }
 
+  const durationByAudioKey = new Map<string, number | null>();
+  const durationByAudioUrl = new Map<string, number | null>();
+
+  const resolveDurationSeconds = async (
+    ep: AdminStoryUpsertInput['episodes'][number],
+    episodeNumber: number
+  ): Promise<number | null> => {
+    const candidateKeys = new Set<string>();
+    const explicitKey = ep.audioStorageKey?.trim();
+    if (explicitKey) candidateKeys.add(explicitKey);
+    const legacyKey = privateAudioKeyFromLegacyUrl(ep.audioUrl);
+    if (legacyKey) candidateKeys.add(legacyKey);
+    candidateKeys.add(`audio/${input.slug}/episode-${episodeNumber}.mp3`);
+
+    for (const key of candidateKeys) {
+      if (!durationByAudioKey.has(key)) {
+        const buffer = await getPrivateAudioObjectBuffer(key);
+        const parsed =
+          buffer != null
+            ? await parseAudioDurationSecondsFromBuffer({
+                buffer,
+                mimeType: 'audio/mpeg',
+              })
+            : null;
+        durationByAudioKey.set(key, parsed);
+      }
+      const parsed = durationByAudioKey.get(key) ?? null;
+      if (parsed != null && Number.isFinite(parsed)) {
+        return Math.max(0, Math.round(parsed));
+      }
+    }
+
+    const audioUrl = ep.audioUrl?.trim();
+    if (audioUrl) {
+      if (!durationByAudioUrl.has(audioUrl)) {
+        const parsed = await parseAudioDurationSecondsFromUrl(audioUrl);
+        durationByAudioUrl.set(audioUrl, parsed);
+      }
+      const parsed = durationByAudioUrl.get(audioUrl) ?? null;
+      if (parsed != null && Number.isFinite(parsed)) {
+        return Math.max(0, Math.round(parsed));
+      }
+    }
+
+    if (ep.durationSeconds != null && Number.isFinite(ep.durationSeconds)) {
+      return Math.max(0, Math.round(ep.durationSeconds));
+    }
+    if (ep.durationMinutes != null && Number.isFinite(ep.durationMinutes)) {
+      return Math.max(0, Math.round(ep.durationMinutes * 60));
+    }
+    return null;
+  };
+
   for (let i = 0; i < rows.length; i++) {
     const ep = rows[i];
     const episodeNumber = i + 1;
-    const durationSeconds =
-      ep.durationSeconds != null && Number.isFinite(ep.durationSeconds)
-        ? Math.round(ep.durationSeconds)
-        : null;
+    const durationSeconds = await resolveDurationSeconds(ep, episodeNumber);
     const durationLabel = formatDurationLabelFromSeconds(durationSeconds);
 
     const data = {

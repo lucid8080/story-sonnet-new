@@ -7,7 +7,7 @@ export type EpisodeFormState = {
   title: string;
   slug: string;
   summary: string;
-  durationMinutes: string;
+  /** Canonical episode duration in seconds; derived from audio metadata server-side. */
   durationSeconds: string;
   audioUrl: string;
   /** Private R2 object key (e.g. audio/slug/episode-1.mp3); optional if using public audio URL only */
@@ -61,7 +61,6 @@ export function emptyEpisodeForm(id: string, episodeNumber: number): EpisodeForm
     title: '',
     slug: '',
     summary: '',
-    durationMinutes: '',
     durationSeconds: '',
     audioUrl: '',
     audioStorageKey: '',

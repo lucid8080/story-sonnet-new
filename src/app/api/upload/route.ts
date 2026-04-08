@@ -15,6 +15,7 @@ import {
   uploadPrivateAudioObject,
   uploadPublicObject,
 } from '@/lib/s3';
+import { parseAudioDurationSecondsFromBuffer } from '@/lib/audio-duration';
 
 export const runtime = 'nodejs';
 
@@ -71,6 +72,10 @@ export async function POST(req: Request) {
 
   try {
     if (assetKind === 'audio') {
+      const durationSeconds = await parseAudioDurationSecondsFromBuffer({
+        buffer: buf,
+        mimeType: file.type || 'audio/mpeg',
+      });
       const key = buildPrivateAudioKey({
         storySlug: storySlug || undefined,
         subPathSegments: audioSubPathSegments,
@@ -98,9 +103,10 @@ export async function POST(req: Request) {
       return NextResponse.json({
         assetKind: 'audio',
         storageKey,
+        durationSeconds,
         fileUrl: null,
         message:
-          'Paste storageKey into the episode "Private audio key" field in admin.',
+          'Paste storageKey into the episode "Private audio key" field in admin. Duration is auto-derived from MP3 metadata when available.',
       });
     }
 

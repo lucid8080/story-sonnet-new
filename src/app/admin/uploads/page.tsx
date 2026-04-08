@@ -37,8 +37,14 @@ export default function AdminUploadsPage() {
         return;
       }
       if (data.storageKey) {
+        const durationNote =
+          typeof data.durationSeconds === 'number' && data.durationSeconds > 0
+            ? ` (duration: ${Math.floor(data.durationSeconds / 60)}:${String(
+                data.durationSeconds % 60
+              ).padStart(2, '0')})`
+            : '';
         setStatus(
-          `Private audio key (paste in episode admin): ${data.storageKey}`
+          `Private audio key (paste in episode admin): ${data.storageKey}${durationNote}`
         );
       } else {
         setStatus(`Uploaded: ${data.fileUrl}`);

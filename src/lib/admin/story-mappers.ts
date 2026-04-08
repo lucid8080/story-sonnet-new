@@ -55,10 +55,7 @@ export function appStoryToForm(story: AppStory): StoryFormState {
             title: ep.title,
             slug: ep.slug ?? '',
             summary: ep.description ?? '',
-            durationMinutes:
-              sec != null ? String(Math.floor(sec / 60)) : '',
-            durationSeconds:
-              sec != null ? String(sec % 60) : '',
+            durationSeconds: sec != null ? String(sec) : '',
             audioUrl: ep.audioSrc ?? '',
             audioStorageKey: ep.audioStorageKey ?? '',
             isPublished: ep.isPublished,
@@ -131,21 +128,10 @@ export function formToAdminUpsertPayload(form: StoryFormState): AdminStoryUpsert
 
   const episodes = form.episodes.map((ep, index) => {
     const n = index + 1;
-    const dm =
-      ep.durationMinutes.trim() === ''
-        ? null
-        : Math.max(0, Number(ep.durationMinutes));
-    const dsField =
+    const durationSeconds =
       ep.durationSeconds.trim() === ''
         ? null
         : Math.max(0, parseInt(ep.durationSeconds, 10));
-    let durationSeconds: number | null = null;
-    if (dsField != null && Number.isFinite(dsField)) {
-      const baseMin = dm != null && Number.isFinite(dm) ? dm : 0;
-      durationSeconds = baseMin * 60 + dsField;
-    } else if (dm != null && Number.isFinite(dm)) {
-      durationSeconds = Math.round(dm * 60);
-    }
 
     return {
       id: ep.id,
@@ -153,7 +139,7 @@ export function formToAdminUpsertPayload(form: StoryFormState): AdminStoryUpsert
       title: ep.title,
       slug: ep.slug.trim() === '' ? null : ep.slug.trim().toLowerCase(),
       summary: ep.summary.trim() === '' ? null : ep.summary,
-      durationMinutes: dm,
+      durationMinutes: null,
       durationSeconds,
       audioUrl: ep.audioUrl.trim() === '' ? null : ep.audioUrl.trim(),
       audioStorageKey:
