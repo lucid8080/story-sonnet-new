@@ -19,6 +19,20 @@ function isSubscribedFromSession(
   return sub === 'active' || sub === 'trialing';
 }
 
+function extractAudioSlugFromUrl(input: string): string | null {
+  const v = input.trim();
+  if (!v) return null;
+  try {
+    const p = new URL(v).pathname;
+    const m = p.match(/^\/audio\/([^/]+)\/episode-\d+\.mp3$/i);
+    return m?.[1] ?? null;
+  } catch {
+    const path = v.split('?')[0]?.split('#')[0] ?? '';
+    const m = path.match(/^\/audio\/([^/]+)\/episode-\d+\.mp3$/i);
+    return m?.[1] ?? null;
+  }
+}
+
 /**
  * All catalog/legacy audio paths are shaped like `/audio/<slug>/episode-n.mp3`.
  * If objects live only in the private bucket, presign using that key — no need for
@@ -144,8 +158,23 @@ export async function GET(req: Request) {
       storySlug,
       episodeNumber
     )?.trim() ?? '';
-  /** Without R2 key, catalog `data.js` URL wins over DB `audioUrl` (fixes bad seeds / empty URLs). */
-  const effectiveLegacy = catalogUrl || legacyUrl;
+  const legacySlug = extractAudioSlugFromUrl(legacyUrl);
+  const catalogSlug = extractAudioSlugFromUrl(catalogUrl);
+  const legacyLooksCrossStory = !!(legacySlug && legacySlug !== storySlug);
+  const catalogLooksCrossStory = !!(catalogSlug && catalogSlug !== storySlug);
+  const canonicalStoryUrl = resolvePublicAssetUrl(
+    `/audio/${storySlug}/episode-${episodeNumber}.mp3`
+  ) ?? `/audio/${storySlug}/episode-${episodeNumber}.mp3`;
+
+  let effectiveLegacy = legacyUrl || catalogUrl;
+  // Guard against bad copied seed URLs that point to another story's audio.
+  if (legacyLooksCrossStory) {
+    if (catalogUrl && !catalogLooksCrossStory) {
+      effectiveLegacy = catalogUrl;
+    } else {
+      effectiveLegacy = canonicalStoryUrl;
+    }
+  }
 
   let storageKeyToPresign: string | null = null;
   if (key) {

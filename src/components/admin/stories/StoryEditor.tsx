@@ -145,7 +145,9 @@ export default function StoryEditor({
 
   const onDelete = async () => {
     if (!isNumericDbStoryId(story.id)) {
-      setSaveError('Only database-backed stories can be deleted.');
+      setSaveError(
+        'This is a catalog-only row and cannot be deleted. Open the database-backed copy (numeric id) to delete it.'
+      );
       return;
     }
     if (

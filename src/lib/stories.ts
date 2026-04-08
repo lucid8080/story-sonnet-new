@@ -289,6 +289,8 @@ function mapDbStoryToApp(story: Story, episodes: Episode[]): AppStory {
 function mergeCatalogPublicAudioIntoDbApp(app: AppStory): AppStory {
   if (app.isStaticOnly) return app;
   const episodes = app.episodes.map((ep) => {
+    // Prefer explicit DB audio URL when present; only backfill from catalog when DB is empty.
+    if (ep.audioSrc?.trim()) return ep;
     if (ep.audioStorageKey?.trim()) return ep;
     const catalog = getResolvedCatalogEpisodeAudioSrc(app.slug, ep.episodeNumber);
     if (!catalog?.trim()) return ep;
@@ -698,7 +700,6 @@ async function syncEpisodesForStory(
       isPremium: ep.isPremium,
       isFreePreview: ep.isFreePreview ?? false,
     };
-
     if (isNumericDbStoryId(ep.id) && existingIds.has(ep.id)) {
       await tx.episode.update({
         where: { id: BigInt(ep.id) },
@@ -782,6 +783,12 @@ export async function upsertStoryFromAdmin(
     if (!row) {
       throw new Error('Story not found.');
     }
+    const isCatalogBackedSlug = staticStories.some((s) => s.slug === row.slug);
+    if (isCatalogBackedSlug && input.slug !== row.slug) {
+      throw new Error(
+        'Slug cannot be changed for catalog-backed stories. Duplicate the story first if you need a custom slug.'
+      );
+    }
     return prisma.$transaction(async (tx) => {
       await tx.story.update({
         where: { id },
@@ -808,6 +815,11 @@ export async function upsertStoryFromAdmin(
 
   const staticStory = staticStories.find((s) => s.slug === slugKey);
   if (staticStory) {
+    if (input.slug !== slugKey) {
+      throw new Error(
+        'Slug cannot be changed for catalog-backed stories. Save without changing slug, then duplicate for a custom slug.'
+      );
+    }
     return seedStoryFromStaticFull(staticStory, input);
   }
 
