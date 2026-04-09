@@ -81,6 +81,13 @@ type MainStreamKind = 'intro' | 'episode';
 
 const EPISODE_WINDOW_SIZE = 3;
 
+type RecommendedStory = {
+  slug: string;
+  title: string;
+  cover: string | null;
+  accent: string | null;
+};
+
 function canCollapseText(
   text: string | null | undefined,
   minChars: number
@@ -91,9 +98,11 @@ function canCollapseText(
 export function StoryPageClient({
   story,
   isSubscribed,
+  recommendedStories,
 }: {
   story: StoryForPlayer;
   isSubscribed: boolean;
+  recommendedStories: RecommendedStory[];
 }) {
   const [activeEpisodeIndex, setActiveEpisodeIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -120,6 +129,8 @@ export function StoryPageClient({
     useState(false);
   const [expandedEpisodeDescriptions, setExpandedEpisodeDescriptions] =
     useState<Record<string, boolean>>({});
+  const [truncatedEpisodeDescriptions, setTruncatedEpisodeDescriptions] =
+    useState<Record<string, boolean>>({});
   const audioRef = useRef<HTMLAudioElement>(null);
   const preloadEpisodeRef = useRef<HTMLAudioElement>(null);
   const fullAudioRef = useRef<HTMLAudioElement>(null);
@@ -127,6 +138,9 @@ export function StoryPageClient({
   const playEpisodeAfterIntroRef = useRef(false);
   const transcriptScrollerRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<(HTMLParagraphElement | null)[]>([]);
+  const episodeDescriptionRefs = useRef<Record<string, HTMLParagraphElement | null>>(
+    {}
+  );
   const pendingPlayIntroRef = useRef(false);
   const usedEpisodePlaceholderFallbackRef = useRef(false);
   const usedIntroPlaceholderFallbackRef = useRef(false);
@@ -158,7 +172,20 @@ export function StoryPageClient({
     setIsSummaryExpanded(false);
     setIsFullDescriptionExpanded(false);
     setExpandedEpisodeDescriptions({});
+    setTruncatedEpisodeDescriptions({});
   }, [story.slug]);
+
+  useLayoutEffect(() => {
+    const measured: Record<string, boolean> = {};
+    for (const index of visibleEpisodeIndices) {
+      const episode = story.episodes[index];
+      if (!episode?.description) continue;
+      const el = episodeDescriptionRefs.current[episode.id];
+      if (!el) continue;
+      measured[episode.id] = el.scrollHeight > el.clientHeight + 1;
+    }
+    setTruncatedEpisodeDescriptions((prev) => ({ ...prev, ...measured }));
+  }, [visibleEpisodeIndices, story.episodes, expandedEpisodeDescriptions]);
 
   useEffect(() => {
     if (!useEpisodeWindow) return;
@@ -1201,10 +1228,10 @@ export function StoryPageClient({
                   const isEpisodeDescriptionExpanded = !!expandedEpisodeDescriptions[
                     episode.id
                   ];
-                  const showEpisodeDescriptionToggle = canCollapseText(
-                    episode.description,
-                    110
-                  );
+                  const showEpisodeDescriptionToggle =
+                    !!episode.description &&
+                    (isEpisodeDescriptionExpanded ||
+                      !!truncatedEpisodeDescriptions[episode.id]);
                   return (
                     <div
                       role="button"
@@ -1225,14 +1252,24 @@ export function StoryPageClient({
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div>
-                          <div className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
-                            {episode.label}
+                          <div className="flex items-center gap-2">
+                            <div className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
+                              {episode.label}
+                            </div>
+                            {episode.isFreePreview ? (
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600">
+                                Free preview
+                              </p>
+                            ) : null}
                           </div>
                           <div className="mt-1 text-lg font-black leading-snug text-slate-900">
                             {episode.title}
                           </div>
                           {episode.description && (
                             <p
+                              ref={(el) => {
+                                episodeDescriptionRefs.current[episode.id] = el;
+                              }}
                               className={`mt-2 text-sm leading-5 text-slate-600 ${
                                 isEpisodeDescriptionExpanded ? '' : 'line-clamp-2'
                               }`}
@@ -1247,7 +1284,7 @@ export function StoryPageClient({
                                 e.stopPropagation();
                                 toggleEpisodeDescription(episode.id);
                               }}
-                              className="mt-1 text-xs font-semibold uppercase tracking-wide text-violet-700 hover:text-violet-800"
+                              className="mt-1 text-[11px] font-medium text-slate-500 hover:text-slate-700"
                               aria-expanded={isEpisodeDescriptionExpanded}
                             >
                               {isEpisodeDescriptionExpanded
@@ -1255,20 +1292,19 @@ export function StoryPageClient({
                                 : 'Read more'}
                             </button>
                           ) : null}
-                          {episode.isFreePreview ? (
-                            <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-emerald-600">
-                              Free preview
-                            </p>
-                          ) : null}
                         </div>
                         <div
-                          className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] ${
-                            active
-                              ? 'bg-rose-50 text-rose-500'
-                              : 'bg-slate-100 text-slate-500'
-                          }`}
+                          className="flex flex-col items-end gap-2"
                         >
-                          {episode.duration}
+                          <div
+                            className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] ${
+                              active
+                                ? 'bg-rose-50 text-rose-500'
+                                : 'bg-slate-100 text-slate-500'
+                            }`}
+                          >
+                            {episode.duration}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1279,6 +1315,46 @@ export function StoryPageClient({
           )}
         </section>
         </main>
+
+        {recommendedStories.length > 0 ? (
+          <div className="mx-auto max-w-6xl px-5 pb-4 sm:px-7 lg:px-8">
+            <section className="w-full lg:max-w-[44%]">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <h2 className="text-base font-black text-slate-900">
+                  Recommended Stories
+                </h2>
+              </div>
+              <div className="grid grid-cols-5 gap-2 sm:gap-3">
+                {recommendedStories.map((recommended) => (
+                  <Link
+                    key={recommended.slug}
+                    href={`/story/${recommended.slug}`}
+                    className="group block overflow-hidden rounded-xl ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
+                    aria-label={`Open recommended story: ${recommended.title}`}
+                  >
+                    <div
+                      className="relative aspect-[3/4] w-full overflow-hidden"
+                      style={{
+                        backgroundColor: recommended.accent || '#cbd5e1',
+                      }}
+                    >
+                      {recommended.cover ? (
+                        <Image
+                          src={recommended.cover}
+                          alt={`${recommended.title} cover art`}
+                          fill
+                          sizes="(max-width: 640px) 18vw, (max-width: 1024px) 12vw, 8vw"
+                          className="object-cover object-top transition duration-300 group-hover:scale-105"
+                        />
+                      ) : null}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          </div>
+        ) : null}
+
         <div className="mx-auto max-w-6xl px-5 pb-12 sm:px-7 lg:px-8">
           <StorySeriesCommentsPanel className="mt-2" />
         </div>
