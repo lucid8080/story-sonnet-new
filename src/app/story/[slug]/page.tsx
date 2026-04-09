@@ -53,7 +53,7 @@ export default async function StoryPage({
 
       return a.title.localeCompare(b.title);
     })
-    .slice(0, 5)
+    .slice(0, 2)
     .map((candidate) => ({
       slug: candidate.slug,
       title: candidate.title,

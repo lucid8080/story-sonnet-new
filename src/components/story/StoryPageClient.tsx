@@ -1318,13 +1318,13 @@ export function StoryPageClient({
 
         {recommendedStories.length > 0 ? (
           <div className="mx-auto max-w-6xl px-5 pb-4 sm:px-7 lg:px-8">
-            <section className="w-full lg:max-w-[44%]">
+            <section className="w-full lg:max-w-[40%]">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <h2 className="text-base font-black text-slate-900">
                   Recommended Stories
                 </h2>
               </div>
-              <div className="grid grid-cols-5 gap-2 sm:gap-3">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 {recommendedStories.map((recommended) => (
                   <Link
                     key={recommended.slug}
@@ -1343,7 +1343,7 @@ export function StoryPageClient({
                           src={recommended.cover}
                           alt={`${recommended.title} cover art`}
                           fill
-                          sizes="(max-width: 640px) 18vw, (max-width: 1024px) 12vw, 8vw"
+                          sizes="(max-width: 640px) 44vw, (max-width: 1024px) 30vw, 20vw"
                           className="object-cover object-top transition duration-300 group-hover:scale-105"
                         />
                       ) : null}
