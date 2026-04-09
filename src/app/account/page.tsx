@@ -6,6 +6,7 @@ import {
   browseStoriesForSavedSlugs,
   fetchSavedStorySlugs,
 } from '@/lib/userSavedStories';
+import { BRAND } from '@/lib/brand';
 
 function SignOutButton() {
   return (
@@ -35,7 +36,7 @@ export default async function AccountPage() {
             You&apos;re not logged in
           </h1>
           <p className="mt-2 text-sm text-slate-600">
-            Log in to see your Story Sonnet account and subscription.
+            Log in to see your {BRAND.productName} account and subscription.
           </p>
           <div className="mt-4 flex justify-center gap-3">
             <Link

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { BRAND } from '@/lib/brand';
 
 function NavLink({
   href,
@@ -39,7 +40,7 @@ export default function SiteHeader() {
         <Link href="/" className="flex items-center gap-1.5">
           <Image
             src="/branding/logo.png"
-            alt="Story Sonnet"
+            alt={BRAND.productName}
             width={120}
             height={40}
             className="h-10 w-auto max-w-[120px] object-contain object-left"
@@ -47,10 +48,10 @@ export default function SiteHeader() {
           />
           <div>
             <div className="text-sm font-black tracking-tight text-slate-900">
-              Story Sonnet
+              {BRAND.productName}
             </div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-              Listening adventures
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+              {BRAND.tagline}
             </div>
           </div>
         </Link>

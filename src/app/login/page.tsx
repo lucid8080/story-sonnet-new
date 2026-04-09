@@ -4,6 +4,7 @@ import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { getSession, signIn } from 'next-auth/react';
+import { BRAND } from '@/lib/brand';
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -53,7 +54,7 @@ function LoginForm() {
             Welcome back
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Log in to keep listening and manage your Story Sonnet subscription.
+            Log in to keep listening and manage your {BRAND.productName} subscription.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -125,7 +126,7 @@ function LoginForm() {
           )}
 
           <p className="mt-5 text-center text-xs text-slate-500">
-            New to Story Sonnet?{' '}
+            New to {BRAND.productName}?{' '}
             <Link
               href="/signup"
               className="font-semibold text-rose-600 hover:text-rose-700"

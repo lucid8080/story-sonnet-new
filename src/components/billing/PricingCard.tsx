@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { CheckoutInterval } from '@/lib/stripe-client';
+import { BRAND } from '@/lib/brand';
 
 export default function PricingCard({
   onSubscribe,
@@ -16,10 +17,10 @@ export default function PricingCard({
   return (
     <div className="rounded-3xl bg-white p-6 shadow-xl shadow-rose-200/60 ring-1 ring-rose-100 sm:p-8">
       <div className="text-xs font-bold uppercase tracking-[0.25em] text-rose-500">
-        Story Sonnet
+        {BRAND.productName}
       </div>
       <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-900">
-        Story Sonnet Premium
+        {BRAND.planName}
       </h2>
       <p className="mt-3 text-sm text-slate-600">
         Unlock the full library of gently adventurous stories, with new episodes

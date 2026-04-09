@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { BRAND } from '@/lib/brand';
 
 export default function SubscriptionGate({
   isPremium,
@@ -25,7 +26,7 @@ export default function SubscriptionGate({
             Premium story
           </div>
           <p className="mt-2 text-sm text-slate-100">
-            This story is part of Story Sonnet Premium. Subscribe to unlock all
+            This story is part of {BRAND.planName}. Subscribe to unlock all
             premium episodes.
           </p>
           <Link

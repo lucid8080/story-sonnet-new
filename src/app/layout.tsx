@@ -3,6 +3,7 @@ import { Outfit, Playfair_Display, Fira_Code } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/providers';
 import SiteHeader from '@/components/layout/SiteHeader';
+import { BRAND } from '@/lib/brand';
 
 const outfit = Outfit({
   subsets: ['latin'],
@@ -23,8 +24,10 @@ const fira = Fira_Code({
 });
 
 export const metadata: Metadata = {
-  title: 'Story Sonnet',
-  description: 'Listening adventures',
+  title: BRAND.productName,
+  description: BRAND.description,
+  applicationName: BRAND.productName,
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
   icons: {
     icon: [
       {
@@ -32,6 +35,19 @@ export const metadata: Metadata = {
         type: 'image/svg+xml',
       },
     ],
+  },
+  openGraph: {
+    title: BRAND.productName,
+    description: BRAND.description,
+    siteName: BRAND.productName,
+    type: 'website',
+    images: ['/branding/logo.png'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: BRAND.productName,
+    description: BRAND.description,
+    images: ['/branding/logo.png'],
   },
   manifest: '/branding/favicon/site.webmanifest',
 };

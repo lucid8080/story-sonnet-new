@@ -1,4 +1,5 @@
 import PricingActions from './PricingActions';
+import { BRAND } from '@/lib/brand';
 
 export default function PricingPage() {
   return (
@@ -6,7 +7,7 @@ export default function PricingPage() {
       <div className="mx-auto max-w-4xl px-5 py-10 sm:px-0">
         <div className="mb-6 text-center">
           <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-rose-500 shadow-sm ring-1 ring-rose-100">
-            Story Sonnet Premium
+            {BRAND.planName}
           </div>
           <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
             One simple plan for cozy story time
