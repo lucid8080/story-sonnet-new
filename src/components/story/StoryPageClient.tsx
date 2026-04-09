@@ -81,6 +81,13 @@ type MainStreamKind = 'intro' | 'episode';
 
 const EPISODE_WINDOW_SIZE = 3;
 
+function canCollapseText(
+  text: string | null | undefined,
+  minChars: number
+): boolean {
+  return !!text && text.trim().length > minChars;
+}
+
 export function StoryPageClient({
   story,
   isSubscribed,
@@ -107,6 +114,12 @@ export function StoryPageClient({
   const [resolvedThemeFullSrc, setResolvedThemeFullSrc] = useState<
     string | null
   >(null);
+  const [isCoverFlipped, setIsCoverFlipped] = useState(false);
+  const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
+  const [isFullDescriptionExpanded, setIsFullDescriptionExpanded] =
+    useState(false);
+  const [expandedEpisodeDescriptions, setExpandedEpisodeDescriptions] =
+    useState<Record<string, boolean>>({});
   const audioRef = useRef<HTMLAudioElement>(null);
   const preloadEpisodeRef = useRef<HTMLAudioElement>(null);
   const fullAudioRef = useRef<HTMLAudioElement>(null);
@@ -141,6 +154,10 @@ export function StoryPageClient({
 
   useEffect(() => {
     setEpisodeWindowStart(0);
+    setIsCoverFlipped(false);
+    setIsSummaryExpanded(false);
+    setIsFullDescriptionExpanded(false);
+    setExpandedEpisodeDescriptions({});
   }, [story.slug]);
 
   useEffect(() => {
@@ -744,6 +761,13 @@ export function StoryPageClient({
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  const toggleEpisodeDescription = (episodeId: string) => {
+    setExpandedEpisodeDescriptions((prev) => ({
+      ...prev,
+      [episodeId]: !prev[episodeId],
+    }));
+  };
+
   return (
     <StoryEngagementProvider storySlug={story.slug}>
       <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-violet-50 text-slate-800">
@@ -757,130 +781,231 @@ export function StoryPageClient({
               <ChevronLeft className="h-4 w-4" />
               Back to library
             </Link>
-            <StorySeriesLibraryButton />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsCoverFlipped((prev) => !prev)}
+                className="inline-flex h-9 items-center rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:bg-slate-50"
+                aria-pressed={isCoverFlipped}
+                aria-label="Toggle Story Series details on cover card"
+              >
+                {isCoverFlipped ? 'Show Cover' : 'About'}
+              </button>
+              <StorySeriesLibraryButton />
+            </div>
           </div>
-          <div className="overflow-hidden rounded-[2rem] bg-white shadow-xl shadow-slate-200 ring-1 ring-slate-100">
+          <div className="overflow-hidden rounded-[2rem] bg-white shadow-xl shadow-slate-200 ring-1 ring-slate-100 [perspective:1200px]">
             <div
-              className="relative aspect-[4/5] overflow-hidden"
-              style={{ backgroundColor: story.accent || '#64748b' }}
+              className={`relative aspect-[4/5] transition-transform duration-500 motion-reduce:duration-0 [transform-style:preserve-3d] ${
+                isCoverFlipped ? '[transform:rotateY(180deg)]' : ''
+              }`}
             >
-              {story.cover && (
-                <Image
-                  src={story.cover}
-                  alt={`${story.title} cover art`}
-                  fill
-                  sizes="(max-width: 1024px) 100vw, 55vw"
-                  priority
-                  className="object-cover object-top"
-                />
-              )}
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/85 via-slate-900/35 to-transparent p-5 sm:p-6">
-                <div className="mb-4 flex items-end justify-between gap-3">
-                  <div>
-                    <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-white/70">
-                      Now Playing
-                    </div>
-                    <div className="mt-1 text-lg font-black leading-snug text-white sm:text-xl">
-                      {activeEpisode.title}
-                    </div>
-                  </div>
-                </div>
-
-                <SubscriptionGate
-                  isPremium={needsPaywall}
-                  isSubscribed={isSubscribed}
+              <div
+                className="absolute inset-0 overflow-hidden"
+                style={{ backfaceVisibility: 'hidden' }}
+              >
+                <div
+                  className="relative h-full w-full overflow-hidden"
+                  style={{ backgroundColor: story.accent || '#64748b' }}
                 >
-                  <div className="flex w-full flex-col gap-3">
-                    {entitled && audioLoading ? (
-                      <p className="text-center text-xs text-white/80">
-                        Preparing audio…
-                      </p>
-                    ) : null}
-                    {entitled && audioError ? (
-                      <p className="text-center text-xs text-rose-200">
-                        {audioError}
-                      </p>
-                    ) : null}
-                    {entitled && usingPlaceholderAudio && !audioError ? (
-                      <p className="text-center text-xs text-amber-100/95">
-                        Placeholder audio — upload the MP3 or fix the CDN path
-                        when ready.
-                      </p>
-                    ) : null}
-                    <audio
-                      ref={preloadEpisodeRef}
-                      src={
-                        canUsePlayer && resolvedAudioSrc
-                          ? resolvedAudioSrc
-                          : undefined
-                      }
-                      preload="auto"
-                      className="pointer-events-none absolute h-0 w-0 opacity-0"
-                      aria-hidden
-                      muted
+                  {story.cover && (
+                    <Image
+                      src={story.cover}
+                      alt={`${story.title} cover art`}
+                      fill
+                      sizes="(max-width: 1024px) 100vw, 55vw"
+                      priority
+                      className="object-cover object-top"
                     />
-                    <audio
-                      key={`main-${activeEpisode.id}-${mainStream}-${
-                        mainStream === 'intro'
-                          ? 'intro'
-                          : (resolvedAudioSrc ?? 'none')
-                      }`}
-                      ref={audioRef}
-                      src={mainAudioSrc}
-                      preload="auto"
-                      onTimeUpdate={handleTimeUpdate}
-                      onLoadedMetadata={handleLoadedMetadata}
-                      onEnded={handleMainEnded}
-                      onError={mainAudioSrc ? handleMainAudioError : undefined}
-                    />
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      value={progress}
-                      onChange={handleSeek}
-                      disabled={playDisabled}
-                      className={`h-2 w-full appearance-none rounded-full bg-white/25 accent-rose-400 ${
-                        playDisabled
-                          ? 'cursor-not-allowed opacity-50'
-                          : 'cursor-pointer'
-                      }`}
-                    />
-                    <div className="flex justify-between text-[11px] font-mono text-white/75">
-                      <span>
-                        {formatTime(duration ? (progress / 100) * duration : 0)}
-                      </span>
-                      <span>{formatTime(duration)}</span>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                      <button
-                        type="button"
-                        onClick={togglePlay}
-                        disabled={playDisabled}
-                        className={`inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white shadow-lg shadow-rose-900/20 transition ${
-                          playDisabled
-                            ? 'cursor-not-allowed opacity-50'
-                            : 'hover:scale-105 active:scale-95'
-                        }`}
-                      >
-                        {isPlaying ? (
-                          <Pause className="h-7 w-7 fill-current" />
-                        ) : (
-                          <Play className="ml-1 h-7 w-7 fill-current" />
-                        )}
-                      </button>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-bold text-white">
-                          Play from the cover
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/85 via-slate-900/35 to-transparent p-5 sm:p-6">
+                    <div className="mb-4 flex items-end justify-between gap-3">
+                      <div>
+                        <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-white/70">
+                          Now Playing
                         </div>
-                        <div className="text-xs leading-5 text-white/75">
-                          Pick an episode on the right, then hit play here.
+                        <div className="mt-1 text-lg font-black leading-snug text-white sm:text-xl">
+                          {activeEpisode.title}
                         </div>
                       </div>
                     </div>
+
+                    <SubscriptionGate
+                      isPremium={needsPaywall}
+                      isSubscribed={isSubscribed}
+                    >
+                      <div className="flex w-full flex-col gap-3">
+                        {entitled && audioLoading ? (
+                          <p className="text-center text-xs text-white/80">
+                            Preparing audio…
+                          </p>
+                        ) : null}
+                        {entitled && audioError ? (
+                          <p className="text-center text-xs text-rose-200">
+                            {audioError}
+                          </p>
+                        ) : null}
+                        {entitled && usingPlaceholderAudio && !audioError ? (
+                          <p className="text-center text-xs text-amber-100/95">
+                            Placeholder audio — upload the MP3 or fix the CDN path
+                            when ready.
+                          </p>
+                        ) : null}
+                        <audio
+                          ref={preloadEpisodeRef}
+                          src={
+                            canUsePlayer && resolvedAudioSrc
+                              ? resolvedAudioSrc
+                              : undefined
+                          }
+                          preload="auto"
+                          className="pointer-events-none absolute h-0 w-0 opacity-0"
+                          aria-hidden
+                          muted
+                        />
+                        <audio
+                          key={`main-${activeEpisode.id}-${mainStream}-${
+                            mainStream === 'intro'
+                              ? 'intro'
+                              : (resolvedAudioSrc ?? 'none')
+                          }`}
+                          ref={audioRef}
+                          src={mainAudioSrc}
+                          preload="auto"
+                          onTimeUpdate={handleTimeUpdate}
+                          onLoadedMetadata={handleLoadedMetadata}
+                          onEnded={handleMainEnded}
+                          onError={mainAudioSrc ? handleMainAudioError : undefined}
+                        />
+                        <input
+                          type="range"
+                          min={0}
+                          max={100}
+                          value={progress}
+                          onChange={handleSeek}
+                          disabled={playDisabled}
+                          className={`h-2 w-full appearance-none rounded-full bg-white/25 accent-rose-400 ${
+                            playDisabled
+                              ? 'cursor-not-allowed opacity-50'
+                              : 'cursor-pointer'
+                          }`}
+                        />
+                        <div className="flex justify-between text-[11px] font-mono text-white/75">
+                          <span>
+                            {formatTime(
+                              duration ? (progress / 100) * duration : 0
+                            )}
+                          </span>
+                          <span>{formatTime(duration)}</span>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                          <button
+                            type="button"
+                            onClick={togglePlay}
+                            disabled={playDisabled}
+                            className={`inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white shadow-lg shadow-rose-900/20 transition ${
+                              playDisabled
+                                ? 'cursor-not-allowed opacity-50'
+                                : 'hover:scale-105 active:scale-95'
+                            }`}
+                          >
+                            {isPlaying ? (
+                              <Pause className="h-7 w-7 fill-current" />
+                            ) : (
+                              <Play className="ml-1 h-7 w-7 fill-current" />
+                            )}
+                          </button>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-bold text-white">
+                              Play from the cover
+                            </div>
+                            <div className="text-xs leading-5 text-white/75">
+                              Pick an episode on the right, then hit play here.
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </SubscriptionGate>
                   </div>
-                </SubscriptionGate>
+                </div>
+              </div>
+
+              <div
+                className="absolute inset-0 overflow-hidden rounded-[2rem] bg-white"
+                style={{
+                  backfaceVisibility: 'hidden',
+                  transform: 'rotateY(180deg)',
+                }}
+              >
+                <div className="flex h-full flex-col p-5 sm:p-6">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="text-sm font-black uppercase tracking-[0.25em] text-slate-400">
+                      Story Series
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsCoverFlipped(false)}
+                      className="inline-flex items-center rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                      aria-label="Flip back to cover"
+                    >
+                      Back to Cover
+                    </button>
+                  </div>
+                  <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
+                    <h1 className="text-2xl font-black leading-tight text-slate-900">
+                      {story.seriesTitle}
+                    </h1>
+                    {story.subtitle ? (
+                      <p className="mt-2 text-base font-semibold text-slate-700">
+                        {story.subtitle}
+                      </p>
+                    ) : null}
+                    {story.seriesTagline ? (
+                      <p className="mt-2 text-sm font-medium italic text-violet-700/90">
+                        {story.seriesTagline}
+                      </p>
+                    ) : null}
+                    <p
+                      className={`mt-3 text-base leading-7 text-slate-600 ${
+                        isSummaryExpanded ? '' : 'line-clamp-3'
+                      }`}
+                    >
+                      {story.summary}
+                    </p>
+                    {canCollapseText(story.summary, 150) ? (
+                      <button
+                        type="button"
+                        onClick={() => setIsSummaryExpanded((prev) => !prev)}
+                        className="mt-1 text-sm font-semibold text-violet-700 hover:text-violet-800"
+                        aria-expanded={isSummaryExpanded}
+                      >
+                        {isSummaryExpanded ? 'Show less' : 'Read more'}
+                      </button>
+                    ) : null}
+                    {story.fullDescription ? (
+                      <p
+                        className={`mt-4 text-sm leading-7 text-slate-600 ${
+                          isFullDescriptionExpanded ? '' : 'line-clamp-3'
+                        }`}
+                      >
+                        {story.fullDescription}
+                      </p>
+                    ) : null}
+                    {canCollapseText(story.fullDescription, 150) ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setIsFullDescriptionExpanded((prev) => !prev)
+                        }
+                        className="mt-1 text-sm font-semibold text-violet-700 hover:text-violet-800"
+                        aria-expanded={isFullDescriptionExpanded}
+                      >
+                        {isFullDescriptionExpanded ? 'Show less' : 'Read more'}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -960,33 +1085,6 @@ export function StoryPageClient({
             </div>
           ) : (
             <>
-              <div className="rounded-[1.6rem] bg-white p-5 shadow-lg ring-1 ring-slate-100">
-                <div className="text-sm font-black uppercase tracking-[0.25em] text-slate-400">
-                  Story Series
-                </div>
-                <h1 className="mt-2 text-3xl font-black leading-tight text-slate-900 lg:text-[2.1rem]">
-                  {story.seriesTitle}
-                </h1>
-                {story.subtitle ? (
-                  <p className="mt-2 text-lg font-semibold text-slate-700">
-                    {story.subtitle}
-                  </p>
-                ) : null}
-                {story.seriesTagline ? (
-                  <p className="mt-2 text-sm font-medium italic text-violet-700/90">
-                    {story.seriesTagline}
-                  </p>
-                ) : null}
-                <p className="mt-3 text-base leading-7 text-slate-600">
-                  {story.summary}
-                </p>
-                {story.fullDescription ? (
-                  <p className="mt-4 text-sm leading-7 text-slate-600">
-                    {story.fullDescription}
-                  </p>
-                ) : null}
-              </div>
-
               {showFullThemeBar ? (
                 <div className="mb-4 mt-5 rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-3 shadow-sm ring-1 ring-slate-100">
                   <div className="mb-2 flex items-center justify-between gap-2">
@@ -1100,11 +1198,25 @@ export function StoryPageClient({
                 {visibleEpisodeIndices.map((index) => {
                   const episode = story.episodes[index];
                   const active = index === activeEpisodeIndex;
+                  const isEpisodeDescriptionExpanded = !!expandedEpisodeDescriptions[
+                    episode.id
+                  ];
+                  const showEpisodeDescriptionToggle = canCollapseText(
+                    episode.description,
+                    110
+                  );
                   return (
-                    <button
-                      type="button"
+                    <div
+                      role="button"
+                      tabIndex={0}
                       key={episode.id}
                       onClick={() => setActiveEpisodeIndex(index)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setActiveEpisodeIndex(index);
+                        }
+                      }}
                       className={`w-full rounded-[1.5rem] border p-4 text-left transition ${
                         active
                           ? 'border-rose-200 bg-white shadow-lg shadow-rose-100'
@@ -1120,10 +1232,29 @@ export function StoryPageClient({
                             {episode.title}
                           </div>
                           {episode.description && (
-                            <p className="mt-2 text-sm leading-5 text-slate-600">
+                            <p
+                              className={`mt-2 text-sm leading-5 text-slate-600 ${
+                                isEpisodeDescriptionExpanded ? '' : 'line-clamp-2'
+                              }`}
+                            >
                               {episode.description}
                             </p>
                           )}
+                          {showEpisodeDescriptionToggle ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleEpisodeDescription(episode.id);
+                              }}
+                              className="mt-1 text-xs font-semibold uppercase tracking-wide text-violet-700 hover:text-violet-800"
+                              aria-expanded={isEpisodeDescriptionExpanded}
+                            >
+                              {isEpisodeDescriptionExpanded
+                                ? 'Show less'
+                                : 'Read more'}
+                            </button>
+                          ) : null}
                           {episode.isFreePreview ? (
                             <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-emerald-600">
                               Free preview
@@ -1140,7 +1271,7 @@ export function StoryPageClient({
                           {episode.duration}
                         </div>
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
