@@ -26,7 +26,7 @@ import { getTranscriptLines } from '@/lib/transcripts';
 import SubscriptionGate from '@/components/auth/SubscriptionGate';
 import {
   StoryEngagementProvider,
-  StorySeriesActionsBar,
+  StorySeriesLibraryButton,
   StorySeriesCommentsPanel,
 } from '@/components/story/StorySeriesEngagement';
 
@@ -749,13 +749,16 @@ export function StoryPageClient({
       <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-violet-50 text-slate-800">
         <main className="mx-auto grid max-w-6xl gap-8 px-5 py-5 sm:px-7 lg:grid-cols-[0.88fr_1.12fr] lg:px-8 lg:py-6">
         <section>
-          <Link
-            href="/"
-            className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Back to library
-          </Link>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Back to library
+            </Link>
+            <StorySeriesLibraryButton />
+          </div>
           <div className="overflow-hidden rounded-[2rem] bg-white shadow-xl shadow-slate-200 ring-1 ring-slate-100">
             <div
               className="relative aspect-[4/5] overflow-hidden"
@@ -982,7 +985,6 @@ export function StoryPageClient({
                     {story.fullDescription}
                   </p>
                 ) : null}
-                <StorySeriesActionsBar />
               </div>
 
               {showFullThemeBar ? (

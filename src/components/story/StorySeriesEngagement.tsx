@@ -11,7 +11,7 @@ import {
   useState,
 } from 'react';
 import { useSession } from 'next-auth/react';
-import { Bookmark, Heart, Loader2, MessageCircle, Star } from 'lucide-react';
+import { Bookmark, Loader2, MessageCircle, Star } from 'lucide-react';
 import { COMMENT_MAX } from '@/lib/storyEngagementApi';
 
 export type EngagementComment = {
@@ -486,12 +486,8 @@ export function StorySeriesActionsBar({ className = '' }: { className?: string }
     loginHref,
     loading,
     error,
-    likeCount,
-    likedByMe,
     inLibrary,
-    likeBusy,
     libraryBusy,
-    toggleLike,
     toggleLibrary,
   } = useStoryEngagement();
 
@@ -513,8 +509,7 @@ export function StorySeriesActionsBar({ className = '' }: { className?: string }
             >
               Log in
             </Link>{' '}
-            to like this series, save it to your library, and leave a comment
-            below.
+            to save this series to your library and leave a comment below.
           </p>
         ) : null}
 
@@ -527,28 +522,6 @@ export function StorySeriesActionsBar({ className = '' }: { className?: string }
 
         {status !== 'loading' && loggedIn && !loading ? (
           <>
-            <button
-              type="button"
-              onClick={() => void toggleLike()}
-              disabled={likeBusy}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition ${
-                likedByMe
-                  ? 'bg-rose-100 text-rose-600 ring-2 ring-rose-200'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
-              aria-pressed={likedByMe}
-            >
-              {likeBusy ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              ) : (
-                <Heart
-                  className={`h-4 w-4 ${likedByMe ? 'fill-current' : ''}`}
-                  aria-hidden
-                />
-              )}
-              Like
-              <span className="font-mono text-xs opacity-80">{likeCount}</span>
-            </button>
             <button
               type="button"
               onClick={() => void toggleLibrary()}
@@ -576,6 +549,68 @@ export function StorySeriesActionsBar({ className = '' }: { className?: string }
 
       {error ? (
         <p className="mt-3 text-sm text-rose-600" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** Compact add-to-library control for top-of-cover header row. */
+export function StorySeriesLibraryButton({ className = '' }: { className?: string }) {
+  const {
+    status,
+    loggedIn,
+    loginHref,
+    loading,
+    error,
+    inLibrary,
+    libraryBusy,
+    toggleLibrary,
+  } = useStoryEngagement();
+
+  const busy = status === 'loading' || (loggedIn && loading) || libraryBusy;
+  const label =
+    status === 'loading' || (loggedIn && loading)
+      ? 'Loading...'
+      : inLibrary
+        ? 'In your library'
+        : 'Add to library';
+
+  if (!loggedIn && status !== 'loading') {
+    return (
+      <Link
+        href={loginHref}
+        className={`inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-sm font-bold text-rose-600 shadow-sm ring-1 ring-slate-200 transition hover:bg-white ${className}`}
+      >
+        <Bookmark className="h-4 w-4" aria-hidden />
+        Add to library
+      </Link>
+    );
+  }
+
+  return (
+    <div className={className}>
+      <button
+        type="button"
+        onClick={() => void toggleLibrary()}
+        disabled={busy}
+        className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold shadow-sm ring-1 transition ${
+          inLibrary
+            ? 'bg-sky-100 text-sky-800 ring-sky-200'
+            : 'bg-white/90 text-slate-700 ring-slate-200 hover:bg-white'
+        } ${busy ? 'cursor-not-allowed opacity-70' : ''}`}
+        aria-pressed={inLibrary}
+      >
+        {busy ? (
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+        ) : (
+          <Bookmark className={`h-4 w-4 ${inLibrary ? 'fill-current' : ''}`} aria-hidden />
+        )}
+        {label}
+      </button>
+      {error ? (
+        <p className="mt-2 text-xs text-rose-600" role="alert">
           {error}
         </p>
       ) : null}

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { auth } from '@/auth';
 import { stripe } from '@/lib/stripe-server';
 import { syncSubscriptionFromCheckoutReturn } from '@/lib/syncSubscriptionFromCheckoutReturn';
+import { BRAND } from '@/lib/brand';
 
 export default async function BillingSuccessPage({
   searchParams,
@@ -23,7 +24,7 @@ export default async function BillingSuccessPage({
     <div className="mx-auto max-w-md px-5 py-16 text-center">
       <h1 className="text-2xl font-black text-slate-900">You&apos;re subscribed!</h1>
       <p className="mt-3 text-sm text-slate-600">
-        Thanks for supporting Story Sonnet. If your account still shows Free,
+        Thanks for supporting {BRAND.productName}. If your account still shows Free,
         open Account once more — your subscription is saved from this checkout.
       </p>
       <Link
