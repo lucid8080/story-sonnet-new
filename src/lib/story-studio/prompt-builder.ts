@@ -1,4 +1,7 @@
-import type { BriefPayloadParsed } from '@/lib/story-studio/schemas/llm-output';
+import type {
+  BriefPayloadParsed,
+  ScriptPackagePayloadParsed,
+} from '@/lib/story-studio/schemas/llm-output';
 import {
   expressionTagDensityGuidance,
   storyCoreSystemPreamble,
@@ -132,4 +135,23 @@ export function buildCoverImagePrompt(
   return `${scriptCoverPrompt}
 
 Constraints: children's audiobook cover, poster composition, vibrant but soft, no text, no logos, no watermark, family-friendly.`;
+}
+
+/** Draft-shaped input for resolving script/brief cover text + constraints (orchestration + UI). */
+export type DraftCoverImagePromptInput = {
+  title: string;
+  scriptPackage: unknown;
+  brief: unknown;
+};
+
+/** Full prompt sent to the image API for this draft’s current brief/script/title. */
+export function buildDraftCoverImagePrompt(
+  req: GenerationRequest,
+  draft: DraftCoverImagePromptInput
+): string {
+  const scriptPkg = draft.scriptPackage as ScriptPackagePayloadParsed | null;
+  const brief = draft.brief as BriefPayloadParsed | null;
+  const segment =
+    scriptPkg?.coverArtPrompt ?? brief?.coverArtPrompt ?? draft.title;
+  return buildCoverImagePrompt(req, segment);
 }
