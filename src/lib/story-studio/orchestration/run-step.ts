@@ -6,7 +6,7 @@ import {
   type ScriptPackagePayloadParsed,
 } from '@/lib/story-studio/schemas/llm-output';
 import {
-  buildCoverImagePrompt,
+  buildDraftCoverImagePrompt,
   buildOpenRouterMessagesForBrief,
   buildOpenRouterMessagesForScript,
 } from '@/lib/story-studio/prompt-builder';
@@ -166,8 +166,16 @@ export async function executeGenerationStep(
   const req = resolveDraftGenerationRequest(draft);
 
   if (step === 'brief') {
-    const messages = buildOpenRouterMessagesForBrief(req);
-    const raw = await openRouterChatCompletion({ messages });
+    const varietySeed = `${Date.now().toString(36)}-${Math.floor(
+      Math.random() * 1_000_000_000
+    ).toString(36)}`;
+    const messages = buildOpenRouterMessagesForBrief(req, {
+      varietySeed,
+    });
+    const raw = await openRouterChatCompletion({
+      messages,
+      temperature: 0.92,
+    });
     const parsed = parseJsonToBrief(raw);
     if (!parsed.success) {
       throw new Error(
@@ -211,11 +219,9 @@ export async function executeGenerationStep(
 
   const scriptPkg = draft.scriptPackage as ScriptPackagePayloadParsed | null;
   const brief = draft.brief as BriefPayloadParsed | null;
-  const coverPrompt =
-    scriptPkg?.coverArtPrompt ?? brief?.coverArtPrompt ?? draft.title;
 
   if (step === 'cover') {
-    const prompt = buildCoverImagePrompt(req, coverPrompt);
+    const prompt = buildDraftCoverImagePrompt(req, draft);
     const img = await generateStoryCoverImage({ prompt });
     if (!img.ok) {
       throw new Error(img.message);
@@ -243,6 +249,7 @@ export async function executeGenerationStep(
         storageKey: key,
         mimeType: img.mimeType,
         vendor: 'story-studio-image',
+        metadata: { imagePrompt: prompt },
       },
     });
     return { assetId: asset.id };
@@ -359,9 +366,6 @@ export async function executeGenerationStep(
 
     for (let i = 0; i < d.episodes.length; i++) {
       const ep = d.episodes[i];
-      // #region agent log
-      fetch('http://127.0.0.1:7434/ingest/678f1997-b99a-405b-943f-eded3c164e8b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f4563a'},body:JSON.stringify({sessionId:'f4563a',runId:'slug-path-pre',hypothesisId:'H3_H5',location:'run-step.ts:tts:key-build',message:'Building TTS storage key',data:{draftId,loopIndex:i,draftSlugFromStep:draft.slug,draftSlugFromQuery:d.slug,draftTitleFromStep:draft.title},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       const tts = await elevenLabsTextToSpeech({
         text: ep.scriptText,
         voiceId,
@@ -374,9 +378,6 @@ export async function executeGenerationStep(
         storySlug: draft.slug,
         safeFileName: sanitizeUploadFileName(`episode-${n}.mp3`),
       });
-      // #region agent log
-      fetch('http://127.0.0.1:7434/ingest/678f1997-b99a-405b-943f-eded3c164e8b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f4563a'},body:JSON.stringify({sessionId:'f4563a',runId:'slug-path-pre',hypothesisId:'H5',location:'run-step.ts:tts:key-built',message:'Built TTS storage key',data:{draftId,loopIndex:i,key},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       await uploadPrivateAudioObject({
         bucket,
         key,

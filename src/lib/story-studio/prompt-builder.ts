@@ -48,7 +48,7 @@ const BRIEF_JSON_INSTRUCTIONS = `Return a single JSON object with these keys:
 - seriesTitle (string; for standalone can match title or be a light series name)
 - summary (2–4 sentences for parents)
 - logline (one line)
-- characters (array of short character descriptors)
+- characters (array of strings only — each item one plain sentence; do not use objects or sub-keys)
 - settingSketch (one paragraph)
 - suggestedGenre (one of: adventure, bedtime, fantasy, animals, friendship, educational, funny, mystery — or null)
 - suggestedMood (one of: bedtime, calm-quiet, learning-time, car-ride, quick-listen, uplifting — or null)
@@ -58,6 +58,48 @@ const BRIEF_JSON_INSTRUCTIONS = `Return a single JSON object with these keys:
 - musicPrompt (single paragraph: style, tempo, instruments; prefer instrumental)
 - estimatedRuntimeMinutes (number from 1 to 5, within the requested minute range)
 - safetyNotes (short: how you stayed age-safe)`;
+
+const BRIEF_CREATIVITY_RULES = `CREATIVE DIVERSITY (required):
+- The same preset selections can yield many different stories. Vary the central conflict, supporting characters, and concrete details (objects, sounds, small world-building beats) — not just wording.
+- When MAIN CHARACTER TYPE is animal (or broad), do not default to the same few “cozy forest” species every time. Actively prefer less overused choices that still fit SETTING and age band (avoid leaning on hedgehog/fox-with-scarf clichés unless the user idea names them).
+- Models often pick the same “quirky rare mammal” (tapir, pangolin, pine marten, dik-dik) when sliders stay identical — treat that as a failure mode: pick a **different taxonomic lane** than your last instinct (e.g. bird, amphibian, insect, familiar rodent, riparian mammal) unless USER IDEA names a species.
+- Invent original character names. Do not reuse common default pet names like Pip, Poppy, or Olive unless USER IDEA / PROMPT already specifies them.
+- If USER IDEA is empty or generic, treat that as a prompt to surprise the listener with a distinctive premise while honoring all selections.`;
+
+/** Picks a rotating protagonist lane for forest + animal — hash is stable per variety seed. */
+const FOREST_ANIMAL_PROTAGONIST_SPINS = [
+  'Make the **hero a bird** (songbird, woodpecker, jay, young owl) — not a mammal.',
+  'Make the **hero a small rodent or rabbit** (mouse, vole, squirrel, rabbit) — avoid exotic zoo mammals.',
+  'Make the **hero an amphibian** (frog, toad, newt) with forest-appropriate stakes.',
+  'Make the **hero a gentle invertebrate** (butterfly, beetle, worm) — age-safe, not scary.',
+  'Make the **hero a bat** (dusk forest / cave edge) with a kindness beat.',
+  'Make the **hero a deer-family youngster** (fawn, moose calf) — familiar forest mammal, fresh conflict.',
+  'Make the **hero a badger, boar piglet, or porcupine** — sturdy forest mammals, not tapir-like exotics.',
+  'Make the **hero a raccoon or skunk** — North American forest tone, original problem.',
+  'Make the **hero a bear cub** with a non-generic kindness dilemma (not “lost honey”).',
+  'Make the **hero an otter or beaver** — stream/pond edge in the forest.',
+  'Make the **hero a shy lizard or snake** — curious, non-threatening for the age band.',
+  'Make the **hero a young wolf or coyote** — pack/community kindness, non-frightening.',
+] as const;
+
+function hashStringToUint(seed: string): number {
+  let h = 5381;
+  for (let i = 0; i < seed.length; i++) {
+    h = (h * 33) ^ seed.charCodeAt(i);
+  }
+  return h >>> 0;
+}
+
+function forestAnimalProtagonistSpin(
+  req: GenerationRequest,
+  varietySeed: string
+): string | null {
+  if (req.characterType !== 'animal' || req.setting !== 'forest') return null;
+  const s = varietySeed.trim();
+  if (!s) return null;
+  const idx = hashStringToUint(s) % FOREST_ANIMAL_PROTAGONIST_SPINS.length;
+  return FOREST_ANIMAL_PROTAGONIST_SPINS[idx] ?? null;
+}
 
 function scriptJsonInstructions(density: string): string {
   return `Return a single JSON object with these keys:
@@ -79,6 +121,8 @@ export function buildBriefUserPrompt(req: GenerationRequest): string {
   return `${requestSummary(req)}
 
 TASK: Write a STORY BRIEF only (no full script yet).
+
+${BRIEF_CREATIVITY_RULES}
 
 ${BRIEF_JSON_INSTRUCTIONS}`;
 }
@@ -110,10 +154,19 @@ SCRIPT RULES:
 - Keep vocabulary aligned with age band ${req.studioAgeBand}.`;
 }
 
-export function buildOpenRouterMessagesForBrief(req: GenerationRequest) {
+export function buildOpenRouterMessagesForBrief(
+  req: GenerationRequest,
+  opts?: { varietySeed?: string }
+) {
+  let user = buildBriefUserPrompt(req);
+  const seed = opts?.varietySeed?.trim() ?? '';
+  const spin = forestAnimalProtagonistSpin(req, seed);
+  if (spin) {
+    user += `\n\nSPECIES / CAST ROTATION (mandatory — align with MAIN CHARACTER TYPE + SETTING):\n${spin}`;
+  }
   return [
     { role: 'system' as const, content: storyCoreSystemPreamble() },
-    { role: 'user' as const, content: buildBriefUserPrompt(req) },
+    { role: 'user' as const, content: user },
   ];
 }
 
