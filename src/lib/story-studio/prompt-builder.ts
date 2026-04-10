@@ -54,7 +54,7 @@ const BRIEF_JSON_INSTRUCTIONS = `Return a single JSON object with these keys:
 - suggestedMood (one of: bedtime, calm-quiet, learning-time, car-ride, quick-listen, uplifting — or null)
 - ageRange (one of: 0-2, 3-5, 6-8, 9-12 — must match the age band above)
 - episodeOutline (array of { title, beat } — length must match episode count requested)
-- coverArtPrompt (single paragraph, kid-safe poster description, no text in image)
+- coverArtPrompt (one paragraph: kid-safe illustration only — scene, characters, palette, mood; do not describe on-image title or typography here; do not reserve space for series names, subtitles, bottom banners, or “label margins” — no extra text areas)
 - musicPrompt (single paragraph: style, tempo, instruments; prefer instrumental)
 - estimatedRuntimeMinutes (number from 1 to 5, within the requested minute range)
 - safetyNotes (short: how you stayed age-safe)`;
@@ -66,7 +66,7 @@ function scriptJsonInstructions(density: string): string {
 - summary (short catalog summary)
 - fullScript (optional string: entire story in one block if standalone single episode)
 - episodes (array of length matching episode count; each has title, summary, scriptText, optional hookEnding for series)
-- coverArtPrompt (refined)
+- coverArtPrompt (refined: same rules as brief — illustration/scene only; no series labels, subtitles, or reserved margins for extra text)
 - musicPrompt (refined)
 - narrationNotes (bullets for voice director)
 - estimatedRuntimeMinutes (number from 1 to 5, within the requested minute range)
@@ -127,14 +127,46 @@ export function buildOpenRouterMessagesForScript(
   ];
 }
 
-/** Cover image: image model prompt only */
-export function buildCoverImagePrompt(
-  req: GenerationRequest,
-  scriptCoverPrompt: string
+function resolveCoverLogline(
+  brief: BriefPayloadParsed | null,
+  req: GenerationRequest
 ): string {
-  return `${scriptCoverPrompt}
+  const fromLogline = brief?.logline?.trim();
+  if (fromLogline) return fromLogline;
+  const fromSummary = brief?.summary?.trim();
+  if (fromSummary) return fromSummary;
+  const idea =
+    req.mode === 'prompt' && req.customPrompt.trim()
+      ? req.customPrompt.trim()
+      : req.simpleIdea.trim();
+  return idea || '(story)';
+}
 
-Constraints: children's audiobook cover, poster composition, vibrant but soft, no text, no logos, no watermark, family-friendly.`;
+function pickCoverArtPromptSegment(
+  scriptPkg: ScriptPackagePayloadParsed | null,
+  brief: BriefPayloadParsed | null,
+  draftTitle: string
+): string {
+  const fromScript = scriptPkg?.coverArtPrompt?.trim();
+  if (fromScript) return fromScript;
+  const fromBrief = brief?.coverArtPrompt?.trim();
+  if (fromBrief) return fromBrief;
+  return draftTitle;
+}
+
+export type CoverImagePromptParts = {
+  logline: string;
+  title: string;
+  coverArtPrompt: string;
+};
+
+/** Cover image: full string sent to the image model. */
+export function buildCoverImagePrompt(parts: CoverImagePromptParts): string {
+  return `Create a vertical 4:5 unique children's book cover image for ${parts.logline}. Only include the title text exactly as: ${parts.title} and place the title near the top in beautiful, readable children's book cover lettering.
+
+${parts.coverArtPrompt}
+
+Constraints: kid-safe, vibrant but soft, poster-style composition, no logos, no watermark, no extra on-image text beyond the specified title, family-friendly.`;
 }
 
 /** Draft-shaped input for resolving script/brief cover text + constraints (orchestration + UI). */
@@ -151,7 +183,12 @@ export function buildDraftCoverImagePrompt(
 ): string {
   const scriptPkg = draft.scriptPackage as ScriptPackagePayloadParsed | null;
   const brief = draft.brief as BriefPayloadParsed | null;
-  const segment =
-    scriptPkg?.coverArtPrompt ?? brief?.coverArtPrompt ?? draft.title;
-  return buildCoverImagePrompt(req, segment);
+  const title = scriptPkg?.title ?? brief?.title ?? draft.title;
+  const logline = resolveCoverLogline(brief, req);
+  const coverArtPrompt = pickCoverArtPromptSegment(
+    scriptPkg,
+    brief,
+    draft.title
+  );
+  return buildCoverImagePrompt({ logline, title, coverArtPrompt });
 }
