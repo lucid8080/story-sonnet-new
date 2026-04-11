@@ -38,6 +38,10 @@ export function mapAppStoryToBrowseStory(story: AppStory): BrowseStory {
   const genre = (story.genre ?? seed.genre) as GenreId;
   const mood = (story.mood ?? seed.mood) as BrowseStory['mood'];
   const publishedAt = story.publishedAt ?? seed.publishedAt;
+  const listedAt =
+    story.createdAt?.trim() ||
+    story.publishedAt?.trim() ||
+    seed.publishedAt;
   const popularityScore = story.popularityScore ?? seed.popularityScore;
   const isFeatured = story.isFeatured ?? seed.isFeatured ?? false;
 
@@ -76,6 +80,7 @@ export function mapAppStoryToBrowseStory(story: AppStory): BrowseStory {
     seriesName: story.isSeries ? story.seriesTitle : null,
     popularityScore,
     publishedAt,
+    listedAt,
     sortPriority: story.sortPriority ?? 0,
     isFeatured,
     isPremium: story.isPremium,

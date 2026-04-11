@@ -1,6 +1,10 @@
 import type { SortOption } from '@/constants/storyFilters';
 import type { BrowseStory, StoryFiltersState } from '@/types/story';
 import { getDurationBucket } from '@/utils/durationBucket';
+import {
+  browseStoryToLibraryGridSortKey,
+  compareLibraryGridRows,
+} from '@/utils/libraryGridSort';
 
 function matchesSeriesFilter(
   story: BrowseStory,
@@ -46,18 +50,13 @@ export function filterAndSortStories(
     return true;
   });
 
-  const sorted = [...filtered].sort((a, b) => {
-    const sp = (b.sortPriority ?? 0) - (a.sortPriority ?? 0);
-    if (sp !== 0) return sp;
-    if (sort === 'newest') {
-      const t = b.publishedAt.localeCompare(a.publishedAt);
-      if (t !== 0) return t;
-    } else {
-      const p = b.popularityScore - a.popularityScore;
-      if (p !== 0) return p;
-    }
-    return a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
-  });
+  const sorted = [...filtered].sort((a, b) =>
+    compareLibraryGridRows(
+      browseStoryToLibraryGridSortKey(a),
+      browseStoryToLibraryGridSortKey(b),
+      sort
+    )
+  );
 
   return sorted;
 }

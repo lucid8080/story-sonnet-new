@@ -32,6 +32,8 @@ export type BrowseStory = {
   seriesName: string | null;
   popularityScore: number;
   publishedAt: string;
+  /** ISO timestamp for grid ordering (createdAt → publishedAt → seed). */
+  listedAt: string;
   sortPriority?: number;
   isFeatured?: boolean;
   isPremium?: boolean;

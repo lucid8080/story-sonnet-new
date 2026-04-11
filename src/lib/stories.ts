@@ -75,6 +75,8 @@ export type AppStory = {
   popularityScore: number;
   sortPriority: number;
   publishedAt: string | null;
+  /** DB row creation time (ISO); null for static catalog-only stories. */
+  createdAt: string | null;
   isFeatured: boolean;
   isPremium: boolean;
   isPublished: boolean;
@@ -290,6 +292,7 @@ function mapDbStoryToApp(story: Story, episodes: Episode[]): AppStory {
     popularityScore: story.popularityScore,
     sortPriority: story.sortPriority,
     publishedAt: story.publishedAt ? story.publishedAt.toISOString() : null,
+    createdAt: story.createdAt.toISOString(),
     isFeatured: story.isFeatured,
     isPremium: story.isPremium,
     isPublished: story.isPublished,
@@ -386,6 +389,7 @@ function mapStaticToApp(): AppStory[] {
       popularityScore: seed.popularityScore,
       sortPriority: 0,
       publishedAt: seed.publishedAt,
+      createdAt: null,
       isFeatured: !!seed.isFeatured,
       isPremium: !!s.isPremium,
       isPublished: true,
