@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import PricingActions from './PricingActions';
 import { BRAND } from '@/lib/brand';
 
@@ -17,7 +18,9 @@ export default function PricingPage() {
             ready. You can cancel anytime.
           </p>
         </div>
-        <PricingActions />
+        <Suspense fallback={null}>
+          <PricingActions />
+        </Suspense>
       </div>
     </div>
   );

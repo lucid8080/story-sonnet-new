@@ -3,13 +3,23 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import PricingCard from '@/components/billing/PricingCard';
 import { startCheckout, type CheckoutInterval } from '@/lib/stripe-client';
+
+function safeStoryReturnPath(raw: string | null): string | null {
+  if (!raw) return null;
+  const t = raw.trim();
+  if (!t.startsWith('/') || t.startsWith('//')) return null;
+  if (!t.startsWith('/story/')) return null;
+  return t;
+}
 
 export default function PricingActions() {
   const { data: session } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnToStory = safeStoryReturnPath(searchParams.get('callbackUrl'));
   const [startingCheckout, setStartingCheckout] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,6 +44,16 @@ export default function PricingActions() {
 
   return (
     <>
+      {returnToStory ? (
+        <div className="mb-4 rounded-2xl bg-white/90 p-4 text-center text-sm text-slate-700 shadow-sm ring-1 ring-slate-100">
+          <Link
+            href={returnToStory}
+            className="font-semibold text-rose-600 hover:text-rose-700"
+          >
+            Back to listening
+          </Link>
+        </div>
+      ) : null}
       <div className="grid gap-6 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <PricingCard
           onSubscribe={handleSubscribeClick}

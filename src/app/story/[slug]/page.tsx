@@ -22,6 +22,7 @@ export default async function StoryPage({
   if (!story) notFound();
 
   const session = await auth();
+  const isSignedIn = Boolean(session?.user);
   const sub = session?.user?.subscriptionStatus;
   const isSubscribed = sub === 'active' || sub === 'trialing';
 
@@ -64,6 +65,7 @@ export default async function StoryPage({
   return (
     <StoryPageClient
       story={playerWithTheme}
+      isSignedIn={isSignedIn}
       isSubscribed={isSubscribed}
       recommendedStories={recommendedStories}
     />
