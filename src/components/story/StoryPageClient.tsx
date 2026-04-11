@@ -14,6 +14,8 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronUp,
+  Image as ImageIcon,
+  Info,
   Play,
   Pause,
   ListMusic,
@@ -818,11 +820,25 @@ export function StoryPageClient({
               <button
                 type="button"
                 onClick={() => setIsCoverFlipped((prev) => !prev)}
-                className="inline-flex h-9 items-center rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:bg-slate-50"
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold shadow-sm ring-1 transition ${
+                  isCoverFlipped
+                    ? 'bg-sky-100 text-sky-800 ring-sky-200'
+                    : 'bg-white/90 text-slate-700 ring-slate-200 hover:bg-white'
+                }`}
                 aria-pressed={isCoverFlipped}
                 aria-label="Toggle Story Series details on cover card"
               >
-                {isCoverFlipped ? 'Show Cover' : 'About'}
+                {isCoverFlipped ? (
+                  <>
+                    <ImageIcon className="h-4 w-4" aria-hidden />
+                    Show Cover
+                  </>
+                ) : (
+                  <>
+                    <Info className="h-4 w-4" aria-hidden />
+                    About
+                  </>
+                )}
               </button>
               <StorySeriesLibraryButton />
             </div>
