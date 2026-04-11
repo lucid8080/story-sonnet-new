@@ -124,3 +124,19 @@ Normal path is **admin UI → server → S3-compatible API** (`@aws-sdk/client-s
 8. `src/components/admin/stories/StoryEditor.tsx` — save / PATCH wiring
 9. `src/app/api/audio/play/route.ts` — publish + entitlement + presign
 10. `src/app/admin/uploads/page.tsx` — `assetKind`, bucket UX
+
+---
+
+## 7. STORY STUDIO (ADMIN GENERATION)
+
+**UI:** `/admin/story-studio` — guided presets, LLM brief/script via OpenRouter, optional cover (image API), theme (Suno stub + ffmpeg intro trim), narration (ElevenLabs), then **push to library**.
+
+**Length limits:** Draft **`request.targetLengthRange`** is one of `2-3`, `3-4`, or `4-5` (minutes). Each generated episode **`scriptText`** is capped at **4950** characters. LLM brief/script **`estimatedRuntimeMinutes`** is validated to **≤ 5**.
+
+**Persistence:** Postgres models `StoryStudioPreset`, `StoryStudioDraft`, `StoryStudioDraftEpisode`, `StoryStudioGeneratedAsset`, `StoryStudioGenerationJob` (see `prisma/schema.prisma`). Seed presets: `npm run db:seed`.
+
+**Draft slug (R2 paths):** When the **brief** or **script** step persists a generated title, **`StoryStudioDraft.slug`** is updated with `draftSlugFromTitle` (`src/lib/story-studio/draft-slug-from-title.ts`) so cover and TTS keys use `covers/<slug>/…` and `audio/<slug>/…` instead of staying on `untitled-draft`. Re-running **brief** or **script** resets the slug from that step’s title.
+
+**Push:** `POST /api/admin/story-studio/push-to-library` builds `AdminStoryUpsertInput` (`draftToAdminUpsertInput`) and calls **`upsertStoryFromAdmin`** — same contract as **`PATCH /api/admin/stories/[id]`**. Episode audio uses **`audioStorageKey`**; cover uses public **`coverUrl`**; theme objects follow **`src/lib/themeAudioUrls.ts`** when uploaded under `audio/<slug>/music/Intro_song/theme.mp3` and `.../full_song/theme.mp3`.
+
+**Env (server-only):** see `.env.example` — `OPENROUTER_*`, `ELEVENLABS_*`, `SUNO_*`, and `STORY_STUDIO_IMAGE_API_KEY`, `STORY_STUDIO_IMAGE_MODEL`, `STORY_STUDIO_IMAGE_API_URL` (OpenRouter `/api/v1/chat/completions` for image-capable models), optional `FFMPEG_PATH` for intro trim.

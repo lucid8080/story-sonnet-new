@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { buildDraftCoverImagePrompt } from '@/lib/story-studio/prompt-builder';
 import type { GenerationRequest } from '@/lib/story-studio/types';
 import { GenerationStatusBar } from './GenerationStatusBar';
 import { PreviewTabs, type PreviewTabId } from './PreviewTabs';
@@ -31,6 +32,7 @@ type SerializedDraft = {
     kind: string;
     publicUrl: string | null;
     storageKey: string | null;
+    imagePrompt?: string | null;
   }[];
   jobs: {
     id: string;
@@ -205,9 +207,6 @@ export function StoryStudioClient() {
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'Save failed');
-    // #region agent log
-    fetch('http://127.0.0.1:7434/ingest/678f1997-b99a-405b-943f-eded3c164e8b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f4563a'},body:JSON.stringify({sessionId:'f4563a',runId:'slug-path-pre',hypothesisId:'H2_H3',location:'StoryStudioClient.tsx:saveDraftPatch',message:'Draft PATCH persisted',data:{bodyHasSlug:Object.prototype.hasOwnProperty.call(body,'slug'),requestSlug:typeof body.slug==='string'?body.slug:null,responseSlug:json.draft?.slug,responseTitle:json.draft?.title},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     setDraft(json.draft);
     requestRef.current = json.draft.request;
   }, []);
@@ -324,9 +323,6 @@ export function StoryStudioClient() {
 
   const runStep = async (step: string) => {
     if (!draft?.id) return;
-    // #region agent log
-    fetch('http://127.0.0.1:7434/ingest/678f1997-b99a-405b-943f-eded3c164e8b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f4563a'},body:JSON.stringify({sessionId:'f4563a',runId:'slug-path-pre',hypothesisId:'H1_H4',location:'StoryStudioClient.tsx:runStep:before',message:'Generate step requested',data:{step,draftId:draft.id,draftSlugState:draft.slug,titleEdit,slugEdit},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     setBusy(true);
     setLoadError(null);
     try {
@@ -340,19 +336,10 @@ export function StoryStudioClient() {
       );
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Generation failed');
-      // #region agent log
-      fetch('http://127.0.0.1:7434/ingest/678f1997-b99a-405b-943f-eded3c164e8b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f4563a'},body:JSON.stringify({sessionId:'f4563a',runId:'slug-path-pre',hypothesisId:'H1_H4',location:'StoryStudioClient.tsx:runStep:after',message:'Generate step response',data:{step,responseDraftSlug:json.draft?.slug,responseDraftTitle:json.draft?.title},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       if (json.draft) {
         setDraft(json.draft);
-        if (step === 'brief') {
-          const t = String(json.draft.title ?? '').trim();
-          const nextSlug = slugFromTitle(t);
-          if (t) {
-            setTitleEdit(t);
-            setSlugEdit(nextSlug);
-          }
-        }
+        setTitleEdit(String(json.draft.title ?? ''));
+        setSlugEdit(String(json.draft.slug ?? ''));
       }
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'Generation failed');
@@ -445,6 +432,14 @@ export function StoryStudioClient() {
       return pkg.episodes.map((e) => `## ${e.title}\n\n${e.scriptText}`).join('\n\n');
     return '';
   }, [draft?.scriptPackage]);
+
+  const coverImagePromptText = useMemo(() => {
+    if (!draft) return '';
+    const coverAsset = draft.assets.find((a) => a.kind === 'cover');
+    const stored = coverAsset?.imagePrompt?.trim();
+    if (stored) return stored;
+    return buildDraftCoverImagePrompt(draft.request, draft);
+  }, [draft]);
 
   if (!draftIdFromUrl) {
     return (
@@ -913,7 +908,15 @@ export function StoryStudioClient() {
             </ul>
           )}
           {tab === 'cover' && (
-            <div className="text-sm text-slate-600">
+            <div className="space-y-4 text-sm text-slate-600">
+              <div>
+                <div className="mb-1 font-medium text-slate-800">
+                  Image prompt
+                </div>
+                <pre className="max-h-[280px] overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-sky-100 whitespace-pre-wrap">
+                  {coverImagePromptText.trim() || '—'}
+                </pre>
+              </div>
               {draft.assets.find((a) => a.kind === 'cover')?.publicUrl ? (
                 <Image
                   src={

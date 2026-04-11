@@ -6,26 +6,12 @@ import {
   defaultGenerationRequest,
 } from '@/lib/story-studio/normalize-request';
 import { z } from 'zod';
+import { draftSlugFromTitle } from '@/lib/story-studio/draft-slug-from-title';
 
 const createBodySchema = z.object({
   presetId: z.string().optional(),
   title: z.string().min(1).max(200).optional(),
 });
-
-function draftSlugSeed() {
-  return 'untitled-draft';
-}
-
-function slugFromTitle(raw: string): string {
-  const s = raw
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-+/, '')
-    .replace(/-+$/, '');
-  return s || draftSlugSeed();
-}
 
 export async function GET() {
   const session = await auth();
@@ -95,7 +81,7 @@ export async function POST(req: Request) {
   const draft = await prisma.storyStudioDraft.create({
     data: {
       title,
-      slug: slugFromTitle(title),
+      slug: draftSlugFromTitle(title),
       mode: 'quick',
       presetId,
       request: requestJson,

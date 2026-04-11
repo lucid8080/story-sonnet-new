@@ -29,6 +29,7 @@ import {
 } from '@/lib/media-upload-keys';
 import { trimAudioToBuffer } from '@/lib/story-studio/audio/trim-intro';
 import { STORY_STUDIO_MAX_SCRIPT_CHARS_PER_EPISODE } from '@/lib/story-studio/constants';
+import { draftSlugFromTitle } from '@/lib/story-studio/draft-slug-from-title';
 import type { GenerationJobStep } from '@/lib/story-studio/types';
 
 const ALLOWED_STEPS: GenerationJobStep[] = [
@@ -99,6 +100,7 @@ async function persistScriptEpisodes(
       data: {
         scriptPackage: pkg as object,
         title: pkg.title,
+        slug: draftSlugFromTitle(pkg.title),
       },
     });
   });
@@ -187,6 +189,7 @@ export async function executeGenerationStep(
       data: {
         brief: parsed.data as object,
         title: parsed.data.title,
+        slug: draftSlugFromTitle(parsed.data.title),
       },
     });
     return;
