@@ -13,8 +13,8 @@ export default async function HomePage() {
       <div className="mb-8 grid gap-8 lg:grid-cols-1 lg:items-center">
         <div>
           <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 text-sm font-semibold text-rose-500 shadow-sm ring-1 ring-rose-100">
-            <BookAudio className="h-4 w-4" /> Organized for easy story
-            browsing and listening
+            <BookAudio className="h-4 w-4" /> New stories. New episodes.
+            Every day.
           </div>
           <h1 className="max-w-3xl text-5xl font-black tracking-tight text-slate-900 sm:text-6xl">
             Tiny adventures, big imagination.

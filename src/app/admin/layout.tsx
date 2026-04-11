@@ -25,6 +25,9 @@ export default async function AdminLayout({
           <Link href="/admin/uploads" className="hover:text-violet-600">
             Uploads
           </Link>
+          <Link href="/admin/story-studio" className="hover:text-violet-600">
+            Story Studio
+          </Link>
           <Link href="/" className="ml-auto text-slate-500 hover:text-slate-800">
             View site
           </Link>

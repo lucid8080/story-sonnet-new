@@ -2,11 +2,13 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { auth, signOut } from '@/auth';
 import StoryCard from '@/components/library/StoryCard';
+import AccountSettingsPanel from '@/components/account/AccountSettingsPanel';
 import {
   browseStoriesForSavedSlugs,
   fetchSavedStorySlugs,
 } from '@/lib/userSavedStories';
 import { BRAND } from '@/lib/brand';
+import prisma from '@/lib/prisma';
 
 function SignOutButton() {
   return (
@@ -59,6 +61,10 @@ export default async function AccountPage() {
 
   const sub = session.user.subscriptionStatus;
   const isSubscribed = sub === 'active' || sub === 'trialing';
+  const freshUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { email: true, image: true },
+  });
 
   const savedSlugs = await fetchSavedStorySlugs(session.user.id);
   const savedBrowseStories = await browseStoriesForSavedSlugs(savedSlugs);
@@ -68,7 +74,9 @@ export default async function AccountPage() {
       <div className="mx-auto max-w-2xl px-5 py-10 sm:px-0">
         <div className="rounded-3xl bg-white p-6 shadow-xl ring-1 ring-slate-100">
           <h1 className="text-2xl font-black text-slate-900">Your account</h1>
-          <p className="mt-1 text-sm text-slate-500">{session.user.email}</p>
+          <p className="mt-1 text-sm text-slate-500">
+            {freshUser?.email ?? session.user.email}
+          </p>
           <p className="mt-4 text-sm text-slate-600">
             Subscription:{' '}
             <span className="font-semibold text-slate-900">{sub}</span>
@@ -108,6 +116,11 @@ export default async function AccountPage() {
             <SignOutButton />
           </div>
         </div>
+
+        <AccountSettingsPanel
+          initialImageUrl={freshUser?.image ?? session.user.image ?? null}
+          email={freshUser?.email ?? session.user.email}
+        />
 
         <div className="mt-8 rounded-3xl bg-white p-6 shadow-xl ring-1 ring-slate-100">
           <h2 className="text-xl font-black text-slate-900">Your saved series</h2>

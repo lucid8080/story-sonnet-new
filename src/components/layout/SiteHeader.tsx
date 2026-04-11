@@ -47,10 +47,10 @@ export default function SiteHeader() {
             priority
           />
           <div>
-            <div className="text-sm font-black tracking-tight text-slate-900">
+            <div className="text-lg font-black tracking-tight text-slate-900">
               {BRAND.productName}
             </div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
               {BRAND.tagline}
             </div>
           </div>

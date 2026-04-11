@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import {
   useEffect,
   useLayoutEffect,
@@ -17,13 +18,9 @@ import {
   Pause,
   ListMusic,
 } from 'lucide-react';
-import {
-  canPlayEpisode,
-  needsSubscriptionForEpisode,
-} from '@/lib/audioEntitlement';
+import { canPlayEpisode } from '@/lib/audioEntitlement';
 import type { StoryForPlayer } from '@/lib/stories';
 import { getTranscriptLines } from '@/lib/transcripts';
-import SubscriptionGate from '@/components/auth/SubscriptionGate';
 import {
   StoryEngagementProvider,
   StorySeriesLibraryButton,
@@ -97,13 +94,16 @@ function canCollapseText(
 
 export function StoryPageClient({
   story,
+  isSignedIn,
   isSubscribed,
   recommendedStories,
 }: {
   story: StoryForPlayer;
+  isSignedIn: boolean;
   isSubscribed: boolean;
   recommendedStories: RecommendedStory[];
 }) {
+  const router = useRouter();
   const [activeEpisodeIndex, setActiveEpisodeIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -202,15 +202,6 @@ export function StoryPageClient({
       );
     });
   }, [activeEpisodeIndex, maxEpisodeWindowStart, useEpisodeWindow]);
-
-  const needsPaywall = !!(
-    activeEpisode &&
-    needsSubscriptionForEpisode(
-      story.isPremium,
-      activeEpisode.isPremium,
-      activeEpisode.isFreePreview
-    )
-  );
 
   const entitled = !!(
     activeEpisode &&
@@ -569,7 +560,9 @@ export function StoryPageClient({
     !skipIntroPref &&
     !effectiveThemeIntroSrc &&
     !introDoneForEpisodeRef.current;
-  const playDisabled = locked || !canUsePlayer || introBlockingPlay;
+  const technicalPlayBlocked = !canUsePlayer || introBlockingPlay;
+  const scrubberDisabled = locked || technicalPlayBlocked;
+  const mainPlayButtonDisabled = locked ? false : technicalPlayBlocked;
 
   const mainAudioSrc =
     entitled && !audioError
@@ -661,7 +654,7 @@ export function StoryPageClient({
   };
 
   const togglePlay = async () => {
-    if (playDisabled) return;
+    if (locked || technicalPlayBlocked) return;
     const el = audioRef.current;
     if (!el) return;
 
@@ -705,6 +698,19 @@ export function StoryPageClient({
       console.log('Playback could not start yet:', error);
       setIsPlaying(false);
     }
+  };
+
+  const handleCoverPlayClick = () => {
+    if (locked) {
+      const path = `/story/${story.slug}`;
+      if (isSignedIn) {
+        router.push(`/pricing?callbackUrl=${encodeURIComponent(path)}`);
+      } else {
+        router.push(`/signup?callbackUrl=${encodeURIComponent(path)}`);
+      }
+      return;
+    }
+    void togglePlay();
   };
 
   const toggleFullTheme = async () => {
@@ -773,7 +779,7 @@ export function StoryPageClient({
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (playDisabled) return;
+    if (scrubberDisabled) return;
     if (!audioRef.current) return;
     const value = Number(e.target.value);
     const newTime = duration ? (value / 100) * duration : 0;
@@ -857,11 +863,7 @@ export function StoryPageClient({
                       </div>
                     </div>
 
-                    <SubscriptionGate
-                      isPremium={needsPaywall}
-                      isSubscribed={isSubscribed}
-                    >
-                      <div className="flex w-full flex-col gap-3">
+                    <div className="flex w-full flex-col gap-3">
                         {entitled && audioLoading ? (
                           <p className="text-center text-xs text-white/80">
                             Preparing audio…
@@ -910,9 +912,9 @@ export function StoryPageClient({
                           max={100}
                           value={progress}
                           onChange={handleSeek}
-                          disabled={playDisabled}
+                          disabled={scrubberDisabled}
                           className={`h-2 w-full appearance-none rounded-full bg-white/25 accent-rose-400 ${
-                            playDisabled
+                            scrubberDisabled
                               ? 'cursor-not-allowed opacity-50'
                               : 'cursor-pointer'
                           }`}
@@ -929,10 +931,10 @@ export function StoryPageClient({
                         <div className="flex items-center gap-4">
                           <button
                             type="button"
-                            onClick={togglePlay}
-                            disabled={playDisabled}
+                            onClick={handleCoverPlayClick}
+                            disabled={mainPlayButtonDisabled}
                             className={`inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white shadow-lg shadow-rose-900/20 transition ${
-                              playDisabled
+                              mainPlayButtonDisabled
                                 ? 'cursor-not-allowed opacity-50'
                                 : 'hover:scale-105 active:scale-95'
                             }`}
@@ -953,7 +955,6 @@ export function StoryPageClient({
                           </div>
                         </div>
                       </div>
-                    </SubscriptionGate>
                   </div>
                 </div>
               </div>

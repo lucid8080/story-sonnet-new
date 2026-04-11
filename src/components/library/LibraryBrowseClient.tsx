@@ -21,18 +21,24 @@ type Props = {
   initialStories: BrowseStory[];
   savedSlugs?: string[];
   isLoggedIn?: boolean;
+  initialSort?: SortOption;
+  initialFilters?: StoryFiltersState;
 };
 
 export default function LibraryBrowseClient({
   initialStories,
   savedSlugs = [],
   isLoggedIn = false,
+  initialSort,
+  initialFilters,
 }: Props) {
   const router = useRouter();
   const [filters, setFilters] = useState<StoryFiltersState>(
-    defaultStoryFiltersState
+    () => initialFilters ?? defaultStoryFiltersState()
   );
-  const [sort, setSort] = useState<SortOption>('newest');
+  const [sort, setSort] = useState<SortOption>(
+    () => initialSort ?? 'newest'
+  );
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [savedOnly, setSavedOnly] = useState(false);
 

@@ -25,6 +25,8 @@ function buildImageRemotePatterns(): NonNullable<
   const extraHosts = [
     hostFromUrl(process.env.NEXT_PUBLIC_ASSETS_BASE_URL),
     hostFromUrl(process.env.NEXT_PUBLIC_SITE_URL),
+    hostFromUrl(process.env.R2_PUBLIC_BASE_URL),
+    hostFromUrl(process.env.S3_PUBLIC_BASE_URL),
     ...String(process.env.NEXT_PUBLIC_IMAGE_HOSTS ?? '')
       .split(',')
       .map((s) => s.trim())

@@ -3,6 +3,7 @@ import { Outfit, Playfair_Display, Fira_Code } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/providers';
 import SiteHeader from '@/components/layout/SiteHeader';
+import Footer from '@/components/layout/Footer';
 import { BRAND } from '@/lib/brand';
 
 const outfit = Outfit({
@@ -64,8 +65,11 @@ export default function RootLayout({
     >
       <body className="min-h-screen bg-gradient-to-b from-amber-50 via-rose-50 to-sky-50 font-sans text-slate-800 antialiased">
         <Providers>
-          <SiteHeader />
-          {children}
+          <div className="flex min-h-screen flex-col">
+            <SiteHeader />
+            <div className="flex-1">{children}</div>
+            <Footer />
+          </div>
         </Providers>
       </body>
     </html>

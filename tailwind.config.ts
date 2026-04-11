@@ -5,6 +5,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        primary: 'var(--primary)',
         vividCoral: '#FF6B6B',
         skyBlue: '#4ECDC4',
         sunnyYellow: '#FFE66D',

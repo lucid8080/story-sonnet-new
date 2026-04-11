@@ -1,16 +1,26 @@
 /**
- * Remap loopback URLs and path-only public paths to NEXT_PUBLIC_ASSETS_BASE_URL (e.g. R2),
- * so DB-stored http://localhost:3000/... works when the dev server uses another port or assets are on CDN.
+ * Remap loopback URLs and path-only public paths to a public asset base (CDN / R2),
+ * so DB-stored http://localhost:3000/... works when assets live on R2 or another host.
+ *
+ * Resolution order: NEXT_PUBLIC_ASSETS_BASE_URL, then R2_PUBLIC_BASE_URL, then S3_PUBLIC_BASE_URL
+ * (matches uploadPublicObject in s3.ts when Story Studio stores cover URLs).
  */
+function getPublicAssetsBase(): string {
+  if (typeof process === 'undefined') return '';
+  const raw =
+    process.env.NEXT_PUBLIC_ASSETS_BASE_URL?.trim() ||
+    process.env.R2_PUBLIC_BASE_URL?.trim() ||
+    process.env.S3_PUBLIC_BASE_URL?.trim() ||
+    '';
+  return raw.replace(/\/+$/, '');
+}
+
 export function resolvePublicAssetUrl(
   url: string | null | undefined
 ): string | null {
   if (url == null || url.trim() === '') return null;
   const raw = url.trim();
-  const baseRaw =
-    typeof process !== 'undefined' && process.env.NEXT_PUBLIC_ASSETS_BASE_URL
-      ? process.env.NEXT_PUBLIC_ASSETS_BASE_URL.trim().replace(/\/+$/, '')
-      : '';
+  const baseRaw = getPublicAssetsBase();
   if (!baseRaw) return raw;
   try {
     const u = new URL(raw);

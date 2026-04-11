@@ -22,6 +22,7 @@ model User {
   userSavedStories    UserSavedStory[]
   storySeriesComments StorySeriesComment[]
   storySeriesRatings  StorySeriesRating[]
+  storyStudioDrafts   StoryStudioDraft[]
 }
 
 model Account {
@@ -118,8 +119,105 @@ model Story {
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   episodes Episode[]
+  studioDrafts StoryStudioDraft[]
 
   @@map("stories")
+}
+
+model StoryStudioPreset {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+  defaults    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  drafts StoryStudioDraft[]
+
+  @@map("story_studio_presets")
+}
+
+model StoryStudioDraft {
+  id              String   @id @default(cuid())
+  createdByUserId String?  @map("created_by_user_id")
+  title           String   @default("Untitled draft")
+  slug            String
+  mode            String   @default("quick")
+  presetId        String?  @map("preset_id")
+  request         Json     @default("{}")
+  brief           Json?
+  scriptPackage   Json?    @map("script_package")
+  linkedStoryId   BigInt?  @map("linked_story_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  createdBy   User?                    @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  preset      StoryStudioPreset?       @relation(fields: [presetId], references: [id], onDelete: SetNull)
+  linkedStory Story?                   @relation(fields: [linkedStoryId], references: [id], onDelete: SetNull)
+  episodes    StoryStudioDraftEpisode[]
+  assets      StoryStudioGeneratedAsset[]
+  jobs        StoryStudioGenerationJob[]
+
+  @@index([createdByUserId])
+  @@index([updatedAt])
+  @@map("story_studio_drafts")
+}
+
+model StoryStudioDraftEpisode {
+  id                       String   @id @default(cuid())
+  draftId                  String   @map("draft_id")
+  sortOrder                Int      @map("sort_order")
+  title                    String   @default("Episode")
+  scriptText               String   @default("") @map("script_text")
+  summary                  String?
+  estimatedDurationSeconds Int?     @map("estimated_duration_seconds")
+  notes                    Json?
+
+  draft  StoryStudioDraft          @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  assets StoryStudioGeneratedAsset[]
+
+  @@index([draftId])
+  @@map("story_studio_draft_episodes")
+}
+
+model StoryStudioGeneratedAsset {
+  id               String   @id @default(cuid())
+  draftId          String   @map("draft_id")
+  draftEpisodeId   String?  @map("draft_episode_id")
+  kind             String
+  storageKey       String?  @map("storage_key")
+  publicUrl        String?  @map("public_url")
+  mimeType         String?  @map("mime_type")
+  vendor           String   @default("")
+  vendorArtifactId String?  @map("vendor_artifact_id")
+  metadata         Json?
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  draft        StoryStudioDraft         @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  draftEpisode StoryStudioDraftEpisode? @relation(fields: [draftEpisodeId], references: [id], onDelete: SetNull)
+
+  @@index([draftId])
+  @@map("story_studio_generated_assets")
+}
+
+model StoryStudioGenerationJob {
+  id           String    @id @default(cuid())
+  draftId      String    @map("draft_id")
+  step         String
+  status       String    @default("queued")
+  errorMessage String?   @map("error_message")
+  attempts     Int       @default(0)
+  startedAt    DateTime? @map("started_at")
+  finishedAt   DateTime? @map("finished_at")
+  payload      Json?
+  resultRef    String?   @map("result_ref")
+
+  draft StoryStudioDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+
+  @@index([draftId])
+  @@index([status])
+  @@map("story_studio_generation_jobs")
 }
 
 model Episode {
