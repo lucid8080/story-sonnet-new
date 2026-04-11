@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import type { AppStory } from '@/lib/stories';
 import StoryStatusBadges from './StoryStatusBadges';
@@ -66,26 +67,46 @@ export default function StoryListPane({
                   onClick={() => onSelect(story.id)}
                   className={
                     active
-                      ? 'w-full rounded-xl border border-violet-200 bg-violet-50 p-3 text-left shadow-sm ring-1 ring-violet-100'
-                      : 'w-full rounded-xl border border-transparent p-3 text-left hover:bg-slate-50'
+                      ? 'flex w-full items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 p-3 text-left shadow-sm ring-1 ring-violet-100'
+                      : 'flex w-full items-start gap-3 rounded-xl border border-transparent p-3 text-left hover:bg-slate-50'
                   }
                 >
-                  <div className="font-bold text-slate-900 line-clamp-2">
-                    {story.title}
-                  </div>
-                  <div className="mt-0.5 font-mono text-[11px] text-slate-400">
-                    {story.slug}
-                  </div>
-                  <div className="mt-2">
-                    <StoryStatusBadges story={story} compact />
-                  </div>
-                  <Link
-                    href={`/story/${story.slug}`}
-                    className="mt-2 inline-block text-[11px] font-semibold text-violet-600 hover:underline"
-                    onClick={(e) => e.stopPropagation()}
+                  <div
+                    className="relative h-[60px] w-12 shrink-0 overflow-hidden rounded-lg bg-slate-200"
+                    style={
+                      !story.cover && story.accent
+                        ? { backgroundColor: story.accent }
+                        : undefined
+                    }
                   >
-                    View public page
-                  </Link>
+                    {story.cover ? (
+                      <Image
+                        src={story.cover}
+                        alt={`${story.title} cover`}
+                        fill
+                        sizes="48px"
+                        className="object-cover object-top"
+                      />
+                    ) : null}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-slate-900 line-clamp-2">
+                      {story.title}
+                    </div>
+                    <div className="mt-0.5 font-mono text-[11px] text-slate-400">
+                      {story.slug}
+                    </div>
+                    <div className="mt-2">
+                      <StoryStatusBadges story={story} compact />
+                    </div>
+                    <Link
+                      href={`/story/${story.slug}`}
+                      className="mt-2 inline-block text-[11px] font-semibold text-violet-600 hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      View public page
+                    </Link>
+                  </div>
                 </button>
               </li>
             );

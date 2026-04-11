@@ -79,3 +79,16 @@ export function sortAppStoriesForLibraryGrid(
     )
   );
 }
+
+/** Admin list: newest first by `listedAt`, without boosting featured stories. */
+export function sortAppStoriesByNewestAdmin(stories: AppStory[]): AppStory[] {
+  return [...stories].sort((a, b) => {
+    const ka = appStoryToLibraryGridSortKey(a);
+    const kb = appStoryToLibraryGridSortKey(b);
+    const t = kb.listedAt.localeCompare(ka.listedAt);
+    if (t !== 0) return t;
+    const sp = kb.sortPriority - ka.sortPriority;
+    if (sp !== 0) return sp;
+    return ka.title.localeCompare(kb.title, undefined, { sensitivity: 'base' });
+  });
+}
