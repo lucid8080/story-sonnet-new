@@ -84,6 +84,10 @@ type PlaybackSelection = 'episode' | 'fullTheme';
 
 const EPISODE_WINDOW_SIZE = 3;
 
+/** Episodes track list: Full track / Preview / Read more share typography; color is per-label. */
+const TRACKLIST_LABEL_CLASS =
+  'shrink-0 whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.18em]';
+
 type RecommendedStory = {
   slug: string;
   title: string;
@@ -114,6 +118,8 @@ export function StoryPageClient({
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
+  /** Full theme track length from a metadata-only probe (player `duration` follows the episode when an episode is selected). */
+  const [themeFullDurationSec, setThemeFullDurationSec] = useState(0);
   const [showTranscript, setShowTranscript] = useState(false);
   const [resolvedAudioSrc, setResolvedAudioSrc] = useState<string | null>(null);
   const [audioLoading, setAudioLoading] = useState(false);
@@ -130,8 +136,6 @@ export function StoryPageClient({
   >(null);
   const [isCoverFlipped, setIsCoverFlipped] = useState(false);
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
-  const [isFullDescriptionExpanded, setIsFullDescriptionExpanded] =
-    useState(false);
   const [episodeDescriptionModal, setEpisodeDescriptionModal] = useState<{
     title: string;
     description: string;
@@ -172,7 +176,6 @@ export function StoryPageClient({
     setEpisodeWindowStart(0);
     setIsCoverFlipped(false);
     setIsSummaryExpanded(false);
-    setIsFullDescriptionExpanded(false);
     setEpisodeDescriptionModal(null);
   }, [story.slug]);
 
@@ -299,6 +302,28 @@ export function StoryPageClient({
     story.themeFullSrc,
     story.themeFullUseSignedPlayback,
   ]);
+
+  useEffect(() => {
+    setThemeFullDurationSec(0);
+    if (!entitled || !story.hasFullTheme || !effectiveThemeFullSrc) {
+      return;
+    }
+    const audio = new Audio();
+    audio.preload = 'metadata';
+    audio.src = effectiveThemeFullSrc;
+    const onLoadedMetadata = () => {
+      const d = audio.duration;
+      if (Number.isFinite(d) && d > 0) {
+        setThemeFullDurationSec(d);
+      }
+    };
+    audio.addEventListener('loadedmetadata', onLoadedMetadata);
+    return () => {
+      audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+      audio.removeAttribute('src');
+      audio.load();
+    };
+  }, [entitled, story.hasFullTheme, effectiveThemeFullSrc]);
 
   const transcriptLines = useMemo(() => {
     if (!story || !activeEpisode) return [];
@@ -737,6 +762,17 @@ export function StoryPageClient({
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  const seriesThemeListDurationSec =
+    themeFullDurationSec > 0
+      ? themeFullDurationSec
+      : playbackSelection === 'fullTheme' && duration > 0
+        ? duration
+        : 0;
+  const seriesThemeListDurationLabel =
+    seriesThemeListDurationSec > 0
+      ? formatTime(seriesThemeListDurationSec)
+      : '—';
+
   return (
     <StoryEngagementProvider storySlug={story.slug}>
       <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-violet-50 text-slate-800">
@@ -964,31 +1000,10 @@ export function StoryPageClient({
                       <button
                         type="button"
                         onClick={() => setIsSummaryExpanded((prev) => !prev)}
-                        className="mt-1 text-sm font-semibold text-violet-700 hover:text-violet-800"
+                        className="mt-1 text-sm font-semibold uppercase tracking-wide text-violet-700 hover:text-violet-800"
                         aria-expanded={isSummaryExpanded}
                       >
                         {isSummaryExpanded ? 'Show less' : 'Read more'}
-                      </button>
-                    ) : null}
-                    {story.fullDescription ? (
-                      <p
-                        className={`mt-4 text-sm leading-7 text-slate-600 ${
-                          isFullDescriptionExpanded ? '' : 'line-clamp-3'
-                        }`}
-                      >
-                        {story.fullDescription}
-                      </p>
-                    ) : null}
-                    {canCollapseText(story.fullDescription, 150) ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setIsFullDescriptionExpanded((prev) => !prev)
-                        }
-                        className="mt-1 text-sm font-semibold text-violet-700 hover:text-violet-800"
-                        aria-expanded={isFullDescriptionExpanded}
-                      >
-                        {isFullDescriptionExpanded ? 'Show less' : 'Read more'}
                       </button>
                     ) : null}
                   </div>
@@ -1175,14 +1190,12 @@ export function StoryPageClient({
                           <span className="min-w-0 flex-1 truncate text-base font-bold text-slate-900">
                             Series theme music
                           </span>
-                          <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                          <span className={`${TRACKLIST_LABEL_CLASS} text-slate-400`}>
                             Full track
                           </span>
                         </span>
                         <span className="shrink-0 tabular-nums text-sm font-semibold text-slate-500">
-                          {playbackSelection === 'fullTheme' && duration > 0
-                            ? formatTime(duration)
-                            : '—'}
+                          {seriesThemeListDurationLabel}
                         </span>
                       </button>
                     </div>
@@ -1237,12 +1250,12 @@ export function StoryPageClient({
                           <span className="w-7 shrink-0 text-right text-xs font-bold tabular-nums text-slate-400">
                             {episode.episodeNumber}
                           </span>
-                          <span className="flex min-w-0 flex-1 items-center gap-2">
-                            <span className="min-w-0 flex-1 truncate text-base font-bold text-slate-900">
+                          <span className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-1">
+                            <span className="min-w-0 truncate text-base font-bold text-slate-900">
                               {episode.title}
                             </span>
                             {episode.isFreePreview ? (
-                              <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-emerald-600">
+                              <span className={`${TRACKLIST_LABEL_CLASS} text-rose-600`}>
                                 Preview
                               </span>
                             ) : null}
@@ -1251,7 +1264,7 @@ export function StoryPageClient({
                         {hasReadMore ? (
                           <button
                             type="button"
-                            className="shrink-0 whitespace-nowrap text-[11px] font-medium text-violet-600 hover:text-violet-800 focus-visible:rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
+                            className={`${TRACKLIST_LABEL_CLASS} text-slate-500 hover:text-slate-700 focus-visible:rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400`}
                             aria-label={`Read full description: ${episode.title}`}
                             onClick={(e) => {
                               episodeReadMoreReturnFocusRef.current =
