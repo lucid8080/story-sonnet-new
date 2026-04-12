@@ -126,6 +126,8 @@ export type GenerationRequest = {
   /** From preset */
   flavor?: string;
   coverArtDirection?: string;
+  /** Full image API prompt override for Cover Art; used when non-empty after trim. */
+  coverImagePromptDraft?: string;
   musicDirection?: string;
   /** Optional catalog overrides from preset (must match filter ids) */
   genreHint?: string;

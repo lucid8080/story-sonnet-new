@@ -220,3 +220,10 @@ export function parseJsonToScriptPackage(raw: string) {
   const data = JSON.parse(text) as unknown;
   return scriptPackagePayloadSchema.safeParse(data);
 }
+
+/** Single-episode JSON from the add-episode LLM preview endpoint. */
+export function parseJsonToScriptEpisode(raw: string) {
+  const text = stripJsonFence(raw);
+  const data = JSON.parse(text) as unknown;
+  return scriptEpisodePayloadSchema.safeParse(data);
+}

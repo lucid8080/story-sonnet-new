@@ -25,12 +25,22 @@ import {
 import {
   buildCoverKey,
   buildPrivateAudioKey,
+  makeUniqueSafeFileName,
   sanitizeUploadFileName,
 } from '@/lib/media-upload-keys';
 import { trimAudioToBuffer } from '@/lib/story-studio/audio/trim-intro';
 import { STORY_STUDIO_MAX_SCRIPT_CHARS_PER_EPISODE } from '@/lib/story-studio/constants';
 import { draftSlugFromTitle } from '@/lib/story-studio/draft-slug-from-title';
 import type { GenerationJobStep } from '@/lib/story-studio/types';
+import {
+  syncLinkedLibraryFromDraft,
+  type SyncLinkedLibraryResult,
+} from '@/lib/story-studio/sync-linked-library-from-draft';
+
+export type ExecuteGenerationStepResult = {
+  assetId?: string;
+  librarySync?: SyncLinkedLibraryResult;
+};
 
 const ALLOWED_STEPS: GenerationJobStep[] = [
   'brief',
@@ -58,6 +68,18 @@ async function createJob(draftId: string, step: GenerationJobStep) {
       attempts: 1,
     },
   });
+}
+
+function draftTitleAndSlugFromSeriesOrWorkTitle(options: {
+  seriesTitle: string;
+  workTitle: string;
+}): { title: string; slug: string } {
+  const st = options.seriesTitle.trim();
+  if (st.length > 0) {
+    return { title: st, slug: draftSlugFromTitle(st) };
+  }
+  const t = options.workTitle.trim() || 'Untitled draft';
+  return { title: t, slug: draftSlugFromTitle(t) };
 }
 
 async function finishJob(
@@ -95,12 +117,16 @@ async function persistScriptEpisodes(
         },
       });
     }
+    const meta = draftTitleAndSlugFromSeriesOrWorkTitle({
+      seriesTitle: pkg.seriesTitle,
+      workTitle: pkg.title,
+    });
     await tx.storyStudioDraft.update({
       where: { id: draftId },
       data: {
         scriptPackage: pkg as object,
-        title: pkg.title,
-        slug: draftSlugFromTitle(pkg.title),
+        title: meta.title,
+        slug: meta.slug,
       },
     });
   });
@@ -145,11 +171,17 @@ async function loadDraftFull(draftId: string) {
   });
 }
 
+export type ExecuteGenerationStepOptions = {
+  /** When set with step `tts`, narrate only this draft episode; replaces prior `episode_audio` rows for it. */
+  draftEpisodeId?: string | null;
+};
+
 /** Core step logic (no job row). */
 export async function executeGenerationStep(
   draftId: string,
-  step: GenerationJobStep
-): Promise<{ assetId?: string } | void> {
+  step: GenerationJobStep,
+  opts?: ExecuteGenerationStepOptions
+): Promise<ExecuteGenerationStepResult | void> {
   if (step === 'package') {
     const draft = await loadDraftFull(draftId);
     const req = resolveDraftGenerationRequest(draft);
@@ -160,7 +192,12 @@ export async function executeGenerationStep(
       await executeGenerationStep(draftId, 'theme_full');
       await executeGenerationStep(draftId, 'theme_intro');
     }
-    if (req.generateAudio) await executeGenerationStep(draftId, 'tts');
+    if (req.generateAudio) {
+      const ttsResult = await executeGenerationStep(draftId, 'tts');
+      if (ttsResult?.librarySync) {
+        return { librarySync: ttsResult.librarySync };
+      }
+    }
     return;
   }
 
@@ -184,12 +221,16 @@ export async function executeGenerationStep(
         `Brief JSON invalid: ${parsed.error.message.slice(0, 300)}`
       );
     }
+    const meta = draftTitleAndSlugFromSeriesOrWorkTitle({
+      seriesTitle: parsed.data.seriesTitle,
+      workTitle: parsed.data.title,
+    });
     await prisma.storyStudioDraft.update({
       where: { id: draftId },
       data: {
         brief: parsed.data as object,
-        title: parsed.data.title,
-        slug: draftSlugFromTitle(parsed.data.title),
+        title: meta.title,
+        slug: meta.slug,
       },
     });
     return;
@@ -224,7 +265,11 @@ export async function executeGenerationStep(
   const brief = draft.brief as BriefPayloadParsed | null;
 
   if (step === 'cover') {
-    const prompt = buildDraftCoverImagePrompt(req, draft);
+    const draftPrompt = req.coverImagePromptDraft?.trim();
+    const prompt =
+      draftPrompt && draftPrompt.length > 0
+        ? draftPrompt
+        : buildDraftCoverImagePrompt(req, draft);
     const img = await generateStoryCoverImage({ prompt });
     if (!img.ok) {
       throw new Error(img.message);
@@ -233,9 +278,12 @@ export async function executeGenerationStep(
     if (!bucket) {
       throw new Error('Public storage bucket not configured (R2_BUCKET).');
     }
-    const safeName = sanitizeUploadFileName('cover.png');
+    const safeName = makeUniqueSafeFileName(
+      sanitizeUploadFileName('cover.png')
+    );
+    // Unique per draft — shared slugs (e.g. untitled-draft) would otherwise map to one object key and one image for all.
     const key = buildCoverKey({
-      storySlug: draft.slug,
+      storySlug: `studio-draft-${draftId}`,
       safeFileName: safeName,
     });
     const { url } = await uploadPublicObject({
@@ -367,8 +415,27 @@ export async function executeGenerationStep(
     const bucket = getPrivateAudioBucket();
     if (!bucket) throw new Error('Private audio bucket not configured.');
 
-    for (let i = 0; i < d.episodes.length; i++) {
-      const ep = d.episodes[i];
+    const singleEpisodeId = opts?.draftEpisodeId?.trim() || null;
+    const episodesToSynthesize = singleEpisodeId
+      ? d.episodes.filter((e) => e.id === singleEpisodeId)
+      : d.episodes;
+
+    if (singleEpisodeId && episodesToSynthesize.length === 0) {
+      throw new Error('Episode not found on this draft.');
+    }
+
+    if (singleEpisodeId) {
+      await prisma.storyStudioGeneratedAsset.deleteMany({
+        where: {
+          draftId,
+          draftEpisodeId: singleEpisodeId,
+          kind: 'episode_audio',
+        },
+      });
+    }
+
+    for (let i = 0; i < episodesToSynthesize.length; i++) {
+      const ep = episodesToSynthesize[i];
       const tts = await elevenLabsTextToSpeech({
         text: ep.scriptText,
         voiceId,
@@ -376,10 +443,13 @@ export async function executeGenerationStep(
       if (!tts.ok) {
         throw new Error(tts.message);
       }
-      const n = i + 1;
+      const epIndex = d.episodes.findIndex((e) => e.id === ep.id);
+      const n = epIndex >= 0 ? epIndex + 1 : i + 1;
       const key = buildPrivateAudioKey({
         storySlug: draft.slug,
-        safeFileName: sanitizeUploadFileName(`episode-${n}.mp3`),
+        safeFileName: makeUniqueSafeFileName(
+          sanitizeUploadFileName(`episode-${n}.mp3`)
+        ),
       });
       await uploadPrivateAudioObject({
         bucket,
@@ -398,13 +468,30 @@ export async function executeGenerationStep(
         },
       });
     }
-    return;
+
+    const librarySync = await syncLinkedLibraryFromDraft(draftId);
+    if (!librarySync.ok) {
+      console.error(
+        '[story-studio/tts-library-sync]',
+        draftId,
+        librarySync.message
+      );
+    }
+    return { librarySync };
   }
 
   throw new Error(`Unhandled step: ${step}`);
 }
 
-export async function runStoryStudioStep(draftId: string, stepRaw: string) {
+export async function runStoryStudioStep(
+  draftId: string,
+  stepRaw: string,
+  opts?: ExecuteGenerationStepOptions
+): Promise<{
+  jobId: string;
+  ok: true;
+  librarySync?: SyncLinkedLibraryResult;
+}> {
   assertStep(stepRaw);
   const step = stepRaw;
 
@@ -418,14 +505,22 @@ export async function runStoryStudioStep(draftId: string, stepRaw: string) {
   const job = await createJob(draftId, step);
 
   try {
-    const result = await executeGenerationStep(draftId, step);
+    const result = await executeGenerationStep(draftId, step, opts);
     await finishJob(
       job.id,
       'succeeded',
       undefined,
-      result && 'assetId' in result ? result.assetId : undefined
+      result && 'assetId' in result && result.assetId
+        ? result.assetId
+        : undefined
     );
-    return { jobId: job.id, ok: true as const };
+    return {
+      jobId: job.id,
+      ok: true as const,
+      ...(result?.librarySync !== undefined
+        ? { librarySync: result.librarySync }
+        : {}),
+    };
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Unknown error';
     await finishJob(job.id, 'failed', msg);

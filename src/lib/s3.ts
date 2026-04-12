@@ -1,12 +1,17 @@
 import {
+  DeleteObjectsCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
   type PutObjectCommandInput,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { normalizeStorySlug } from '@/lib/slug';
 import type { Readable } from 'stream';
+
+const DELETE_OBJECTS_BATCH = 1000;
 
 /** R2 S3 API endpoint when only account id is set */
 function r2EndpointFromAccount(): string | undefined {
@@ -35,9 +40,16 @@ function getSecretAccessKey(): string | undefined {
   );
 }
 
-/** Public origin for object URLs (custom domain or r2.dev subdomain) */
-function getPublicBaseUrl(): string | undefined {
-  const raw = process.env.R2_PUBLIC_BASE_URL || process.env.S3_PUBLIC_BASE_URL;
+/**
+ * Public origin for object URLs (CDN / custom domain / r2.dev).
+ * Order matches {@link resolvePublicAssetUrl} so admin thumbnails and DB covers
+ * hit the same host as the rest of the app.
+ */
+function getPublicAssetOrigin(): string | undefined {
+  const raw =
+    process.env.NEXT_PUBLIC_ASSETS_BASE_URL?.trim() ||
+    process.env.R2_PUBLIC_BASE_URL?.trim() ||
+    process.env.S3_PUBLIC_BASE_URL?.trim();
   return raw?.replace(/\/+$/, '');
 }
 
@@ -72,6 +84,30 @@ export function getPrivateAudioBucket(): string | undefined {
   return getDefaultStorageBucket();
 }
 
+/**
+ * Public HTTP URL for an object key in the public assets bucket.
+ * Same base resolution as {@link uploadPublicObject} return value.
+ */
+export function publicUrlForObjectKey(
+  key: string,
+  bucket?: string
+): string {
+  const normalizedKey = key.replace(/^\/+/, '');
+  const b = (bucket?.trim() || getDefaultStorageBucket() || '').trim();
+  const endpoint = getS3Endpoint();
+  const base =
+    getPublicAssetOrigin() ||
+    (endpoint && b ? `${endpoint.replace(/\/+$/, '')}/${b}` : '');
+
+  if (!base) {
+    throw new Error(
+      'Set NEXT_PUBLIC_ASSETS_BASE_URL or R2_PUBLIC_BASE_URL (or S3_PUBLIC_BASE_URL), or R2_ACCOUNT_ID + bucket so a fallback URL can be built.'
+    );
+  }
+
+  return `${base.replace(/\/+$/, '')}/${normalizedKey}`;
+}
+
 export async function uploadPublicObject(params: {
   bucket: string;
   key: string;
@@ -87,21 +123,45 @@ export async function uploadPublicObject(params: {
   };
   await client.send(new PutObjectCommand(input));
 
-  const endpoint = getS3Endpoint();
-  const base =
-    getPublicBaseUrl() ||
-    (endpoint && params.bucket
-      ? `${endpoint.replace(/\/+$/, '')}/${params.bucket}`
-      : '');
+  return { url: publicUrlForObjectKey(params.key, params.bucket) };
+}
 
-  if (!base) {
+/** One ListObjectsV2 page (used by admin cover browser). */
+export async function listObjectsV2SinglePage(params: {
+  bucket: string;
+  prefix: string;
+  maxKeys: number;
+  continuationToken?: string;
+}): Promise<{
+  contents: { key: string; size?: number }[];
+  nextContinuationToken?: string;
+}> {
+  const accessKeyId = getAccessKeyId();
+  const secretAccessKey = getSecretAccessKey();
+  if (!accessKeyId || !secretAccessKey) {
     throw new Error(
-      'Set R2_PUBLIC_BASE_URL (or S3_PUBLIC_BASE_URL), or R2_ACCOUNT_ID + bucket so a fallback URL can be built.'
+      'S3/R2 credentials are not configured; cannot list objects.'
     );
   }
-
-  const url = `${base}/${params.key.replace(/^\/+/, '')}`;
-  return { url };
+  const client = getClient();
+  const out = await client.send(
+    new ListObjectsV2Command({
+      Bucket: params.bucket,
+      Prefix: params.prefix,
+      MaxKeys: Math.min(Math.max(1, params.maxKeys), 1000),
+      ContinuationToken: params.continuationToken,
+    })
+  );
+  const contents: { key: string; size?: number }[] =
+    out.Contents?.flatMap((c) =>
+      c.Key ? [{ key: c.Key, size: c.Size }] : []
+    ) ?? [];
+  return {
+    contents,
+    nextContinuationToken: out.IsTruncated
+      ? out.NextContinuationToken
+      : undefined,
+  };
 }
 
 /** Upload to private audio bucket; returns object key only (no public URL). */
@@ -224,5 +284,100 @@ export async function getPrivateAudioObjectBuffer(
     return await bodyToBuffer(response.Body);
   } catch {
     return null;
+  }
+}
+
+/**
+ * Deletes all objects whose keys start with `prefix` (e.g. `covers/my-slug/`).
+ * Returns number of objects removed. No-op when bucket or prefix is missing.
+ */
+export async function deleteObjectsWithPrefix(
+  bucket: string | undefined,
+  prefix: string
+): Promise<number> {
+  const p = prefix.replace(/^\/+/, '').replace(/\/+$/, '');
+  if (!bucket?.trim() || !p) return 0;
+
+  const accessKeyId = getAccessKeyId();
+  const secretAccessKey = getSecretAccessKey();
+  if (!accessKeyId || !secretAccessKey) {
+    throw new Error(
+      'S3/R2 credentials are not configured; cannot delete stored files.'
+    );
+  }
+
+  const listPrefix = `${p}/`;
+  const client = getClient();
+  let total = 0;
+  let continuationToken: string | undefined;
+
+  do {
+    const list = await client.send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: listPrefix,
+        ContinuationToken: continuationToken,
+      })
+    );
+    const keys =
+      list.Contents?.map((c) => c.Key).filter((k): k is string => !!k) ?? [];
+    continuationToken = list.IsTruncated
+      ? list.NextContinuationToken
+      : undefined;
+
+    for (let i = 0; i < keys.length; i += DELETE_OBJECTS_BATCH) {
+      const chunk = keys.slice(i, i + DELETE_OBJECTS_BATCH);
+      const delOut = await client.send(
+        new DeleteObjectsCommand({
+          Bucket: bucket,
+          Delete: {
+            Objects: chunk.map((Key) => ({ Key })),
+            Quiet: true,
+          },
+        })
+      );
+      if (delOut.Errors?.length) {
+        const msg = delOut.Errors.map((e) => e.Message).join('; ');
+        throw new Error(msg || 'S3 DeleteObjects failed');
+      }
+      total += chunk.length;
+    }
+  } while (continuationToken);
+
+  return total;
+}
+
+/**
+ * Removes published story assets under `covers/<slug>/` and `audio/<slug>/`
+ * (public bucket and private audio bucket). Does not touch Story Studio draft paths
+ * (`covers/studio-draft-…`).
+ */
+export async function deleteStorageForStorySlug(rawSlug: string): Promise<void> {
+  const slug = normalizeStorySlug(rawSlug);
+  if (!slug) {
+    console.warn('[deleteStorageForStorySlug] empty slug, skipping storage');
+    return;
+  }
+
+  const publicBucket = getDefaultStorageBucket();
+  const privateBucket = getPrivateAudioBucket();
+
+  try {
+    const nCover = await deleteObjectsWithPrefix(
+      publicBucket,
+      `covers/${slug}`
+    );
+    const nAudio = await deleteObjectsWithPrefix(
+      privateBucket,
+      `audio/${slug}`
+    );
+    if (nCover + nAudio > 0) {
+      console.info(
+        `[deleteStorageForStorySlug] slug=${slug} removed objects: covers=${nCover} audio=${nAudio}`
+      );
+    }
+  } catch (e) {
+    console.error('[deleteStorageForStorySlug]', e);
+    throw e;
   }
 }

@@ -15,6 +15,12 @@ Normal path is **admin UI → server → S3-compatible API** (`@aws-sdk/client-s
 **Where is episode metadata stored — `content/` markdown or the database?**  
 **PostgreSQL via Prisma** (`Story`, `Episode`) is the **runtime source of truth** for the site. The **`content/`** tree holds editorial/production markdown (scripts, TTS inputs); it is not what Next.js uses for listing or saving episodes. Legacy/catalog audio can still merge from **`src/data.js`** when **`audioStorageKey`** is empty (`mergeCatalogPublicAudioIntoDbApp`).
 
+**Story Studio: I narrated an episode but `/admin/stories` does not show the private audio key.**  
+TTS uploads MP3s and stores keys on the draft (`StoryStudioGeneratedAsset`). The library **`Episode.audioStorageKey`** is updated when the draft is pushed/synced to the linked story. Use **Push to story library** once to create the **`Story`** and set **`linkedStoryId`**; after that, **`POST /api/admin/story-studio/generate/tts`** (and a full **`package`** run that includes audio) automatically runs the same **`draftToAdminUpsertInput` → `upsertStoryFromAdmin`** path so episode keys appear under Story Library without a second manual push. The JSON response may include **`librarySync`**: **`{ ok: true }`**, **`{ ok: true, skipped: true }`** when there is no linked story yet, or **`{ ok: false, message }`** if the sync step failed (narration file may still exist in storage).
+
+**How do I pick an existing cover image from R2 without pasting a URL by hand?**  
+In **`/admin/stories`** → open a story → **Basic info** → **Browse covers in R2**. That loads a thumbnail grid from **`GET /api/admin/covers`** (admin-only, `ListObjectsV2` on the public bucket under `covers/…`, paginated). Pick a tile to set **`coverUrl`**; scope can be **all covers** or **this story’s folder** when the slug is valid. Same R2/S3 credentials and public base URL expectations as **`POST /api/upload`** (see `src/lib/s3.ts`).
+
 ---
 
 ## 1. POSTING SURFACE MAP
@@ -23,7 +29,8 @@ Normal path is **admin UI → server → S3-compatible API** (`@aws-sdk/client-s
 
 - UI: `src/app/admin/uploads/page.tsx` → `fetch('/api/upload', { POST, FormData })`, default `assetKind` = cover; optional `storySlug` for `covers/<slug>/<sanitized-filename>`.
 - API: `POST` `src/app/api/upload/route.ts` → `uploadPublicObject` in `src/lib/s3.ts` (keys from `src/lib/media-upload-keys.ts`, e.g. `covers/<file>` or `covers/<slug>/<file>` — **sanitized filename only, no timestamp**; repeat upload **overwrites**).
-- Link to story: `src/components/admin/stories/StoryBasicsSection.tsx` (cover URL field) → save path below.
+- Link to story: `src/components/admin/stories/StoryBasicsSection.tsx` (cover URL field, optional **Browse covers in R2** gallery) → save path below.
+- Browse existing covers: `GET` `src/app/api/admin/covers/route.ts` → lists image objects under `covers/` (query `prefix`, `continuationToken`, `maxKeys`); responses use `publicUrlForObjectKey` in `src/lib/s3.ts` so URLs match upload output.
 
 **Audio file**
 
@@ -59,7 +66,7 @@ Normal path is **admin UI → server → S3-compatible API** (`@aws-sdk/client-s
 **Episode (`adminEpisodeSchema`, each row in `episodes`)**
 
 - Required: `id` (non-empty string), `episodeNumber` (int ≥ 1), `title`.
-- Optional: `slug` (unique per story if set), `audioUrl`, `audioStorageKey`, `summary`, durations, `label`.
+- Optional: `slug` (unique per story if set), `audioUrl`, `audioStorageKey`, `summary`, durations, `label`, `transcriptLines` (array of `{ id, text }` for the scrolling reader; Story Studio push sets this from script text).
 - Publish: `isPublished` (default false). Premium: `isPremium`, `isFreePreview`.
 
 **Upload / media**
@@ -129,14 +136,22 @@ Normal path is **admin UI → server → S3-compatible API** (`@aws-sdk/client-s
 
 ## 7. STORY STUDIO (ADMIN GENERATION)
 
-**UI:** `/admin/story-studio` — guided presets, LLM brief/script via OpenRouter, optional cover (image API), theme (Suno stub + ffmpeg intro trim), narration (ElevenLabs), then **push to library**.
+**UI:** `/admin/story-studio` — guided presets, LLM brief/script via OpenRouter, optional cover (image API), theme (Suno stub + ffmpeg intro trim), narration (ElevenLabs). **Push to library** once to create/link the library story; further narration syncs **`Episode.audioStorageKey`** automatically when the draft is already linked (`syncLinkedLibraryFromDraft` after TTS).
+
+**Draft list:** `GET /api/admin/story-studio/drafts` returns **`linkedDrafts`** (drafts with a library story link, capped at 500) and **`recentDrafts`** (unlinked only, 100 most recently updated). The landing page shows both sections so linked work does not fall off the unlinked “recent” cap. **`DELETE /api/admin/story-studio/drafts/[id]`** removes the draft row by default. Optional JSON body **`{ "deleteLinkedStory": true }`** also deletes the linked **`Story`** (same behavior as **`DELETE /api/admin/stories/[id]`**): prefix-delete objects under **`covers/<slug>/`** and **`audio/<slug>/`** in R2/S3, then remove the DB row, then remove the draft.
+
+**Deleting a library story:** **`DELETE /api/admin/stories/[id]`** (Story Library admin) deletes all objects under **`covers/<slug>/`** (default public bucket) and **`audio/<slug>/`** (private audio bucket) for that story’s slug, then deletes the **`Story`** row. Requires S3-compatible credentials with **`s3:ListBucket`** (prefix) and **`s3:DeleteObject`**. Does not delete Story Studio draft-only paths such as **`covers/studio-draft-<draftId>/…`**.
 
 **Length limits:** Draft **`request.targetLengthRange`** is one of `2-3`, `3-4`, or `4-5` (minutes). Each generated episode **`scriptText`** is capped at **4950** characters. LLM brief/script **`estimatedRuntimeMinutes`** is validated to **≤ 5**.
 
 **Persistence:** Postgres models `StoryStudioPreset`, `StoryStudioDraft`, `StoryStudioDraftEpisode`, `StoryStudioGeneratedAsset`, `StoryStudioGenerationJob` (see `prisma/schema.prisma`). Seed presets: `npm run db:seed`.
 
-**Draft slug (R2 paths):** When the **brief** or **script** step persists a generated title, **`StoryStudioDraft.slug`** is updated with `draftSlugFromTitle` (`src/lib/story-studio/draft-slug-from-title.ts`) so cover and TTS keys use `covers/<slug>/…` and `audio/<slug>/…` instead of staying on `untitled-draft`. Re-running **brief** or **script** resets the slug from that step’s title.
+**Draft slug (R2 paths):** When the **brief** or **script** step persists a generated title, **`StoryStudioDraft.slug`** is updated with `draftSlugFromTitle` (`src/lib/story-studio/draft-slug-from-title.ts`) so TTS and other keys can use `audio/<slug>/…` instead of staying on `untitled-draft`. **Cover image generation** stores public objects under **`covers/studio-draft-<draftId>/…`** (per-draft id) so multiple drafts that still share a placeholder slug do not overwrite the same file. Re-running **brief** or **script** resets the slug from that step’s title. **Unique leaf names:** generated covers and TTS episode files use **`makeUniqueSafeFileName`** (`src/lib/media-upload-keys.ts`) so each run gets a distinct object key; **`POST /api/upload`** does the same when **`storySlug`** is set. **Theme** steps keep fixed **`theme.mp3`** paths under `music/full_song` and `music/Intro_song` for **`themeAudioUrls.ts`** compatibility.
 
-**Push:** `POST /api/admin/story-studio/push-to-library` builds `AdminStoryUpsertInput` (`draftToAdminUpsertInput`) and calls **`upsertStoryFromAdmin`** — same contract as **`PATCH /api/admin/stories/[id]`**. Episode audio uses **`audioStorageKey`**; cover uses public **`coverUrl`**; theme objects follow **`src/lib/themeAudioUrls.ts`** when uploaded under `audio/<slug>/music/Intro_song/theme.mp3` and `.../full_song/theme.mp3`.
+**Push / library sync:** `POST /api/admin/story-studio/push-to-library` builds `AdminStoryUpsertInput` (`draftToAdminUpsertInput`) and calls **`upsertStoryFromAdmin`** — same contract as **`PATCH /api/admin/stories/[id]`**. If the draft has no **`linkedStoryId`**, push creates the **`Story`** row and links it. When the draft is already linked, **`POST /api/admin/story-studio/generate/tts`** (and **`package`** with **`generateAudio`**) invokes the same mapping via **`syncLinkedLibraryFromDraft`** (`src/lib/story-studio/sync-linked-library-from-draft.ts`) so new narration keys land on **`Episode.audioStorageKey`** without requiring an extra push. Episode audio uses **`audioStorageKey`**; cover uses public **`coverUrl`**; theme objects follow **`src/lib/themeAudioUrls.ts`** when uploaded under `audio/<slug>/music/Intro_song/theme.mp3` and `.../full_song/theme.mp3`.
+
+**Scrolling transcripts (Story Studio):** On each push, episode **`script_package.episodes[n].scriptText`** is converted to **`Episode.transcript_lines`** (JSON array of `{ id, text }` lines). Bracket expression tags such as **`[narrator warmly]`** are stripped; the story player prefers DB transcript lines over legacy static files in **`content/.../transcript-lines.json`**. Admin **`PATCH`** episodes without **`transcriptLines`** leaves existing DB transcript data unchanged.
+
+**Backfill (existing linked drafts):** After deploy/migrate, run once against the target database: **`npm run backfill:episode-transcripts`** (requires **`DATABASE_URL`**). This reads each linked draft’s **`script_package`** and updates matching **`episodes`** rows by **`story_id`** + **`episode_number`**.
 
 **Env (server-only):** see `.env.example` — `OPENROUTER_*`, `ELEVENLABS_*`, `SUNO_*`, and `STORY_STUDIO_IMAGE_API_KEY`, `STORY_STUDIO_IMAGE_MODEL`, `STORY_STUDIO_IMAGE_API_URL` (OpenRouter `/api/v1/chat/completions` for image-capable models), optional `FFMPEG_PATH` for intro trim.

@@ -120,6 +120,7 @@ export const generationRequestPatchSchema = z.preprocess(
     elevenLabsVoiceId: z.string().max(200).optional(),
     flavor: z.string().max(4000).optional(),
     coverArtDirection: z.string().max(4000).optional(),
+    coverImagePromptDraft: z.string().max(16000).optional(),
     musicDirection: z.string().max(4000).optional(),
     genreHint: genreHint.optional(),
     moodHint: moodHint.optional(),

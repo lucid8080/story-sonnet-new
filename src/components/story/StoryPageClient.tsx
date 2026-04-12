@@ -19,6 +19,7 @@ import {
   Play,
   Pause,
   ListMusic,
+  Music,
 } from 'lucide-react';
 import { canPlayEpisode } from '@/lib/audioEntitlement';
 import type { StoryForPlayer } from '@/lib/stories';
@@ -28,6 +29,7 @@ import {
   StorySeriesLibraryButton,
   StorySeriesCommentsPanel,
 } from '@/components/story/StorySeriesEngagement';
+import { EpisodeDescriptionModal } from '@/components/story/EpisodeDescriptionModal';
 
 function sameOriginPlaceholderAudioUrl(): string {
   return new URL('/api/audio/placeholder', window.location.origin).href;
@@ -76,7 +78,9 @@ function skipIntroStorageKey(slug: string): string {
   return `storyThemeSkipIntro:${slug}`;
 }
 
-type MainStreamKind = 'intro' | 'episode';
+type MainStreamKind = 'intro' | 'episode' | 'fullTheme';
+
+type PlaybackSelection = 'episode' | 'fullTheme';
 
 const EPISODE_WINDOW_SIZE = 3;
 
@@ -115,10 +119,9 @@ export function StoryPageClient({
   const [audioLoading, setAudioLoading] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [mainStream, setMainStream] = useState<MainStreamKind>('episode');
+  const [playbackSelection, setPlaybackSelection] =
+    useState<PlaybackSelection>('episode');
   const [skipIntroPref, setSkipIntroPref] = useState(false);
-  const [fullPlaying, setFullPlaying] = useState(false);
-  const [fullProgress, setFullProgress] = useState(0);
-  const [fullDuration, setFullDuration] = useState(0);
   const [resolvedThemeIntroSrc, setResolvedThemeIntroSrc] = useState<
     string | null
   >(null);
@@ -129,20 +132,17 @@ export function StoryPageClient({
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
   const [isFullDescriptionExpanded, setIsFullDescriptionExpanded] =
     useState(false);
-  const [expandedEpisodeDescriptions, setExpandedEpisodeDescriptions] =
-    useState<Record<string, boolean>>({});
-  const [truncatedEpisodeDescriptions, setTruncatedEpisodeDescriptions] =
-    useState<Record<string, boolean>>({});
+  const [episodeDescriptionModal, setEpisodeDescriptionModal] = useState<{
+    title: string;
+    description: string;
+  } | null>(null);
+  const episodeReadMoreReturnFocusRef = useRef<HTMLElement | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const preloadEpisodeRef = useRef<HTMLAudioElement>(null);
-  const fullAudioRef = useRef<HTMLAudioElement>(null);
   const introDoneForEpisodeRef = useRef(false);
   const playEpisodeAfterIntroRef = useRef(false);
   const transcriptScrollerRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<(HTMLParagraphElement | null)[]>([]);
-  const episodeDescriptionRefs = useRef<Record<string, HTMLParagraphElement | null>>(
-    {}
-  );
   const pendingPlayIntroRef = useRef(false);
   const usedEpisodePlaceholderFallbackRef = useRef(false);
   const usedIntroPlaceholderFallbackRef = useRef(false);
@@ -173,21 +173,8 @@ export function StoryPageClient({
     setIsCoverFlipped(false);
     setIsSummaryExpanded(false);
     setIsFullDescriptionExpanded(false);
-    setExpandedEpisodeDescriptions({});
-    setTruncatedEpisodeDescriptions({});
+    setEpisodeDescriptionModal(null);
   }, [story.slug]);
-
-  useLayoutEffect(() => {
-    const measured: Record<string, boolean> = {};
-    for (const index of visibleEpisodeIndices) {
-      const episode = story.episodes[index];
-      if (!episode?.description) continue;
-      const el = episodeDescriptionRefs.current[episode.id];
-      if (!el) continue;
-      measured[episode.id] = el.scrollHeight > el.clientHeight + 1;
-    }
-    setTruncatedEpisodeDescriptions((prev) => ({ ...prev, ...measured }));
-  }, [visibleEpisodeIndices, story.episodes, expandedEpisodeDescriptions]);
 
   useEffect(() => {
     if (!useEpisodeWindow) return;
@@ -313,13 +300,12 @@ export function StoryPageClient({
     story.themeFullUseSignedPlayback,
   ]);
 
-  const transcriptLines = useMemo(
-    () =>
-      story && activeEpisode
-        ? getTranscriptLines(story.slug, activeEpisode.episodeNumber)
-        : [],
-    [story, activeEpisode]
-  );
+  const transcriptLines = useMemo(() => {
+    if (!story || !activeEpisode) return [];
+    const fromDb = activeEpisode.transcriptLines;
+    if (fromDb && fromDb.length > 0) return fromDb;
+    return getTranscriptLines(story.slug, activeEpisode.episodeNumber);
+  }, [story, activeEpisode]);
 
   useEffect(() => {
     try {
@@ -342,6 +328,7 @@ export function StoryPageClient({
     usedIntroPlaceholderFallbackRef.current = false;
     setUsingPlaceholderAudio(false);
     setMainStream('episode');
+    setPlaybackSelection('episode');
   }, [activeEpisodeIndex, story.slug]);
 
   useEffect(() => {
@@ -466,21 +453,13 @@ export function StoryPageClient({
       a.pause();
       a.currentTime = 0;
     }
-    const f = fullAudioRef.current;
-    if (f) {
-      f.pause();
-      f.currentTime = 0;
-    }
-    setFullPlaying(false);
-    setFullProgress(0);
-    setFullDuration(0);
     setIsPlaying(false);
     setProgress(0);
     setDuration(0);
   }, [locked, activeEpisodeIndex, story.slug]);
 
   const currentLineIndex = useMemo(() => {
-    if (mainStream === 'intro') return 0;
+    if (mainStream === 'intro' || mainStream === 'fullTheme') return 0;
     if (!transcriptLines.length || !duration) return 0;
     const currentTime = (progress / 100) * duration;
     const normalized = currentTime / duration;
@@ -491,7 +470,7 @@ export function StoryPageClient({
   }, [mainStream, progress, duration, transcriptLines.length]);
 
   useLayoutEffect(() => {
-    if (mainStream === 'intro') return;
+    if (mainStream === 'intro' || mainStream === 'fullTheme') return;
     const container = transcriptScrollerRef.current;
     const activeLine = lineRefs.current[currentLineIndex];
     if (!showTranscript || !container || !transcriptLines.length || !activeLine)
@@ -516,11 +495,6 @@ export function StoryPageClient({
     playEpisodeAfterIntroRef.current = false;
     const el = audioRef.current;
     if (!el) return;
-    const f = fullAudioRef.current;
-    if (f && !f.paused) {
-      f.pause();
-      setFullPlaying(false);
-    }
     void waitForAudioReady(el, 10_000)
       .then(() => el.play())
       .then(() => setIsPlaying(true))
@@ -555,14 +529,20 @@ export function StoryPageClient({
     );
   }
 
-  const canUsePlayer =
+  const episodeCanUsePlayer =
     entitled && !audioLoading && !!resolvedAudioSrc && !audioError;
+  const themeCanUsePlayer =
+    entitled && !!effectiveThemeFullSrc && !audioError;
   const introBlockingPlay =
+    playbackSelection === 'episode' &&
     story.hasIntroTheme &&
     !skipIntroPref &&
     !effectiveThemeIntroSrc &&
     !introDoneForEpisodeRef.current;
-  const technicalPlayBlocked = !canUsePlayer || introBlockingPlay;
+  const technicalPlayBlocked =
+    playbackSelection === 'episode'
+      ? !episodeCanUsePlayer || introBlockingPlay
+      : !themeCanUsePlayer;
   const scrubberDisabled = locked || technicalPlayBlocked;
   const mainPlayButtonDisabled = locked ? false : technicalPlayBlocked;
 
@@ -570,18 +550,12 @@ export function StoryPageClient({
     entitled && !audioError
       ? mainStream === 'intro' && effectiveThemeIntroSrc
         ? effectiveThemeIntroSrc
-        : canUsePlayer && resolvedAudioSrc
-          ? resolvedAudioSrc
-          : undefined
+        : mainStream === 'fullTheme' && effectiveThemeFullSrc
+          ? effectiveThemeFullSrc
+          : episodeCanUsePlayer && resolvedAudioSrc
+            ? resolvedAudioSrc
+            : undefined
       : undefined;
-
-  const pauseFullTheme = () => {
-    const f = fullAudioRef.current;
-    if (f && !f.paused) {
-      f.pause();
-      setFullPlaying(false);
-    }
-  };
 
   const handleMainAudioError = () => {
     const el = audioRef.current;
@@ -599,6 +573,12 @@ export function StoryPageClient({
       setUsingPlaceholderAudio(true);
       setResolvedThemeIntroSrc(sameOriginPlaceholderAudioUrl());
       setAudioError(null);
+      return;
+    }
+
+    if (mainStream === 'fullTheme') {
+      setAudioError('Could not load series theme');
+      setIsPlaying(false);
       return;
     }
 
@@ -660,11 +640,22 @@ export function StoryPageClient({
     const el = audioRef.current;
     if (!el) return;
 
-    pauseFullTheme();
-
     if (isPlaying) {
       el.pause();
       setIsPlaying(false);
+      return;
+    }
+
+    if (playbackSelection === 'fullTheme') {
+      setMainStream('fullTheme');
+      try {
+        await waitForAudioReady(el, 10_000);
+        await el.play();
+        setIsPlaying(true);
+      } catch (error) {
+        console.log('Full theme playback:', error);
+        setIsPlaying(false);
+      }
       return;
     }
 
@@ -715,29 +706,6 @@ export function StoryPageClient({
     void togglePlay();
   };
 
-  const toggleFullTheme = async () => {
-    const f = fullAudioRef.current;
-    if (!f || !effectiveThemeFullSrc) return;
-    if (fullPlaying) {
-      f.pause();
-      setFullPlaying(false);
-      return;
-    }
-    const main = audioRef.current;
-    if (main && !main.paused) {
-      main.pause();
-      setIsPlaying(false);
-    }
-    try {
-      await waitForAudioReady(f, 10_000);
-      await f.play();
-      setFullPlaying(true);
-    } catch (err) {
-      console.log('Full theme playback:', err);
-      setFullPlaying(false);
-    }
-  };
-
   const handleTimeUpdate = () => {
     if (!audioRef.current) return;
     const current = audioRef.current.currentTime || 0;
@@ -751,33 +719,6 @@ export function StoryPageClient({
   const handleLoadedMetadata = () => {
     if (!audioRef.current) return;
     setDuration(audioRef.current.duration || 0);
-  };
-
-  const handleFullTimeUpdate = () => {
-    const f = fullAudioRef.current;
-    if (!f) return;
-    const current = f.currentTime || 0;
-    const total = f.duration || 0;
-    setFullProgress(total ? (current / total) * 100 : 0);
-    if (Number.isFinite(total) && total > 0) {
-      setFullDuration((d) => (d > 0 ? d : total));
-    }
-  };
-
-  const handleFullLoadedMetadata = () => {
-    const f = fullAudioRef.current;
-    if (!f) return;
-    setFullDuration(f.duration || 0);
-  };
-
-  const handleFullSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!effectiveThemeFullSrc) return;
-    const f = fullAudioRef.current;
-    if (!f) return;
-    const value = Number(e.target.value);
-    const total = f.duration || fullDuration;
-    f.currentTime = total ? (value / 100) * total : 0;
-    setFullProgress(value);
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -794,13 +735,6 @@ export function StoryPageClient({
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
-
-  const toggleEpisodeDescription = (episodeId: string) => {
-    setExpandedEpisodeDescriptions((prev) => ({
-      ...prev,
-      [episodeId]: !prev[episodeId],
-    }));
   };
 
   return (
@@ -874,13 +808,17 @@ export function StoryPageClient({
                           Now Playing
                         </div>
                         <div className="mt-1 text-lg font-black leading-snug text-white sm:text-xl">
-                          {activeEpisode.title}
+                          {playbackSelection === 'fullTheme'
+                            ? 'Series theme music'
+                            : activeEpisode.title}
                         </div>
                       </div>
                     </div>
 
                     <div className="flex w-full flex-col gap-3">
-                        {entitled && audioLoading ? (
+                        {entitled &&
+                        playbackSelection === 'episode' &&
+                        audioLoading ? (
                           <p className="text-center text-xs text-white/80">
                             Preparing audio…
                           </p>
@@ -890,7 +828,10 @@ export function StoryPageClient({
                             {audioError}
                           </p>
                         ) : null}
-                        {entitled && usingPlaceholderAudio && !audioError ? (
+                        {entitled &&
+                        playbackSelection === 'episode' &&
+                        usingPlaceholderAudio &&
+                        !audioError ? (
                           <p className="text-center text-xs text-amber-100/95">
                             Placeholder audio — upload the MP3 or fix the CDN path
                             when ready.
@@ -899,7 +840,7 @@ export function StoryPageClient({
                         <audio
                           ref={preloadEpisodeRef}
                           src={
-                            canUsePlayer && resolvedAudioSrc
+                            episodeCanUsePlayer && resolvedAudioSrc
                               ? resolvedAudioSrc
                               : undefined
                           }
@@ -909,10 +850,12 @@ export function StoryPageClient({
                           muted
                         />
                         <audio
-                          key={`main-${activeEpisode.id}-${mainStream}-${
+                          key={`main-${activeEpisode.id}-${playbackSelection}-${mainStream}-${
                             mainStream === 'intro'
                               ? 'intro'
-                              : (resolvedAudioSrc ?? 'none')
+                              : mainStream === 'fullTheme'
+                                ? `theme-${effectiveThemeFullSrc ?? 'none'}`
+                                : (resolvedAudioSrc ?? 'none')
                           }`}
                           ref={audioRef}
                           src={mainAudioSrc}
@@ -1129,63 +1072,6 @@ export function StoryPageClient({
             </div>
           ) : (
             <>
-              {showFullThemeBar ? (
-                <div className="mb-4 mt-5 rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-3 shadow-sm ring-1 ring-slate-100">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
-                      Series theme
-                    </span>
-                    <span className="text-[11px] text-slate-400">Full track</span>
-                  </div>
-                  <audio
-                    ref={fullAudioRef}
-                    src={effectiveThemeFullSrc ?? undefined}
-                    preload="metadata"
-                    onTimeUpdate={handleFullTimeUpdate}
-                    onLoadedMetadata={handleFullLoadedMetadata}
-                    onEnded={() => setFullPlaying(false)}
-                    onPlay={() => setFullPlaying(true)}
-                    onPause={() => setFullPlaying(false)}
-                    className="hidden"
-                    aria-hidden
-                  />
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => void toggleFullTheme()}
-                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal-500 text-white shadow-sm transition hover:bg-teal-600"
-                      aria-label={
-                        fullPlaying ? 'Pause series theme' : 'Play series theme'
-                      }
-                    >
-                      {fullPlaying ? (
-                        <Pause className="h-4 w-4 fill-current" />
-                      ) : (
-                        <Play className="ml-0.5 h-4 w-4 fill-current" />
-                      )}
-                    </button>
-                    <div className="min-w-0 flex-1">
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        value={fullProgress}
-                        onChange={handleFullSeek}
-                        className="h-1 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-teal-500"
-                      />
-                      <div className="mt-1 flex justify-between font-mono text-[10px] text-slate-500">
-                        <span>
-                          {formatTime(
-                            fullDuration ? (fullProgress / 100) * fullDuration : 0
-                          )}
-                        </span>
-                        <span>{formatTime(fullDuration)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
               <div className="mb-4 mt-5 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-100 text-sky-600">
@@ -1238,143 +1124,232 @@ export function StoryPageClient({
                 ) : null}
               </div>
 
-              <div className="space-y-3" aria-live="polite">
-                {visibleEpisodeIndices.map((index) => {
-                  const episode = story.episodes[index];
-                  const active = index === activeEpisodeIndex;
-                  const isEpisodeDescriptionExpanded = !!expandedEpisodeDescriptions[
-                    episode.id
-                  ];
-                  const showEpisodeDescriptionToggle =
-                    !!episode.description &&
-                    (isEpisodeDescriptionExpanded ||
-                      !!truncatedEpisodeDescriptions[episode.id]);
-                  return (
+              <ul className="divide-y divide-slate-100" aria-live="polite">
+                {showFullThemeBar ? (
+                  <li className="py-1">
                     <div
-                      role="button"
-                      tabIndex={0}
-                      key={episode.id}
-                      onClick={() => setActiveEpisodeIndex(index)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          setActiveEpisodeIndex(index);
-                        }
-                      }}
-                      className={`w-full rounded-[1.5rem] border p-4 text-left transition ${
-                        active
-                          ? 'border-rose-200 bg-white shadow-lg shadow-rose-100'
-                          : 'border-slate-100 bg-white/70 hover:border-slate-200 hover:bg-white'
+                      className={`rounded-lg px-1 py-2 transition ${
+                        playbackSelection === 'fullTheme'
+                          ? 'bg-rose-50/80 ring-1 ring-rose-100/80'
+                          : 'hover:bg-slate-50/80'
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <div className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
-                              {episode.label}
-                            </div>
-                            {episode.isFreePreview ? (
-                              <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600">
-                                Free preview
-                              </p>
-                            ) : null}
-                          </div>
-                          <div className="mt-1 text-lg font-black leading-snug text-slate-900">
-                            {episode.title}
-                          </div>
-                          {episode.description && (
-                            <p
-                              ref={(el) => {
-                                episodeDescriptionRefs.current[episode.id] = el;
-                              }}
-                              className={`mt-2 text-sm leading-5 text-slate-600 ${
-                                isEpisodeDescriptionExpanded ? '' : 'line-clamp-2'
-                              }`}
-                            >
-                              {episode.description}
-                            </p>
-                          )}
-                          {showEpisodeDescriptionToggle ? (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleEpisodeDescription(episode.id);
-                              }}
-                              className="mt-1 text-[11px] font-medium text-slate-500 hover:text-slate-700"
-                              aria-expanded={isEpisodeDescriptionExpanded}
-                            >
-                              {isEpisodeDescriptionExpanded
-                                ? 'Show less'
-                                : 'Read more'}
-                            </button>
-                          ) : null}
-                        </div>
-                        <div
-                          className="flex flex-col items-end gap-2"
-                        >
-                          <div
-                            className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] ${
-                              active
-                                ? 'bg-rose-50 text-rose-500'
-                                : 'bg-slate-100 text-slate-500'
-                            }`}
-                          >
-                            {episode.duration}
-                          </div>
-                        </div>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          audioRef.current?.pause();
+                          setIsPlaying(false);
+                          setAudioError(null);
+                          setPlaybackSelection('fullTheme');
+                          setMainStream('fullTheme');
+                          setProgress(0);
+                          setDuration(0);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            audioRef.current?.pause();
+                            setIsPlaying(false);
+                            setAudioError(null);
+                            setPlaybackSelection('fullTheme');
+                            setMainStream('fullTheme');
+                            setProgress(0);
+                            setDuration(0);
+                          }
+                        }}
+                        className="flex w-full items-center gap-3 rounded-md py-0 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
+                        aria-label="Select series theme music (play from cover)"
+                        aria-current={
+                          playbackSelection === 'fullTheme'
+                            ? 'true'
+                            : undefined
+                        }
+                      >
+                        <span className="flex w-7 shrink-0 items-center justify-end">
+                          <Music
+                            className="h-4 w-4 shrink-0 text-slate-400"
+                            aria-hidden
+                          />
+                        </span>
+                        <span className="flex min-w-0 flex-1 items-center gap-2">
+                          <span className="min-w-0 flex-1 truncate text-base font-bold text-slate-900">
+                            Series theme music
+                          </span>
+                          <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                            Full track
+                          </span>
+                        </span>
+                        <span className="shrink-0 tabular-nums text-sm font-semibold text-slate-500">
+                          {playbackSelection === 'fullTheme' && duration > 0
+                            ? formatTime(duration)
+                            : '—'}
+                        </span>
+                      </button>
                     </div>
+                  </li>
+                ) : null}
+                {visibleEpisodeIndices.map((index) => {
+                  const episode = story.episodes[index];
+                  const active =
+                    playbackSelection === 'episode' &&
+                    index === activeEpisodeIndex;
+                  const desc = episode.description?.trim() ?? '';
+                  const hasReadMore = desc.length > 0;
+                  const durationLabel = episode.duration?.trim() || '—';
+                  const selectEpisodeFromTracklist = () => {
+                    if (
+                      playbackSelection === 'fullTheme' ||
+                      mainStream === 'fullTheme'
+                    ) {
+                      setPlaybackSelection('episode');
+                      setMainStream('episode');
+                      audioRef.current?.pause();
+                      setIsPlaying(false);
+                      setProgress(0);
+                      setDuration(0);
+                    } else {
+                      setPlaybackSelection('episode');
+                    }
+                    setActiveEpisodeIndex(index);
+                  };
+                  return (
+                    <li key={episode.id} className="py-1">
+                      <div
+                        className={`flex w-full items-center gap-2 rounded-lg px-1 py-2 transition ${
+                          active
+                            ? 'bg-rose-50/80 ring-1 ring-rose-100/80'
+                            : 'hover:bg-slate-50/80'
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={selectEpisodeFromTracklist}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              selectEpisodeFromTracklist();
+                            }
+                          }}
+                          className="flex min-w-0 flex-1 items-center gap-3 rounded-md py-0 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
+                          aria-current={active ? 'true' : undefined}
+                          aria-label={`Select episode ${episode.episodeNumber}: ${episode.title}`}
+                        >
+                          <span className="w-7 shrink-0 text-right text-xs font-bold tabular-nums text-slate-400">
+                            {episode.episodeNumber}
+                          </span>
+                          <span className="flex min-w-0 flex-1 items-center gap-2">
+                            <span className="min-w-0 flex-1 truncate text-base font-bold text-slate-900">
+                              {episode.title}
+                            </span>
+                            {episode.isFreePreview ? (
+                              <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-emerald-600">
+                                Preview
+                              </span>
+                            ) : null}
+                          </span>
+                        </button>
+                        {hasReadMore ? (
+                          <button
+                            type="button"
+                            className="shrink-0 whitespace-nowrap text-[11px] font-medium text-violet-600 hover:text-violet-800 focus-visible:rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
+                            aria-label={`Read full description: ${episode.title}`}
+                            onClick={(e) => {
+                              episodeReadMoreReturnFocusRef.current =
+                                e.currentTarget;
+                              setEpisodeDescriptionModal({
+                                title: episode.title,
+                                description: desc,
+                              });
+                            }}
+                          >
+                            Read more
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          aria-hidden="true"
+                          onClick={selectEpisodeFromTracklist}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              selectEpisodeFromTracklist();
+                            }
+                          }}
+                          className="shrink-0 rounded-md px-0.5 tabular-nums text-sm font-semibold text-slate-500 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
+                        >
+                          {durationLabel}
+                        </button>
+                      </div>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             </>
           )}
         </section>
         </main>
 
+        <div
+          className={`mx-auto max-w-6xl px-5 sm:px-7 lg:px-8 ${
+            recommendedStories.length > 0 ? 'pb-6' : 'pb-12'
+          }`}
+        >
+          <StorySeriesCommentsPanel className="mt-2" />
+        </div>
+
         {recommendedStories.length > 0 ? (
-          <div className="mx-auto max-w-6xl px-5 pb-4 sm:px-7 lg:px-8">
-            <section className="w-full lg:max-w-[40%]">
+          <div className="mx-auto mt-6 max-w-6xl px-5 pb-12 sm:px-7 lg:px-8">
+            <section className="w-full">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <h2 className="text-base font-black text-slate-900">
                   Recommended Stories
                 </h2>
               </div>
-              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <ul
+                className="m-0 flex list-none flex-row flex-nowrap gap-3 overflow-x-auto overflow-y-hidden px-0 pt-0 pb-2 snap-x snap-mandatory sm:gap-4"
+              >
                 {recommendedStories.map((recommended) => (
-                  <Link
+                  <li
                     key={recommended.slug}
-                    href={`/story/${recommended.slug}`}
-                    className="group block overflow-hidden rounded-xl ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
-                    aria-label={`Open recommended story: ${recommended.title}`}
+                    className="shrink-0 snap-start"
                   >
-                    <div
-                      className="relative aspect-[3/4] w-full overflow-hidden"
-                      style={{
-                        backgroundColor: recommended.accent || '#cbd5e1',
-                      }}
+                    <Link
+                      href={`/story/${recommended.slug}`}
+                      className="group block w-[42vw] max-w-[9.5rem] overflow-hidden rounded-xl ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 sm:max-w-[10.5rem]"
+                      aria-label={`Open recommended story: ${recommended.title}`}
                     >
-                      {recommended.cover ? (
-                        <Image
-                          src={recommended.cover}
-                          alt={`${recommended.title} cover art`}
-                          fill
-                          sizes="(max-width: 640px) 44vw, (max-width: 1024px) 30vw, 20vw"
-                          className="object-cover object-top transition duration-300 group-hover:scale-105"
-                        />
-                      ) : null}
-                    </div>
-                  </Link>
+                      <div
+                        className="relative aspect-[3/4] w-full overflow-hidden"
+                        style={{
+                          backgroundColor: recommended.accent || '#cbd5e1',
+                        }}
+                      >
+                        {recommended.cover ? (
+                          <Image
+                            src={recommended.cover}
+                            alt={`${recommended.title} cover art`}
+                            fill
+                            sizes="(max-width: 640px) 42vw, 168px"
+                            className="object-cover object-top transition duration-300 group-hover:scale-105"
+                          />
+                        ) : null}
+                      </div>
+                    </Link>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </section>
           </div>
         ) : null}
 
-        <div className="mx-auto max-w-6xl px-5 pb-12 sm:px-7 lg:px-8">
-          <StorySeriesCommentsPanel className="mt-2" />
-        </div>
+        <EpisodeDescriptionModal
+          open={episodeDescriptionModal != null}
+          title={episodeDescriptionModal?.title ?? ''}
+          description={episodeDescriptionModal?.description ?? ''}
+          onClose={() => setEpisodeDescriptionModal(null)}
+          returnFocusRef={episodeReadMoreReturnFocusRef}
+        />
       </div>
     </StoryEngagementProvider>
   );

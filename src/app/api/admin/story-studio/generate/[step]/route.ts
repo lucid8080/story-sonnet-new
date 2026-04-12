@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
-import { runStoryStudioStep } from '@/lib/story-studio/orchestration/run-step';
+import {
+  runStoryStudioStep,
+  type ExecuteGenerationStepOptions,
+} from '@/lib/story-studio/orchestration/run-step';
 import {
   draftInclude,
   serializeDraft,
@@ -33,7 +36,7 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid step' }, { status: 400 });
   }
 
-  let body: { draftId?: string };
+  let body: { draftId?: string; draftEpisodeId?: string | null };
   try {
     body = await req.json();
   } catch {
@@ -45,8 +48,20 @@ export async function POST(
     return NextResponse.json({ error: 'draftId required' }, { status: 400 });
   }
 
+  const episodeId = body.draftEpisodeId?.trim();
+  if (episodeId && step !== 'tts') {
+    return NextResponse.json(
+      { error: 'draftEpisodeId is only valid for the tts step' },
+      { status: 400 }
+    );
+  }
+
+  const genOpts: ExecuteGenerationStepOptions | undefined =
+    step === 'tts' && episodeId ? { draftEpisodeId: episodeId } : undefined;
+
+  let stepResult: Awaited<ReturnType<typeof runStoryStudioStep>> | null = null;
   try {
-    await runStoryStudioStep(draftId, step);
+    stepResult = await runStoryStudioStep(draftId, step, genOpts);
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Generation failed';
     console.error('[story-studio/generate]', step, e);
@@ -68,5 +83,9 @@ export async function POST(
   return NextResponse.json({
     ok: true,
     draft: serializeDraft(draft),
+    ...((step === 'tts' || step === 'package') &&
+    stepResult?.librarySync !== undefined
+      ? { librarySync: stepResult.librarySync }
+      : {}),
   });
 }

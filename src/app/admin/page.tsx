@@ -38,7 +38,7 @@ export default async function AdminDashboardPage() {
       <div className="mt-6 grid gap-4 md:grid-cols-3">
         <Stat label="Stories" value={stories} />
         <Stat label="Episodes" value={episodes} />
-        <Stat label="Profiles" value={users} />
+        <Stat label="Profiles" value={users} href="/admin/customers" />
         <Stat label="Active subscribers" value={activeSubscribers} />
         <Stat label="Uploads" value={uploads} />
       </div>
@@ -46,13 +46,34 @@ export default async function AdminDashboardPage() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+function Stat({
+  label,
+  value,
+  href,
+}: {
+  label: string;
+  value: number;
+  href?: string;
+}) {
+  const inner = (
+    <>
       <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
         {label}
       </div>
       <div className="mt-2 text-3xl font-black text-slate-900">{value}</div>
-    </div>
+    </>
+  );
+  if (href) {
+    return (
+      <a
+        href={href}
+        className="block rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100 transition hover:ring-violet-200"
+      >
+        {inner}
+      </a>
+    );
+  }
+  return (
+    <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">{inner}</div>
   );
 }

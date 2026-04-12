@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import { resolvePublicAssetUrl } from '@/lib/resolvePublicAssetUrl';
 import {
   applyPresetDefaults,
   defaultGenerationRequest,
@@ -13,30 +14,70 @@ const createBodySchema = z.object({
   title: z.string().min(1).max(200).optional(),
 });
 
+const draftListSelect = {
+  id: true,
+  title: true,
+  slug: true,
+  mode: true,
+  updatedAt: true,
+  linkedStoryId: true,
+  assets: {
+    where: { kind: 'cover' },
+    orderBy: { createdAt: 'desc' as const },
+    take: 1,
+    select: { publicUrl: true },
+  },
+} as const;
+
+type DraftListRow = {
+  id: string;
+  title: string;
+  slug: string;
+  mode: string;
+  updatedAt: Date;
+  linkedStoryId: bigint | null;
+  assets: { publicUrl: string | null }[];
+};
+
+function serializeDraftListRow(d: DraftListRow) {
+  const rawCoverUrl = d.assets[0]?.publicUrl ?? null;
+  const coverThumbnailUrl =
+    resolvePublicAssetUrl(rawCoverUrl) ?? rawCoverUrl ?? null;
+  return {
+    id: d.id,
+    title: d.title,
+    slug: d.slug,
+    mode: d.mode,
+    updatedAt: d.updatedAt,
+    linkedStoryId: d.linkedStoryId?.toString() ?? null,
+    coverThumbnailUrl,
+  };
+}
+
 export async function GET() {
   const session = await auth();
   if (session?.user?.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const drafts = await prisma.storyStudioDraft.findMany({
-    orderBy: { updatedAt: 'desc' },
-    take: 40,
-    select: {
-      id: true,
-      title: true,
-      slug: true,
-      mode: true,
-      updatedAt: true,
-      linkedStoryId: true,
-    },
-  });
+  const [linkedDrafts, recentDrafts] = await Promise.all([
+    prisma.storyStudioDraft.findMany({
+      where: { linkedStoryId: { not: null } },
+      orderBy: { updatedAt: 'desc' },
+      take: 500,
+      select: draftListSelect,
+    }),
+    prisma.storyStudioDraft.findMany({
+      where: { linkedStoryId: null },
+      orderBy: { updatedAt: 'desc' },
+      take: 100,
+      select: draftListSelect,
+    }),
+  ]);
 
   return NextResponse.json({
-    drafts: drafts.map((d) => ({
-      ...d,
-      linkedStoryId: d.linkedStoryId?.toString() ?? null,
-    })),
+    linkedDrafts: linkedDrafts.map(serializeDraftListRow),
+    recentDrafts: recentDrafts.map(serializeDraftListRow),
   });
 }
 

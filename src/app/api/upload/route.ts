@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import {
   buildCoverKey,
   buildPrivateAudioKey,
+  makeUniqueSafeFileName,
   parseAudioSubPathSegments,
   sanitizeUploadFileName,
   UploadKeyValidationError,
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const safeName = sanitizeUploadFileName(file.name);
+  let safeName = sanitizeUploadFileName(file.name);
 
   let storySlug = '';
   let audioSubPathSegments: string[] = [];
@@ -66,6 +67,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: e.message }, { status: 400 });
     }
     throw e;
+  }
+
+  if (storySlug) {
+    safeName = makeUniqueSafeFileName(safeName);
   }
 
   const buf = Buffer.from(await file.arrayBuffer());

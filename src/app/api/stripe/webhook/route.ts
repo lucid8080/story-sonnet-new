@@ -20,29 +20,40 @@ function stripeCustomerIdFromPayload(
   return typeof id === 'string' ? id : null;
 }
 
+/** Matches `Profile.subscriptionStatus` values written by this webhook. */
+function mapStripeStatusToStored(stripeStatus: string): string {
+  if (stripeStatus === 'active' || stripeStatus === 'trialing') {
+    return 'active';
+  }
+  if (stripeStatus === 'past_due' || stripeStatus === 'unpaid') {
+    return 'past_due';
+  }
+  if (stripeStatus === 'canceled' || stripeStatus === 'incomplete_expired') {
+    return 'canceled';
+  }
+  return 'free';
+}
+
+function storedStatusIsPaying(subscriptionStatus: string): boolean {
+  return subscriptionStatus === 'active';
+}
+
 async function handleSubscriptionChange(
   customerId: string | null | undefined,
-  status: string
+  stripeStatus: string
 ) {
   if (!customerId) {
     return;
   }
 
-  let profileStatus = 'free';
-  if (status === 'active' || status === 'trialing') {
-    profileStatus = 'active';
-  } else if (status === 'past_due' || status === 'unpaid') {
-    profileStatus = 'past_due';
-  } else if (status === 'canceled' || status === 'incomplete_expired') {
-    profileStatus = 'canceled';
-  }
+  const newStored = mapStripeStatusToStored(stripeStatus);
 
-  const result = await prisma.profile.updateMany({
+  let profile = await prisma.profile.findFirst({
     where: { stripeCustomerId: customerId },
-    data: { subscriptionStatus: profileStatus },
+    select: { userId: true, subscriptionStatus: true, stripeCustomerId: true },
   });
 
-  if (result.count === 0 && stripe) {
+  if (!profile && stripe) {
     try {
       const cust = await stripe.customers.retrieve(customerId);
       if (
@@ -51,28 +62,53 @@ async function handleSubscriptionChange(
         cust.deleted !== true &&
         cust.metadata?.app_user_id
       ) {
-        const r2 = await prisma.profile.updateMany({
-          where: { userId: cust.metadata.app_user_id },
-          data: {
-            subscriptionStatus: profileStatus,
-            stripeCustomerId: customerId,
-          },
+        profile = await prisma.profile.findUnique({
+          where: { userId: cust.metadata.app_user_id as string },
+          select: { userId: true, subscriptionStatus: true, stripeCustomerId: true },
         });
-        if (r2.count > 0) {
-          return;
-        }
       }
     } catch (e) {
-      console.warn('[stripe webhook] customer metadata fallback failed', e);
+      console.warn('[stripe webhook] customer lookup failed', e);
     }
   }
 
-  if (result.count === 0) {
+  if (!profile) {
     console.warn(
       '[stripe webhook] No profile for customer',
       customerId,
       '(subscription mapping skipped)'
     );
+    return;
+  }
+
+  const oldStored = profile.subscriptionStatus;
+  const wasPaying = storedStatusIsPaying(oldStored);
+  const nowPaying = storedStatusIsPaying(newStored);
+
+  await prisma.profile.update({
+    where: { userId: profile.userId },
+    data: {
+      subscriptionStatus: newStored,
+      stripeCustomerId: profile.stripeCustomerId ?? customerId,
+    },
+  });
+
+  if (!wasPaying && nowPaying) {
+    try {
+      await prisma.adminInboxEvent.create({
+        data: {
+          type: 'subscription_active',
+          userId: profile.userId,
+          metadata: {
+            stripeCustomerId: customerId,
+            priorStatus: oldStored,
+            stripeStatus,
+          },
+        },
+      });
+    } catch (e) {
+      console.warn('[stripe webhook] admin inbox subscription event failed', e);
+    }
   }
 }
 

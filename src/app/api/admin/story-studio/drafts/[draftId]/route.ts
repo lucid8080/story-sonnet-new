@@ -12,6 +12,13 @@ import {
   draftInclude,
   serializeDraft,
 } from '@/lib/story-studio/serialize-draft';
+import { deleteStoryAdmin } from '@/lib/stories';
+
+const deleteDraftBodySchema = z
+  .object({
+    deleteLinkedStory: z.boolean().optional(),
+  })
+  .strict();
 
 const patchBodySchema = z
   .object({
@@ -156,7 +163,7 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: Request,
+  req: Request,
   context: { params: Promise<{ draftId: string }> }
 ) {
   const session = await auth();
@@ -165,6 +172,38 @@ export async function DELETE(
   }
 
   const { draftId } = await context.params;
-  await prisma.storyStudioDraft.deleteMany({ where: { id: draftId } });
+
+  let deleteLinkedStory = false;
+  try {
+    const body: unknown = await req.json();
+    const parsed = deleteDraftBodySchema.safeParse(body);
+    if (parsed.success) {
+      deleteLinkedStory = parsed.data.deleteLinkedStory === true;
+    }
+  } catch {
+    /* no JSON body */
+  }
+
+  const draft = await prisma.storyStudioDraft.findUnique({
+    where: { id: draftId },
+    select: { id: true, linkedStoryId: true },
+  });
+  if (!draft) {
+    return NextResponse.json({ error: 'Draft not found' }, { status: 404 });
+  }
+
+  try {
+    if (deleteLinkedStory && draft.linkedStoryId != null) {
+      await deleteStoryAdmin(draft.linkedStoryId.toString());
+    }
+    await prisma.storyStudioDraft.deleteMany({ where: { id: draftId } });
+  } catch (e) {
+    console.error('[story-studio/drafts DELETE]', e);
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : 'Delete failed' },
+      { status: 500 }
+    );
+  }
+
   return NextResponse.json({ ok: true });
 }

@@ -7,6 +7,39 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum AccountStatus {
+  active
+  suspended
+  banned
+  pending
+  deleted
+}
+
+enum RiskLevel {
+  none
+  low
+  medium
+  high
+}
+
+enum CreditLedgerType {
+  grant
+  spend
+  refund
+  promo
+  manual_adjustment
+}
+
+enum NoteVisibility {
+  internal
+  support
+}
+
+enum AdminInboxEventType {
+  user_signup
+  subscription_active
+}
+
 // NextAuth models
 model User {
   id            String    @id @default(cuid())
@@ -23,6 +56,38 @@ model User {
   storySeriesComments StorySeriesComment[]
   storySeriesRatings  StorySeriesRating[]
   storyStudioDrafts   StoryStudioDraft[]
+  customerCreditLedger   CustomerCreditLedger[]
+  customerAdminNotes     CustomerAdminNote[]
+  customerAuditLogs      CustomerAuditLog[]
+  customerPurchases      CustomerPurchase[]
+  creditLedgerCreatedBy  CustomerCreditLedger[] @relation("CreditLedgerCreatedBy")
+  adminNotesAuthored     CustomerAdminNote[]    @relation("AdminNoteAuthor")
+  auditLogsAsActor       CustomerAuditLog[]     @relation("AuditLogActor")
+  inboxEventsAsSubject   AdminInboxEvent[]      @relation("InboxEventSubject")
+  adminNotificationSeen  AdminNotificationSeen?
+}
+
+model AdminInboxEvent {
+  id        String             @id @default(cuid())
+  type      AdminInboxEventType
+  userId    String             @map("user_id")
+  metadata  Json               @default("{}")
+  createdAt DateTime           @default(now()) @map("created_at")
+
+  user User @relation("InboxEventSubject", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([userId])
+  @@map("admin_inbox_events")
+}
+
+model AdminNotificationSeen {
+  adminUserId String   @id @map("admin_user_id")
+  lastSeenAt  DateTime @map("last_seen_at")
+
+  admin User @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@map("admin_notification_seen")
 }
 
 model Account {
@@ -76,9 +141,103 @@ model Profile {
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
+  /// Platform account state (distinct from Stripe subscriptionStatus)
+  accountStatus AccountStatus @default(active) @map("account_status")
+  /// Display tier: free, plus, family, etc.
+  subscriptionPlan String? @map("subscription_plan")
+  creditBalance    Int     @default(0) @map("credit_balance")
+  lastActiveAt     DateTime? @map("last_active_at")
+  loginCount       Int       @default(0) @map("login_count")
+  lifetimeSpendCents Int     @default(0) @map("lifetime_spend_cents")
+  refundCount      Int       @default(0) @map("refund_count")
+  /// Denormalized: likes + saves + comments + ratings + studio drafts (refreshed on demand / detail view)
+  totalEngagementCount Int   @default(0) @map("total_engagement_count")
+  isFlagged        Boolean   @default(false) @map("is_flagged")
+  isVip            Boolean   @default(false) @map("is_vip")
+  riskLevel        RiskLevel @default(none) @map("risk_level")
+  internalTags     Json      @default("[]") @map("internal_tags")
+  marketingOptIn   Boolean   @default(false) @map("marketing_opt_in")
+  isGuardianManaged Boolean  @default(false) @map("is_guardian_managed")
+  isMinorAccount   Boolean   @default(false) @map("is_minor_account")
+  consentStatus    String?   @map("consent_status")
+  communicationRestricted Boolean @default(false) @map("communication_restricted")
+  complianceNotes  String?   @map("compliance_notes")
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([accountStatus])
+  @@index([subscriptionStatus])
+  @@index([lastActiveAt])
+  @@index([createdAt])
   @@map("profiles")
+}
+
+model CustomerCreditLedger {
+  id               String           @id @default(cuid())
+  userId           String           @map("user_id")
+  type             CreditLedgerType
+  amount           Int
+  balanceAfter     Int              @map("balance_after")
+  reason           String           @default("")
+  source           String           @default("")
+  createdByAdminId String?          @map("created_by_admin_id")
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  user          User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdByAdmin User? @relation("CreditLedgerCreatedBy", fields: [createdByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@map("customer_credit_ledger")
+}
+
+model CustomerAdminNote {
+  id             String         @id @default(cuid())
+  userId         String         @map("user_id")
+  authorAdminId  String         @map("author_admin_id")
+  body           String
+  visibility     NoteVisibility @default(internal)
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  authorAdmin User @relation("AdminNoteAuthor", fields: [authorAdminId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("customer_admin_notes")
+}
+
+model CustomerAuditLog {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  actorAdminId String   @map("actor_admin_id")
+  actionType   String   @map("action_type")
+  reason       String   @default("")
+  metadata     Json     @default("{}")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user       User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actorAdmin User @relation("AuditLogActor", fields: [actorAdminId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([actorAdminId])
+  @@map("customer_audit_logs")
+}
+
+model CustomerPurchase {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  amountCents  Int      @map("amount_cents")
+  currency     String   @default("usd")
+  status       String   @default("paid")
+  productType  String   @default("subscription") @map("product_type")
+  provider     String   @default("stripe")
+  providerRef  String?  @map("provider_ref")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("customer_purchases")
 }
 
 model Story {
@@ -237,6 +396,8 @@ model Episode {
   isPremium         Boolean  @default(false) @map("is_premium")
   /** When true, episode is playable without a subscription (sample), even if the series is premium. */
   isFreePreview     Boolean  @default(false) @map("is_free_preview")
+  /// JSON array of { id: string | number; text: string } for scrolling transcript (Story Studio / admin).
+  transcriptLines   Json?    @map("transcript_lines")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 

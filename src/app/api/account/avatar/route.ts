@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 import { getDefaultStorageBucket, uploadPublicObject } from '@/lib/s3';
+import { resolvePublicAssetUrl } from '@/lib/resolvePublicAssetUrl';
 
 export const runtime = 'nodejs';
 
@@ -70,12 +71,14 @@ export async function POST(req: Request) {
       contentType: file.type,
     });
 
+    const imageUrl = resolvePublicAssetUrl(url) ?? url;
+
     await prisma.user.update({
       where: { id: session.user.id },
-      data: { image: url },
+      data: { image: imageUrl },
     });
 
-    return NextResponse.json({ imageUrl: url });
+    return NextResponse.json({ imageUrl });
   } catch (error) {
     console.error('[account/avatar POST]', error);
     return NextResponse.json(

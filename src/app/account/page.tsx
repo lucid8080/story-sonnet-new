@@ -9,6 +9,7 @@ import {
 } from '@/lib/userSavedStories';
 import { BRAND } from '@/lib/brand';
 import prisma from '@/lib/prisma';
+import { resolvePublicAssetUrl } from '@/lib/resolvePublicAssetUrl';
 
 function SignOutButton() {
   return (
@@ -118,7 +119,9 @@ export default async function AccountPage() {
         </div>
 
         <AccountSettingsPanel
-          initialImageUrl={freshUser?.image ?? session.user.image ?? null}
+          initialImageUrl={resolvePublicAssetUrl(
+            freshUser?.image ?? session.user.image ?? null
+          )}
           email={freshUser?.email ?? session.user.email}
         />
 

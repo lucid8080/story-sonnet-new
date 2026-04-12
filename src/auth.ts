@@ -4,6 +4,7 @@ import Credentials from 'next-auth/providers/credentials';
 import Google from 'next-auth/providers/google';
 import bcrypt from 'bcryptjs';
 import prisma from '@/lib/prisma';
+import { resolvePublicAssetUrl } from '@/lib/resolvePublicAssetUrl';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -91,6 +92,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           session.user.subscriptionStatus =
             (token.subscriptionStatus as string) ?? 'free';
         }
+        session.user.image =
+          resolvePublicAssetUrl(session.user.image) ?? session.user.image;
       }
       return session;
     },
@@ -103,6 +106,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           fullName: user.name ?? null,
         },
       });
+      try {
+        await prisma.adminInboxEvent.create({
+          data: {
+            type: 'user_signup',
+            userId: user.id!,
+            metadata: {},
+          },
+        });
+      } catch (e) {
+        console.warn('[auth] admin inbox signup event failed', e);
+      }
     },
   },
 });

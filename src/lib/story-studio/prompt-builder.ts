@@ -180,6 +180,96 @@ export function buildOpenRouterMessagesForScript(
   ];
 }
 
+export type SingleEpisodePromptContext = {
+  /** 0-based index of this episode in the series after insert. */
+  episodeIndex: number;
+  /** Total episodes after adding this one (for “episode N of M”). */
+  totalEpisodesAfter: number;
+  /** Optional beat from brief.episodeOutline[episodeIndex]. */
+  outlineBeat: { title: string; beat: string } | null;
+  /** Existing episodes before this slot (titles + summaries + short script tail). */
+  priorEpisodes: {
+    title: string;
+    summary: string;
+    scriptTail: string;
+  }[];
+  /** User directions from the modal. */
+  directions: string;
+};
+
+function singleEpisodeJsonInstructions(density: string): string {
+  return `Return a single JSON object with ONLY these keys (no wrapper, no markdown):
+- title (string)
+- summary (unique short episode blurb, 1–2 sentences; must NOT copy wording from scriptText)
+- scriptText (string: full narration for THIS episode only; at most ${STORY_STUDIO_MAX_SCRIPT_CHARS_PER_EPISODE} characters)
+- hookEnding (optional string: soft “next time” line only if the series format calls for it)
+
+Expression tag density for bracket tags must match: "${density}".`;
+}
+
+export function buildSingleEpisodeUserPrompt(
+  req: GenerationRequest,
+  brief: BriefPayloadParsed,
+  ctx: SingleEpisodePromptContext
+): string {
+  const briefJson = JSON.stringify(brief, null, 2);
+  const priorBlock =
+    ctx.priorEpisodes.length === 0
+      ? '(This is the first episode in the series.)'
+      : ctx.priorEpisodes
+          .map(
+            (p, i) =>
+              `--- Prior episode ${i + 1}: ${p.title} ---\nSummary: ${p.summary}\nLast part of script (for continuity, do not repeat verbatim):\n${p.scriptTail}`
+          )
+          .join('\n\n');
+
+  const outlineBlock = ctx.outlineBeat
+    ? `Planned beat for this slot (from series outline — follow unless directions conflict):\nTitle: ${ctx.outlineBeat.title}\nBeat: ${ctx.outlineBeat.beat}`
+    : '(No separate outline row for this slot — stay consistent with the approved brief.)';
+
+  const directions =
+    ctx.directions.trim() ||
+    '(No extra directions — follow the brief and continuity.)';
+
+  return `${requestSummary(req)}
+
+APPROVED SERIES BRIEF (stay consistent with characters, setting, and tone):
+${briefJson}
+
+THIS EPISODE SLOT: episode ${ctx.episodeIndex + 1} of ${ctx.totalEpisodesAfter} (after adding this installment).
+
+${outlineBlock}
+
+PRIOR CONTEXT (continuity):
+${priorBlock}
+
+USER DIRECTIONS FOR THIS EPISODE:
+${directions}
+
+TASK: Write ONE new episode only — spoken audio script for a kids story.
+
+${singleEpisodeJsonInstructions(req.tagDensity)}
+
+SCRIPT RULES:
+- scriptText is narration for this episode only; do not include other episodes.
+- summary must be unique and must not duplicate sentences from scriptText.
+- Keep vocabulary aligned with age band ${req.studioAgeBand}.`;
+}
+
+export function buildOpenRouterMessagesForSingleEpisode(
+  req: GenerationRequest,
+  brief: BriefPayloadParsed,
+  ctx: SingleEpisodePromptContext
+) {
+  return [
+    { role: 'system' as const, content: storyCoreSystemPreamble() },
+    {
+      role: 'user' as const,
+      content: buildSingleEpisodeUserPrompt(req, brief, ctx),
+    },
+  ];
+}
+
 function resolveCoverLogline(
   brief: BriefPayloadParsed | null,
   req: GenerationRequest

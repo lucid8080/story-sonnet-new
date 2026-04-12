@@ -6,6 +6,7 @@ import {
   resolveDraftGenerationRequest,
   targetLengthRangeToApproxMinutes,
 } from '@/lib/story-studio/normalize-request';
+import { scriptToTranscriptLines } from '@/lib/transcripts/from-script';
 
 type DraftForMapping = {
   id: string;
@@ -90,6 +91,10 @@ export function draftToAdminUpsertInput(draft: DraftForMapping): AdminStoryUpser
   const episodes: AdminStoryUpsertInput['episodes'] = episodesSorted.map(
     (ep, index) => {
       const audioKey = latestEpisodeAudio(draft.assets, ep.id);
+      const scriptEpisode = script?.episodes?.[index];
+      const rawScript = scriptEpisode?.scriptText?.trim() ?? '';
+      const transcriptLines =
+        rawScript.length > 0 ? scriptToTranscriptLines(rawScript) : undefined;
       return {
         id: ep.id,
         episodeNumber: index + 1,
@@ -104,6 +109,7 @@ export function draftToAdminUpsertInput(draft: DraftForMapping): AdminStoryUpser
         isPremium: false,
         isFreePreview: index === 0,
         label: episodesSorted.length > 1 ? `Part ${index + 1}` : null,
+        ...(transcriptLines !== undefined ? { transcriptLines } : {}),
       };
     }
   );

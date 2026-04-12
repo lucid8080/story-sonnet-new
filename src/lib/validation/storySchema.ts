@@ -28,6 +28,11 @@ export const genreIdSchema = z.enum(genreTuple);
 export const moodIdSchema = z.enum(moodTuple);
 export const durationBucketIdSchema = z.enum(durationBucketTuple);
 
+const transcriptLineSchema = z.object({
+  id: z.union([z.string(), z.number()]),
+  text: z.string(),
+});
+
 export const adminEpisodeSchema = z.object({
   id: z.string().min(1),
   episodeNumber: z.number().int().min(1),
@@ -53,6 +58,11 @@ export const adminEpisodeSchema = z.object({
   isPremium: z.boolean().optional().default(false),
   isFreePreview: z.boolean().optional().default(false),
   label: z.string().nullable().optional(),
+  /** When set (e.g. Story Studio push), replaces episode transcript; omit to preserve DB value. */
+  transcriptLines: z.preprocess(
+    (v) => (v === null ? undefined : v),
+    z.array(transcriptLineSchema).optional()
+  ),
 });
 
 export const adminStoryUpsertSchema = z.object({

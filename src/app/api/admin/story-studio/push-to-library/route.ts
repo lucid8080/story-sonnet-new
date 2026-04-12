@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 import { upsertStoryFromAdmin } from '@/lib/stories';
-import { draftToAdminUpsertInput } from '@/lib/story-studio/mapping/draft-to-admin-upsert';
-import { isValidStorySlug } from '@/lib/slug';
+import {
+  buildValidatedLibraryPayloadFromDraft,
+  storyStudioDraftIncludeForLibrary,
+} from '@/lib/story-studio/sync-linked-library-from-draft';
 import { z } from 'zod';
 
 const bodySchema = z.object({
@@ -33,11 +35,7 @@ export async function POST(req: Request) {
 
   const draft = await prisma.storyStudioDraft.findUnique({
     where: { id: parsed.data.draftId },
-    include: {
-      preset: true,
-      episodes: { orderBy: { sortOrder: 'asc' } },
-      assets: { orderBy: { createdAt: 'desc' } },
-    },
+    include: storyStudioDraftIncludeForLibrary,
   });
 
   if (!draft) {
@@ -54,16 +52,11 @@ export async function POST(req: Request) {
     );
   }
 
-  const payload = draftToAdminUpsertInput(draft);
-  if (!isValidStorySlug(payload.slug)) {
-    return NextResponse.json(
-      {
-        error:
-          'Invalid story slug. Use lowercase letters, numbers, and hyphens only (edit slug in Story Studio).',
-      },
-      { status: 400 }
-    );
+  const built = buildValidatedLibraryPayloadFromDraft(draft);
+  if (!built.ok) {
+    return NextResponse.json({ error: built.message }, { status: 400 });
   }
+  const payload = built.payload;
 
   try {
     let storyKey = draft.linkedStoryId?.toString();

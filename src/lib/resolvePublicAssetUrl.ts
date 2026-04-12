@@ -3,7 +3,7 @@
  * so DB-stored http://localhost:3000/... works when assets live on R2 or another host.
  *
  * Resolution order: NEXT_PUBLIC_ASSETS_BASE_URL, then R2_PUBLIC_BASE_URL, then S3_PUBLIC_BASE_URL
- * (matches uploadPublicObject in s3.ts when Story Studio stores cover URLs).
+ * (matches public URLs from `publicUrlForObjectKey` / `uploadPublicObject` in `src/lib/s3.ts`).
  */
 function getPublicAssetsBase(): string {
   if (typeof process === 'undefined') return '';
@@ -28,12 +28,26 @@ export function resolvePublicAssetUrl(
       u.hostname === 'localhost' ||
       u.hostname === '127.0.0.1' ||
       u.hostname === '[::1]';
-    if (!loopback) return raw;
-    const baseUrl = new URL(
-      baseRaw.includes('://') ? baseRaw : `https://${baseRaw}`
-    );
-    if (u.origin === baseUrl.origin) return raw;
-    return `${baseRaw.replace(/\/+$/, '')}${u.pathname}${u.search}`;
+    if (loopback) {
+      const baseUrl = new URL(
+        baseRaw.includes('://') ? baseRaw : `https://${baseRaw}`
+      );
+      if (u.origin === baseUrl.origin) return raw;
+      return `${baseRaw.replace(/\/+$/, '')}${u.pathname}${u.search}`;
+    }
+    // R2 S3 API hostname is not a public HTTP GET URL; map bucket/key to public domain.
+    if (u.hostname.endsWith('.r2.cloudflarestorage.com')) {
+      const bucket =
+        process.env.R2_BUCKET?.trim() ||
+        process.env.S3_BUCKET?.trim() ||
+        '';
+      const parts = u.pathname.split('/').filter(Boolean);
+      if (bucket && parts[0] === bucket) {
+        const key = parts.slice(1).join('/');
+        return `${baseRaw.replace(/\/+$/, '')}/${key}`;
+      }
+    }
+    return raw;
   } catch {
     if (raw.startsWith('/')) {
       return `${baseRaw.replace(/\/+$/, '')}${raw}`;

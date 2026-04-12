@@ -1,4 +1,5 @@
-﻿import { isValidStorySlug, normalizeStorySlug } from '@/lib/slug';
+﻿import { randomUUID } from 'node:crypto';
+import { isValidStorySlug, normalizeStorySlug } from '@/lib/slug';
 
 /** Conservative max UTF-8 byte length for S3 object keys (limit is 1024). */
 const MAX_OBJECT_KEY_BYTES = 900;
@@ -14,6 +15,21 @@ export function sanitizeUploadFileName(name: string): string {
   const s = name.replace(/[^a-zA-Z0-9._-]/g, '_');
   if (!s || /^_+$/.test(s)) return 'file';
   return s;
+}
+
+/**
+ * Append a short unique token before the file extension so repeated uploads
+ * under the same slug path do not overwrite (e.g. cover.png -> cover-abc123def456.png).
+ * Input must already be sanitized.
+ */
+export function makeUniqueSafeFileName(safeFileName: string): string {
+  const token = randomUUID().replace(/-/g, '').slice(0, 12);
+  const i = safeFileName.lastIndexOf('.');
+  if (i <= 0) {
+    const base = safeFileName.length ? safeFileName : 'file';
+    return `${base}-${token}`;
+  }
+  return `${safeFileName.slice(0, i)}-${token}${safeFileName.slice(i)}`;
 }
 
 function assertKeyLength(key: string): void {

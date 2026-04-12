@@ -6,8 +6,12 @@ import {
 import { getResolvedCatalogEpisodeAudioSrc } from '@/lib/catalogAudio';
 import prisma from '@/lib/prisma';
 import { resolvePublicAssetUrl } from '@/lib/resolvePublicAssetUrl';
-import { getPrivateAudioObjectBuffer } from '@/lib/s3';
+import {
+  deleteStorageForStorySlug,
+  getPrivateAudioObjectBuffer,
+} from '@/lib/s3';
 import type { AdminStoryUpsertInput } from '@/lib/validation/storySchema';
+import type { TranscriptLineJson } from '@/lib/transcripts/from-script';
 import type { Episode, Prisma, Story } from '@prisma/client';
 import { stories as staticStories } from '../data.js';
 import { getBrowseSeedForSlug } from '@/data/storyBrowseSeed';
@@ -43,6 +47,8 @@ export type AppEpisode = {
   /** Playable without subscription when true (sample), even for premium series. */
   isFreePreview: boolean;
   isPublished: boolean;
+  /** Scrolling transcript lines (DB-backed stories); static catalog uses JSON files. */
+  transcriptLines?: TranscriptLineJson[];
 };
 
 export type AppStory = {
@@ -104,6 +110,7 @@ export type EpisodeForPlayer = {
   isPublished: boolean;
   useSignedPlayback: boolean;
   playbackEpisodeId: string | null;
+  transcriptLines?: TranscriptLineJson[];
 };
 
 export type StoryForPlayer = Omit<AppStory, 'episodes'> & {
@@ -170,6 +177,7 @@ function episodeToPlayerEpisode(
       isPublished: ep.isPublished,
       useSignedPlayback: false,
       playbackEpisodeId: null,
+      transcriptLines: ep.transcriptLines,
     };
   }
 
@@ -189,6 +197,7 @@ function episodeToPlayerEpisode(
       isPublished: ep.isPublished,
       useSignedPlayback: true,
       playbackEpisodeId: ep.id,
+      transcriptLines: ep.transcriptLines,
     };
   }
 
@@ -207,12 +216,31 @@ function episodeToPlayerEpisode(
     isPublished: ep.isPublished,
     useSignedPlayback: false,
     playbackEpisodeId: null,
+    transcriptLines: ep.transcriptLines,
   };
 }
 
 function parseStringArrayJson(value: Prisma.JsonValue | null | undefined): string[] {
   if (value == null || !Array.isArray(value)) return [];
   return value.filter((x): x is string => typeof x === 'string');
+}
+
+function parseTranscriptLinesJson(
+  value: Prisma.JsonValue | null | undefined
+): TranscriptLineJson[] | undefined {
+  if (value == null || !Array.isArray(value)) return undefined;
+  const out: TranscriptLineJson[] = [];
+  for (const row of value) {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) continue;
+    const o = row as Record<string, unknown>;
+    const id = o.id;
+    const text = o.text;
+    if (typeof text !== 'string') continue;
+    if (typeof id === 'string' || typeof id === 'number') {
+      out.push({ id, text });
+    }
+  }
+  return out.length ? out : undefined;
 }
 
 function formatDurationLabelFromSeconds(sec: number | null): string | null {
@@ -255,6 +283,7 @@ function mapDbStoryToApp(story: Story, episodes: Episode[]): AppStory {
     isPremium: ep.isPremium,
     isFreePreview: ep.isFreePreview,
     isPublished: ep.isPublished,
+    transcriptLines: parseTranscriptLinesJson(ep.transcriptLines),
   }));
 
   const ageRange = story.ageRange as AgeRangeId | null;
@@ -771,6 +800,11 @@ async function syncEpisodesForStory(
       isPublished: ep.isPublished,
       isPremium: ep.isPremium,
       isFreePreview: ep.isFreePreview ?? false,
+      ...(ep.transcriptLines !== undefined
+        ? {
+            transcriptLines: ep.transcriptLines as Prisma.InputJsonValue,
+          }
+        : {}),
     };
     if (isNumericDbStoryId(ep.id) && existingIds.has(ep.id)) {
       await tx.episode.update({
@@ -935,8 +969,14 @@ export async function deleteStoryAdmin(id: string): Promise<void> {
   if (!isNumericDbStoryId(id)) {
     throw new Error('Only database-backed stories can be deleted.');
   }
+  const storyId = BigInt(id);
+  const row = await prisma.story.findUnique({ where: { id: storyId } });
+  if (!row) {
+    throw new Error('Story not found.');
+  }
+  await deleteStorageForStorySlug(row.slug);
   await prisma.story.delete({
-    where: { id: BigInt(id) },
+    where: { id: storyId },
   });
 }
 
