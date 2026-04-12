@@ -116,7 +116,7 @@ export function HomeStoryRotatingGrid({ pool }: Props) {
     return () => {
       if (commitTimeoutRef.current) clearTimeout(commitTimeoutRef.current);
     };
-  }, [crossfade?.armed, crossfade?.slotIndex, crossfade?.incoming.slug]);
+  }, [crossfade]);
 
   useEffect(() => {
     if (pool.length <= 1) return;

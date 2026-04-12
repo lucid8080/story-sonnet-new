@@ -214,7 +214,7 @@ export async function PATCH(
         metadata: {
           before,
           after: { userUpdate, profileUpdate },
-        },
+        } as Prisma.InputJsonValue,
       });
     });
 

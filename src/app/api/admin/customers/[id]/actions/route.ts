@@ -5,6 +5,7 @@ import { requireAdmin } from '@/lib/admin/requireAdmin';
 import {
   CUSTOMER_AUDIT_ACTIONS,
   recordCustomerAudit,
+  recordCustomerAuditStandalone,
 } from '@/lib/admin/customers/audit';
 
 const bodySchema = z.discriminatedUnion('action', [
