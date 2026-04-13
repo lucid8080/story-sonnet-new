@@ -4,11 +4,30 @@ import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
+import { z } from 'zod';
+
+function mergeTrialCampaignIntoCallback(callbackUrl: string, trialCampaignId: string | null): string {
+  if (!trialCampaignId) return callbackUrl;
+  try {
+    const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+    const u = new URL(callbackUrl, base);
+    u.searchParams.set('trialCampaignId', trialCampaignId);
+    return `${u.pathname}${u.search}${u.hash}`;
+  } catch {
+    return callbackUrl;
+  }
+}
 
 function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') || '/';
+  const trialOfferFromBar = searchParams.get('ref') === 'trial_offer';
+  const trialCampaignIdRaw = searchParams.get('trialCampaignId')?.trim() || null;
+  const trialCampaignId =
+    trialCampaignIdRaw && z.string().cuid().safeParse(trialCampaignIdRaw).success
+      ? trialCampaignIdRaw
+      : null;
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,7 +60,22 @@ function SignupForm() {
         setSubmitting(false);
         return;
       }
-      router.replace(callbackUrl);
+      if (trialOfferFromBar && trialCampaignId) {
+        try {
+          await fetch('/api/campaigns/trial/claim', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ campaignId: trialCampaignId }),
+          });
+        } catch {
+          /* non-fatal: user can still subscribe; checkout trial requires a claim */
+        }
+      }
+      const nextUrl =
+        trialOfferFromBar && trialCampaignId
+          ? mergeTrialCampaignIntoCallback(callbackUrl, trialCampaignId)
+          : callbackUrl;
+      router.replace(nextUrl);
     } catch {
       setError('Something went wrong.');
       setSubmitting(false);
@@ -58,6 +92,18 @@ function SignupForm() {
           <p className="mt-1 text-sm text-slate-500">
             Save progress and unlock premium listening when you subscribe.
           </p>
+          {trialOfferFromBar ? (
+            <div
+              className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-950 ring-1 ring-emerald-100"
+              role="status"
+            >
+              <p className="font-semibold text-emerald-900">Free trial offer is active</p>
+              <p className="mt-1 text-emerald-800">
+                Create your account here, then continue to membership pricing to start checkout. Your free trial
+                period runs on the subscription after you subscribe (no promo code needed for this offer).
+              </p>
+            </div>
+          ) : null}
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div>
               <label className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">

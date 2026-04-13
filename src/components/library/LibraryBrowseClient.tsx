@@ -16,6 +16,11 @@ import SortSelect from '@/components/library/SortSelect';
 import ActiveFilterChips from '@/components/library/ActiveFilterChips';
 import StoryCard from '@/components/library/StoryCard';
 import EmptyResults from '@/components/library/EmptyResults';
+import type {
+  SpotlightRailDTO,
+  StorySpotlightBadgeDTO,
+} from '@/lib/content-spotlight/types';
+import { SpotlightCollectionRail } from '@/components/spotlight/SpotlightCollectionRail';
 
 type Props = {
   initialStories: BrowseStory[];
@@ -23,6 +28,8 @@ type Props = {
   isLoggedIn?: boolean;
   initialSort?: SortOption;
   initialFilters?: StoryFiltersState;
+  spotlightRails?: SpotlightRailDTO[];
+  spotlightBadgeBySlug?: Record<string, StorySpotlightBadgeDTO | undefined>;
 };
 
 export default function LibraryBrowseClient({
@@ -31,6 +38,8 @@ export default function LibraryBrowseClient({
   isLoggedIn = false,
   initialSort,
   initialFilters,
+  spotlightRails = [],
+  spotlightBadgeBySlug = {},
 }: Props) {
   const router = useRouter();
   const [filters, setFilters] = useState<StoryFiltersState>(
@@ -70,6 +79,10 @@ export default function LibraryBrowseClient({
           with kids.
         </p>
       </header>
+
+      {spotlightRails.map((rail) => (
+        <SpotlightCollectionRail key={rail.spotlightId} rail={rail} />
+      ))}
 
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <p className="text-sm font-semibold text-slate-700" aria-live="polite">
@@ -152,7 +165,10 @@ export default function LibraryBrowseClient({
             <ul className="grid list-none gap-6 p-0 sm:grid-cols-2 xl:grid-cols-3">
               {results.map((story) => (
                 <li key={story.slug}>
-                  <StoryCard story={story} />
+                  <StoryCard
+                    story={story}
+                    spotlightBadge={spotlightBadgeBySlug[story.slug]}
+                  />
                 </li>
               ))}
             </ul>

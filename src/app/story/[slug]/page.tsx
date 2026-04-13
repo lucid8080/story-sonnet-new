@@ -3,6 +3,10 @@ import { auth } from '@/auth';
 import { attachThemeAudioToPlayerStory } from '@/lib/attachThemeAudioToPlayerStory';
 import { probeThemeAudioAvailability } from '@/lib/themeAudioUrls';
 import { fetchStories, fetchStoryBySlug, storyToPlayerPayload } from '@/lib/stories';
+import {
+  resolveStorySpotlightBadge,
+  resolveStorySpotlightInfoBar,
+} from '@/lib/content-spotlight/resolve';
 import { StoryPageClient } from '@/components/story/StoryPageClient';
 
 type RecommendedStory = {
@@ -32,6 +36,12 @@ export default async function StoryPage({
     playerStory,
     themeProbe
   );
+  const storyId = BigInt(story.id);
+  const [spotlightBadge, spotlightInfoBar] = await Promise.all([
+    resolveStorySpotlightBadge(storyId),
+    resolveStorySpotlightInfoBar(storyId),
+  ]);
+
   const allStories = await fetchStories();
   const recommendedStories: RecommendedStory[] = allStories
     .filter((candidate) => candidate.slug !== story.slug)
@@ -68,6 +78,8 @@ export default async function StoryPage({
       isSignedIn={isSignedIn}
       isSubscribed={isSubscribed}
       recommendedStories={recommendedStories}
+      spotlightBadge={spotlightBadge}
+      spotlightInfoBar={spotlightInfoBar}
     />
   );
 }

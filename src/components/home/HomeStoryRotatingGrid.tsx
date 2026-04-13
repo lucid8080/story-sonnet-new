@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { HomeRotatingStoryCard } from '@/lib/homeRotatingStory';
+import { SpotlightBadgeOverlay } from '@/components/spotlight/SpotlightBadgeOverlay';
 
 const MAX_SLOTS = 20;
 /** Crossfade duration (incoming fades in as outgoing fades out). */
@@ -227,6 +228,9 @@ export function HomeStoryRotatingGrid({ pool }: Props) {
                   {activeStory.episodeCount === 1 ? 'episode' : 'episodes'}
                 </div>
               </div>
+              {activeStory.spotlightBadge ? (
+                <SpotlightBadgeOverlay spotlight={activeStory.spotlightBadge} />
+              ) : null}
             </div>
           </Link>
         );

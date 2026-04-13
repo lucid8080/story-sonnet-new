@@ -16,6 +16,7 @@ const config: Config = {
         sans: ['var(--font-outfit)', 'sans-serif'],
         drama: ['var(--font-playfair)', 'serif'],
         mono: ['var(--font-fira)', 'monospace'],
+        miniMarquee: ['var(--font-mini-marquee)', 'ui-monospace', 'monospace'],
       },
       borderRadius: {
         '3xl': '2rem',

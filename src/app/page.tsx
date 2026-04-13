@@ -3,10 +3,23 @@ import { fetchStories } from '@/lib/stories';
 import { homeRotatingStoryFromApp } from '@/lib/homeRotatingStory';
 import { HomeStoryRotatingGrid } from '@/components/home/HomeStoryRotatingGrid';
 import { sortAppStoriesForLibraryGrid } from '@/utils/libraryGridSort';
+import {
+  resolveHomepageSpotlightRails,
+  resolveSpotlightBadgesBySlug,
+} from '@/lib/content-spotlight/resolve';
+import { SpotlightCollectionRail } from '@/components/spotlight/SpotlightCollectionRail';
 
 export default async function HomePage() {
   const sorted = sortAppStoriesForLibraryGrid(await fetchStories(), 'newest');
-  const pool = sorted.map(homeRotatingStoryFromApp);
+  const slugs = sorted.map((s) => s.slug);
+  const [badgeMap, rails] = await Promise.all([
+    resolveSpotlightBadgesBySlug(slugs),
+    resolveHomepageSpotlightRails(),
+  ]);
+  const pool = sorted.map((s) => ({
+    ...homeRotatingStoryFromApp(s),
+    spotlightBadge: badgeMap.get(s.slug) ?? null,
+  }));
 
   return (
     <main className="mx-auto max-w-6xl px-3 pb-16 pt-8 sm:px-4 lg:px-4">
@@ -26,6 +39,10 @@ export default async function HomePage() {
           </p>
         </div>
       </div>
+
+      {rails.map((rail) => (
+        <SpotlightCollectionRail key={rail.spotlightId} rail={rail} />
+      ))}
 
       <div className="mb-6 flex items-center justify-between gap-4">
         <div>

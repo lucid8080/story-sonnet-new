@@ -1,4 +1,5 @@
 import type { AppStory } from '@/lib/stories';
+import type { StorySpotlightBadgeDTO } from '@/lib/content-spotlight/types';
 
 export type HomeRotatingStoryCard = {
   slug: string;
@@ -7,6 +8,7 @@ export type HomeRotatingStoryCard = {
   accent: string | null;
   episodeCount: number;
   isFeatured?: boolean;
+  spotlightBadge?: StorySpotlightBadgeDTO | null;
 };
 
 export function homeRotatingStoryFromApp(story: AppStory): HomeRotatingStoryCard {

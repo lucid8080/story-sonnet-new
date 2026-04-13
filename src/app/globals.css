@@ -52,4 +52,30 @@
     transform: translateX(100%);
     border-color: rgba(236, 72, 153, 1);
   }
+
+  @keyframes story-nav-marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  .story-nav-marquee {
+    overflow: hidden;
+  }
+
+  .story-nav-marquee__track {
+    display: inline-flex;
+    width: max-content;
+    animation: story-nav-marquee 22s linear infinite;
+    white-space: nowrap;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .story-nav-marquee__track {
+      animation: none;
+    }
+  }
 }

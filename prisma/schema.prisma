@@ -3,8 +3,10 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  /** Non-pooled URL for Prisma Migrate (Neon: host without `-pooler`). Avoids P1002 advisory lock timeouts. */
+  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 enum AccountStatus {
@@ -40,6 +42,112 @@ enum AdminInboxEventType {
   subscription_active
 }
 
+enum CampaignType {
+  notification_bar
+  trial_offer
+  promo_code
+}
+
+enum CampaignStatus {
+  draft
+  scheduled
+  active
+  paused
+  expired
+}
+
+enum CampaignPlacementKey {
+  global_top_bar
+  homepage_hero
+  pricing_banner
+  checkout_callout
+  account_dashboard_card
+  library_banner
+  story_detail_banner
+  modal_trigger
+}
+
+enum CampaignAudience {
+  all
+  logged_out
+  logged_in
+  subscribers
+  free_users
+  trial_users
+  new_users
+}
+
+enum NotificationDismissPolicy {
+  session
+  hours_24
+  days_7
+  until_campaign_end
+}
+
+enum DiscountType {
+  percent
+  fixed_cents
+  trial_extension_days
+  free_first_payment
+}
+
+enum PromoDurationMode {
+  once
+  recurring_cycles
+  forever
+}
+
+enum PromoStackingRule {
+  none
+  with_trial
+  with_announcement_only
+}
+
+enum AnalyticsEventType {
+  impression
+  cta_click
+  dismiss
+  trial_claim
+  promo_validate_ok
+  promo_validate_fail
+  promo_redeem
+  conversion_proxy
+}
+
+enum TrialOfferKind {
+  fixed_duration
+  weekend_trial
+  first_month_free
+  premium_unlock
+}
+
+enum ContentSpotlightType {
+  holiday
+  awareness_month
+  seasonal
+  editorial
+}
+
+enum ContentSpotlightStatus {
+  draft
+  scheduled
+  active
+  paused
+  expired
+}
+
+enum ContentSpotlightRecurrence {
+  one_time
+  recurring_yearly
+}
+
+enum ContentSpotlightBadgeCorner {
+  bottom_right
+  bottom_left
+  top_right
+  top_left
+}
+
 // NextAuth models
 model User {
   id            String    @id @default(cuid())
@@ -65,6 +173,12 @@ model User {
   auditLogsAsActor       CustomerAuditLog[]     @relation("AuditLogActor")
   inboxEventsAsSubject   AdminInboxEvent[]      @relation("InboxEventSubject")
   adminNotificationSeen  AdminNotificationSeen?
+  campaignsCreated       Campaign[]             @relation("CampaignCreatedBy")
+  campaignAnalyticsEvents CampaignAnalyticsEvent[]
+  promoRedemptions       PromoCodeRedemption[]
+  trialClaims              TrialClaim[]
+  campaignStatusAudits     CampaignStatusHistory[] @relation("CampaignStatusActor")
+  badgeAssetsUploaded      BadgeAsset[]             @relation("BadgeAssetUploadedBy")
 }
 
 model AdminInboxEvent {
@@ -279,8 +393,93 @@ model Story {
 
   episodes Episode[]
   studioDrafts StoryStudioDraft[]
+  contentSpotlightStories ContentSpotlightStory[]
 
   @@map("stories")
+}
+
+model BadgeAsset {
+  id            String   @id @default(cuid())
+  name          String
+  publicUrl     String   @map("public_url")
+  storagePath   String   @map("storage_path")
+  mimeType      String   @default("image/png") @map("mime_type")
+  width         Int?
+  height        Int?
+  fileSizeBytes Int?     @map("file_size_bytes")
+  altText       String   @default("") @map("alt_text")
+  uploadedByUserId String? @map("uploaded_by_user_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  uploadedBy User? @relation("BadgeAssetUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+  spotlights ContentSpotlight[]
+
+  @@index([createdAt])
+  @@map("badge_assets")
+}
+
+model ContentSpotlight {
+  id                    String                    @id @default(cuid())
+  internalName          String                    @map("internal_name")
+  title                 String
+  slug                  String                    @unique
+  type                  ContentSpotlightType
+  shortBlurb            String                    @map("short_blurb")
+  longDescription       String?                   @map("long_description")
+  popupTitle            String                    @map("popup_title")
+  popupBody             String                    @map("popup_body")
+  infoBarText           String                    @map("info_bar_text")
+  ctaLabel              String?                   @map("cta_label")
+  ctaUrl                String?                   @map("cta_url")
+  startAt               DateTime                  @map("starts_at")
+  endAt                 DateTime                  @map("ends_at")
+  timezone              String                    @default("UTC")
+  recurrence            ContentSpotlightRecurrence @default(one_time)
+  status                ContentSpotlightStatus    @default(draft)
+  publishedAt           DateTime?                 @map("published_at")
+  showBadge             Boolean                   @default(true) @map("show_badge")
+  badgeCorner           ContentSpotlightBadgeCorner @default(bottom_right) @map("badge_corner")
+  showPopup             Boolean                   @default(true) @map("show_popup")
+  showInfoBar           Boolean                   @default(true) @map("show_info_bar")
+  featureOnHomepage     Boolean                   @default(false) @map("feature_on_homepage")
+  featureOnLibraryPage  Boolean                   @default(false) @map("feature_on_library_page")
+  priority              Int                       @default(0)
+  themeToken            String?                   @map("theme_token")
+  badgeAssetId          String?                   @map("badge_asset_id")
+  createdAt             DateTime                  @default(now()) @map("created_at")
+  updatedAt             DateTime                  @updatedAt @map("updated_at")
+
+  badgeAsset BadgeAsset?              @relation(fields: [badgeAssetId], references: [id], onDelete: SetNull)
+  stories    ContentSpotlightStory[]
+
+  @@index([status, startAt, endAt])
+  @@index([priority])
+  @@map("content_spotlights")
+}
+
+model ContentSpotlightStory {
+  id                String   @id @default(cuid())
+  spotlightId       String   @map("spotlight_id")
+  storyId           BigInt   @map("story_id")
+  sortOrder         Int      @map("sort_order")
+  isFeatured        Boolean  @default(false) @map("is_featured")
+  cardTitleOverride String?  @map("card_title_override")
+
+  spotlight ContentSpotlight @relation(fields: [spotlightId], references: [id], onDelete: Cascade)
+  story     Story            @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@unique([spotlightId, storyId])
+  @@index([spotlightId, sortOrder])
+  @@map("content_spotlight_stories")
+}
+
+model ContentCalendarSetting {
+  id        String   @id @default("global")
+  data      Json     @default("{}")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("content_calendar_settings")
 }
 
 model StoryStudioPreset {
@@ -474,4 +673,198 @@ model StorySeriesRating {
   @@unique([userId, storySlug])
   @@index([storySlug])
   @@map("story_series_ratings")
+}
+
+model Campaign {
+  id              String         @id @default(cuid())
+  type            CampaignType
+  status          CampaignStatus @default(draft)
+  internalName    String         @map("internal_name")
+  priority        Int            @default(0)
+  pinnedHighest   Boolean        @default(false) @map("pinned_highest")
+  startsAt        DateTime       @map("starts_at")
+  endsAt          DateTime       @map("ends_at")
+  timezone        String         @default("UTC")
+  publishedAt     DateTime?      @map("published_at")
+  archivedAt      DateTime?      @map("archived_at")
+  createdByUserId String?        @map("created_by_user_id")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  createdBy          User?                    @relation("CampaignCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  placements         CampaignPlacement[]
+  notificationDetail NotificationBarDetail?
+  trialDetail        TrialOfferDetail?
+  promoDetail        PromoCodeDetail?
+  analyticsEvents    CampaignAnalyticsEvent[]
+  statusHistory      CampaignStatusHistory[]
+  promoRedemptions   PromoCodeRedemption[]
+  trialClaims        TrialClaim[]
+  trialsLinkingPromo TrialOfferDetail[]       @relation("TrialLinkedPromo")
+
+  @@index([status, startsAt, endsAt, type])
+  @@index([priority, publishedAt])
+  @@index([type, status])
+  @@map("campaigns")
+}
+
+model CampaignPlacement {
+  campaignId String               @map("campaign_id")
+  placement  CampaignPlacementKey
+  campaign   Campaign             @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@id([campaignId, placement])
+  @@index([placement])
+  @@map("campaign_placements")
+}
+
+model NotificationBarDetail {
+  campaignId       String                    @id @map("campaign_id")
+  messagePrimary   String                    @map("message_primary")
+  messageSecondary String?                   @map("message_secondary")
+  ctaLabel         String?                   @map("cta_label")
+  ctaUrl           String?                   @map("cta_url")
+  dismissible      Boolean                   @default(true)
+  dismissPolicy    NotificationDismissPolicy @default(session) @map("dismiss_policy")
+  iconOrBadgeText  String?                   @map("icon_or_badge_text")
+  bgVariant        String                    @default("brand") @map("bg_variant")
+  textVariant      String                    @default("light") @map("text_variant")
+  /// Custom top bar background (#RRGGBB). When set, overrides bgVariant for the public bar.
+  barBackgroundHex String?                   @map("bar_background_hex")
+  audience         CampaignAudience          @default(all)
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@map("notification_bar_campaign_details")
+}
+
+model TrialOfferDetail {
+  campaignId             String         @id @map("campaign_id")
+  headline               String
+  subheadline            String?        @map("subheadline")
+  badgeText              String?        @map("badge_text")
+  ctaLabel               String         @default("Start trial") @map("cta_label")
+  offerKind              TrialOfferKind @default(fixed_duration) @map("offer_kind")
+  durationDays           Int            @default(7) @map("duration_days")
+  eligibilityJson        Json           @default("{}") @map("eligibility_json")
+  maxTotalRedemptions    Int?           @map("max_total_redemptions")
+  maxPerUser             Int?           @map("max_per_user")
+  unlimitedRedemptions   Boolean        @default(true) @map("unlimited_redemptions")
+  autoApplySignup        Boolean        @default(false) @map("auto_apply_signup")
+  linkedPromoCampaignId  String?        @map("linked_promo_campaign_id")
+  landingSlug            String?        @map("landing_slug")
+  /// Custom top bar background (#RRGGBB). When null, trial bar uses default emerald styling.
+  barBackgroundHex       String?        @map("bar_background_hex")
+
+  campaign    Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  linkedPromo Campaign? @relation("TrialLinkedPromo", fields: [linkedPromoCampaignId], references: [id], onDelete: SetNull)
+
+  @@map("trial_offer_campaign_details")
+}
+
+model PromoCodeDetail {
+  campaignId         String            @id @map("campaign_id")
+  codeRaw            String            @map("code_raw")
+  codeNormalized     String            @unique @map("code_normalized")
+  publicTitle        String            @map("public_title")
+  description        String            @default("")
+  discountType       DiscountType      @map("discount_type")
+  discountValue      Int               @map("discount_value")
+  appliesToAllPlans  Boolean           @default(true) @map("applies_to_all_plans")
+  planKeysJson       Json              @default("[]") @map("plan_keys_json")
+  durationMode       PromoDurationMode @default(once) @map("duration_mode")
+  recurringCycles    Int?              @map("recurring_cycles")
+  stackingRule       PromoStackingRule @default(none) @map("stacking_rule")
+  firstPurchaseOnly  Boolean           @default(false) @map("first_purchase_only")
+  loggedInOnly       Boolean           @default(false) @map("logged_in_only")
+  newUsersOnly       Boolean           @default(false) @map("new_users_only")
+  newUserMaxAgeDays  Int?              @map("new_user_max_age_days")
+  onePerAccount      Boolean           @default(true) @map("one_per_account")
+  maxUsesTotal       Int?              @map("max_uses_total")
+  maxUsesPerUser     Int?              @map("max_uses_per_user")
+  unlimitedUses      Boolean           @default(true) @map("unlimited_uses")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([codeNormalized])
+  @@map("promo_code_campaign_details")
+}
+
+model CampaignSettings {
+  id                       String                    @id @default("default")
+  defaultTimezone          String                    @default("America/New_York") @map("default_timezone")
+  defaultCampaignPriority  Int                       @default(0) @map("default_campaign_priority")
+  allowMultipleTopBars     Boolean                   @default(false) @map("allow_multiple_top_bars")
+  globalKillSwitch         Boolean                   @default(false) @map("global_kill_switch")
+  testModeEnabled          Boolean                   @default(false) @map("test_mode_enabled")
+  testModeUserIdsJson      Json                      @default("[]") @map("test_mode_user_ids_json")
+  previewHeaderName        String                    @default("x-campaign-preview") @map("preview_header_name")
+  previewHeaderSecret      String?                   @map("preview_header_secret")
+  defaultBarDismissPolicy  NotificationDismissPolicy @default(session) @map("default_bar_dismiss_policy")
+  promosCanStackWithTrials Boolean                   @default(false) @map("promos_can_stack_with_trials")
+
+  @@map("campaign_settings")
+}
+
+model CampaignAnalyticsEvent {
+  id         String               @id @default(cuid())
+  campaignId String               @map("campaign_id")
+  type       AnalyticsEventType
+  placement  CampaignPlacementKey? @map("placement")
+  userId     String?              @map("user_id")
+  sessionKey String?              @map("session_key")
+  metadata   Json                 @default("{}")
+  createdAt  DateTime             @default(now()) @map("created_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([campaignId, createdAt])
+  @@index([type, createdAt])
+  @@map("campaign_analytics_events")
+}
+
+model PromoCodeRedemption {
+  id         String   @id @default(cuid())
+  campaignId String   @map("campaign_id")
+  userId     String   @map("user_id")
+  context    Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, userId])
+  @@index([userId, createdAt])
+  @@map("promo_code_redemptions")
+}
+
+model TrialClaim {
+  id         String    @id @default(cuid())
+  campaignId String    @map("campaign_id")
+  userId     String    @map("user_id")
+  expiresAt  DateTime? @map("expires_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, userId])
+  @@index([userId])
+  @@map("trial_claims")
+}
+
+model CampaignStatusHistory {
+  id          String          @id @default(cuid())
+  campaignId  String          @map("campaign_id")
+  fromStatus  CampaignStatus? @map("from_status")
+  toStatus    CampaignStatus  @map("to_status")
+  actorUserId String?         @map("actor_user_id")
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  actor    User?    @relation("CampaignStatusActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([campaignId, createdAt])
+  @@map("campaign_status_history")
 }

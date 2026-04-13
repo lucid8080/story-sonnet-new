@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import Stripe from 'stripe';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 import { siteUrl, stripe } from '@/lib/stripe-server';
@@ -22,6 +24,8 @@ export async function POST(req: Request) {
     returnUrlSuccess?: string;
     returnUrlCancel?: string;
     interval?: string;
+    /** Campaign id from trial bar; subscription trial applied only if user has a TrialClaim row. */
+    trialCampaignId?: string;
   } = {};
   try {
     body = await req.json();
@@ -81,6 +85,28 @@ export async function POST(req: Request) {
     (body.returnUrlSuccess?.trim() || `${base}/billing/success`).trim();
   const success_url = ensureCheckoutSuccessUrlHasSessionTemplate(successRaw);
 
+  const trialCidParsed = z.string().cuid().safeParse(
+    typeof body.trialCampaignId === 'string' ? body.trialCampaignId.trim() : ''
+  );
+  let subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData | undefined;
+  if (trialCidParsed.success) {
+    const claim = await prisma.trialClaim.findFirst({
+      where: { userId, campaignId: trialCidParsed.data },
+      include: {
+        campaign: {
+          include: { trialDetail: true },
+        },
+      },
+    });
+    const days = claim?.campaign?.trialDetail?.durationDays;
+    if (claim?.campaign?.trialDetail && typeof days === 'number' && days > 0) {
+      subscriptionData = {
+        trial_period_days: Math.min(days, 730),
+        metadata: { trial_campaign_id: trialCidParsed.data },
+      };
+    }
+  }
+
   const checkoutSession = await stripe.checkout.sessions.create({
     mode: 'subscription',
     customer: customerId,
@@ -88,6 +114,7 @@ export async function POST(req: Request) {
     line_items: [{ price: priceId, quantity: 1 }],
     success_url,
     cancel_url: body.returnUrlCancel || `${base}/billing/cancel`,
+    ...(subscriptionData ? { subscription_data: subscriptionData } : {}),
   });
 
   return NextResponse.json({ url: checkoutSession.url });

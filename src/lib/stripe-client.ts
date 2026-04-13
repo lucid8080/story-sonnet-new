@@ -23,7 +23,11 @@ async function postJson(path: string, body: object) {
 
 export type CheckoutInterval = 'month' | 'year';
 
-export async function startCheckout(options?: { interval?: CheckoutInterval }) {
+export async function startCheckout(options?: {
+  interval?: CheckoutInterval;
+  /** When set, server applies Stripe trial if this user has a matching campaign trial claim. */
+  trialCampaignId?: string | null;
+}) {
   const base = typeof window !== 'undefined' ? window.location.origin : '';
   const interval =
     options?.interval === 'year' ? 'year' : 'month';
@@ -32,6 +36,9 @@ export async function startCheckout(options?: { interval?: CheckoutInterval }) {
     returnUrlSuccess: `${base}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
     returnUrlCancel: `${base}/billing/cancel`,
     interval,
+    ...(options?.trialCampaignId?.trim()
+      ? { trialCampaignId: options.trialCampaignId.trim() }
+      : {}),
   });
   if (url) window.location.href = url;
 }

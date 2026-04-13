@@ -189,6 +189,268 @@ const PRESETS = [
   },
 ];
 
+async function seedSampleCampaigns() {
+  const now = new Date();
+  const starts = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const ends = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+
+  const topBarName = 'seed-sonnet-top-bar';
+  const existingBar = await prisma.campaign.findFirst({
+    where: { internalName: topBarName },
+  });
+  if (!existingBar) {
+    await prisma.campaign.create({
+      data: {
+        type: 'notification_bar',
+        status: 'active',
+        internalName: topBarName,
+        priority: 10,
+        startsAt: starts,
+        endsAt: ends,
+        timezone: 'UTC',
+        publishedAt: now,
+        placements: {
+          create: [{ placement: 'global_top_bar' }],
+        },
+        notificationDetail: {
+          create: {
+            messagePrimary: 'Welcome to Story Sonnet — sample announcement bar (seed data).',
+            messageSecondary: 'Dismissible; edit in Admin → Campaigns & Offers.',
+            ctaLabel: 'See pricing',
+            ctaUrl: '/pricing',
+            dismissible: true,
+            dismissPolicy: 'hours_24',
+            bgVariant: 'brand',
+            textVariant: 'light',
+            audience: 'all',
+          },
+        },
+      },
+    });
+    console.log('Seeded sample notification bar campaign.');
+  }
+
+  const promoName = 'seed-promo-draft';
+  const existingPromo = await prisma.campaign.findFirst({
+    where: { internalName: promoName },
+  });
+  if (!existingPromo) {
+    await prisma.campaign.create({
+      data: {
+        type: 'promo_code',
+        status: 'draft',
+        internalName: promoName,
+        priority: 0,
+        startsAt: starts,
+        endsAt: ends,
+        timezone: 'UTC',
+        placements: {
+          create: [{ placement: 'pricing_banner' }],
+        },
+        promoDetail: {
+          create: {
+            codeRaw: 'WELCOME10',
+            codeNormalized: 'welcome10',
+            publicTitle: '10% off (sample)',
+            description: 'Draft promo — activate in admin when ready.',
+            discountType: 'percent',
+            discountValue: 10,
+            appliesToAllPlans: true,
+            planKeysJson: [],
+            durationMode: 'once',
+            stackingRule: 'with_trial',
+          },
+        },
+      },
+    });
+    console.log('Seeded sample draft promo campaign.');
+  }
+
+  const trialName = 'seed-trial-paused';
+  const existingTrial = await prisma.campaign.findFirst({
+    where: { internalName: trialName },
+  });
+  if (!existingTrial) {
+    await prisma.campaign.create({
+      data: {
+        type: 'trial_offer',
+        status: 'paused',
+        internalName: trialName,
+        priority: 5,
+        startsAt: starts,
+        endsAt: ends,
+        timezone: 'UTC',
+        placements: {
+          create: [{ placement: 'pricing_banner' }, { placement: 'modal_trigger' }],
+        },
+        trialDetail: {
+          create: {
+            headline: '7-day trial (paused sample)',
+            subheadline: 'Paused — unpause in admin to go live.',
+            badgeText: 'TRIAL',
+            ctaLabel: 'Claim offer',
+            offerKind: 'fixed_duration',
+            durationDays: 7,
+            eligibilityJson: {
+              newAccountsOnly: false,
+              neverPaidOnly: true,
+              excludeActiveSubscribers: true,
+            },
+            unlimitedRedemptions: true,
+          },
+        },
+      },
+    });
+    console.log('Seeded sample paused trial campaign.');
+  }
+}
+
+async function seedContentSpotlights() {
+  const stories = await prisma.story.findMany({
+    where: { isPublished: true },
+    orderBy: { sortPriority: 'desc' },
+    take: 6,
+    select: { id: true, slug: true },
+  });
+  if (stories.length === 0) {
+    console.log('Skip content spotlight seed: no published stories.');
+    return;
+  }
+
+  const baseUrl = (
+    process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+  ).replace(/\/+$/, '');
+  const placeholderBadgeUrl = `${baseUrl}/branding/logo.png`;
+
+  const existing = await prisma.badgeAsset.findFirst({
+    where: { name: 'seed-spotlight-badge' },
+  });
+  let badgeId = existing?.id;
+  if (!badgeId) {
+    const b = await prisma.badgeAsset.create({
+      data: {
+        name: 'seed-spotlight-badge',
+        publicUrl: placeholderBadgeUrl,
+        storagePath: 'seed/spotlight-badge-placeholder',
+        altText: 'Sample spotlight badge',
+        mimeType: 'image/png',
+      },
+    });
+    badgeId = b.id;
+    console.log('Seeded placeholder BadgeAsset for spotlights.');
+  }
+
+  const pickIds = stories.map((s) => s.id);
+  const windowStart = new Date('2026-01-01T00:00:00.000Z');
+  const windowEnd = new Date('2026-12-31T23:59:59.000Z');
+  const now = new Date();
+
+  const seeds = [
+    {
+      slug: 'daffodil-month-2026',
+      internalName: 'seed-daffodil-month',
+      title: 'Featured for Daffodil Month',
+      type: 'awareness_month',
+      shortBlurb:
+        'Bright, hopeful stories for spring — gentle listening for families.',
+      popupTitle: 'Daffodil Month',
+      popupBody:
+        'April is Daffodil Month. Enjoy a cozy playlist of uplifting audio stories together.',
+      infoBarText:
+        'April spotlight: warm stories picked for Daffodil Month. Tap the badge to learn more.',
+      featureOnHomepage: true,
+      featureOnLibraryPage: true,
+    },
+    {
+      slug: 'earth-day-story-picks',
+      internalName: 'seed-earth-day',
+      title: 'Earth Day Story Picks',
+      type: 'seasonal',
+      shortBlurb: 'Celebrate nature with gentle adventures and outdoor wonder.',
+      popupTitle: 'Earth Day',
+      popupBody:
+        'Earth Day is a chance to explore kindness toward our planet through calm, kid-friendly fiction.',
+      infoBarText: 'Earth Day picks: nature-friendly listening for curious kids.',
+      featureOnHomepage: true,
+      featureOnLibraryPage: false,
+    },
+    {
+      slug: 'halloween-favorites',
+      internalName: 'seed-halloween',
+      title: 'Halloween Favorites',
+      type: 'holiday',
+      shortBlurb: 'Friendly-not-frightful tales for spooky season.',
+      popupTitle: 'Halloween',
+      popupBody:
+        'Not-too-spooky stories made for young listeners — cozy chills, no nightmares.',
+      infoBarText: 'Halloween shelf: silly-spooky stories for little listeners.',
+      featureOnHomepage: false,
+      featureOnLibraryPage: true,
+    },
+    {
+      slug: 'winter-wonder-stories',
+      internalName: 'seed-winter-wonder',
+      title: 'Winter Wonder Stories',
+      type: 'seasonal',
+      shortBlurb: 'Snowy scenes, warm hearts, and cozy audio for cold nights.',
+      popupTitle: 'Winter picks',
+      popupBody:
+        'Curated winter listening: gentle pacing, cozy settings, and feel-good endings.',
+      infoBarText: 'Winter wonder: our coziest seasonal listening line-up.',
+      featureOnHomepage: true,
+      featureOnLibraryPage: true,
+    },
+  ];
+
+  for (let i = 0; i < seeds.length; i++) {
+    const s = seeds[i];
+    const exists = await prisma.contentSpotlight.findUnique({
+      where: { slug: s.slug },
+    });
+    if (exists) continue;
+
+    const n = Math.min(3, pickIds.length);
+    const start = i % Math.max(1, pickIds.length - n + 1);
+    const slice = pickIds.slice(start, start + n);
+    await prisma.contentSpotlight.create({
+      data: {
+        internalName: s.internalName,
+        title: s.title,
+        slug: s.slug,
+        type: s.type,
+        shortBlurb: s.shortBlurb,
+        longDescription: null,
+        popupTitle: s.popupTitle,
+        popupBody: s.popupBody,
+        infoBarText: s.infoBarText,
+        ctaLabel: 'Learn more',
+        ctaUrl: `${baseUrl}/accessibility`,
+        startAt: windowStart,
+        endAt: windowEnd,
+        timezone: 'UTC',
+        recurrence: 'one_time',
+        status: 'active',
+        publishedAt: now,
+        showBadge: true,
+        showPopup: true,
+        showInfoBar: true,
+        featureOnHomepage: s.featureOnHomepage,
+        featureOnLibraryPage: s.featureOnLibraryPage,
+        priority: 100 - i,
+        badgeAssetId: badgeId,
+        stories: {
+          create: slice.map((storyId, j) => ({
+            storyId,
+            sortOrder: j,
+            isFeatured: j === 0,
+          })),
+        },
+      },
+    });
+    console.log(`Seeded spotlight: ${s.slug}`);
+  }
+}
+
 async function main() {
   for (const p of PRESETS) {
     await prisma.storyStudioPreset.upsert({
@@ -207,6 +469,9 @@ async function main() {
     });
   }
   console.log(`Seeded ${PRESETS.length} Story Studio presets.`);
+
+  await seedSampleCampaigns();
+  await seedContentSpotlights();
 }
 
 main()

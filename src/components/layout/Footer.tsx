@@ -62,7 +62,7 @@ export default function Footer() {
             className="space-y-4"
             aria-labelledby="footer-brand-heading"
           >
-            <div className="flex items-center gap-0.5">
+            <div className="flex items-center gap-2">
               <Image
                 src="/branding/logo.png"
                 alt=""
@@ -70,12 +70,17 @@ export default function Footer() {
                 height={40}
                 className="h-10 w-auto max-w-[120px] object-contain object-left"
               />
-              <h2
-                id="footer-brand-heading"
-                className="text-2xl font-black tracking-tight text-slate-900"
-              >
-                {BRAND.productName}
-              </h2>
+              <div>
+                <h2
+                  id="footer-brand-heading"
+                  className="text-2xl font-black tracking-tight text-slate-900"
+                >
+                  {BRAND.productName}
+                </h2>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-neutral-500">
+                  {BRAND.tagline}
+                </p>
+              </div>
             </div>
             <p className="text-sm leading-relaxed text-neutral-700">
               Cozy audio stories designed for calm, easy listening—at bedtime,

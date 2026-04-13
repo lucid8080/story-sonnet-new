@@ -21,6 +21,46 @@ TTS uploads MP3s and stores keys on the draft (`StoryStudioGeneratedAsset`). The
 **How do I pick an existing cover image from R2 without pasting a URL by hand?**  
 In **`/admin/stories`** → open a story → **Basic info** → **Browse covers in R2**. That loads a thumbnail grid from **`GET /api/admin/covers`** (admin-only, `ListObjectsV2` on the public bucket under `covers/…`, paginated). Pick a tile to set **`coverUrl`**; scope can be **all covers** or **this story’s folder** when the slug is valid. Same R2/S3 credentials and public base URL expectations as **`POST /api/upload`** (see `src/lib/s3.ts`).
 
+**What is Content Calendar / spotlights?**  
+Admin lives at **`/admin/content-calendar`**: month view, **Spotlights** (holiday / awareness / seasonal collections), **Badge assets** (reusable PNGs), and settings. Spotlights attach to **`Story`** rows, optional **PNG badge** on cover art (corner set per spotlight via **`badgeCorner`**: bottom-right / bottom-left / top-right / top-left; default bottom-right), optional **info bar** on **`/story/[slug]`**, and optional **featured rails** above the homepage and library grids. **Badge uploads** use the same **`POST /api/upload`** as covers, with **`assetKind=spotlight_badge`** (PNG-only, max 1MB); objects land under **`spotlight-badges/`** in the public bucket. Register a row via **`POST /api/admin/content-calendar/badge-assets`** after upload so spotlights can reference **`badgeAssetId`**. Public rendering uses **`src/lib/content-spotlight/resolve.ts`** (active + published + in-window; priority tie-break).
+
+**Prisma Migrate on Neon shows P1002 (advisory lock timeout) — what do I do?**  
+Set **`DIRECT_DATABASE_URL`** in `.env` to Neon’s **direct** (non-pooler) Postgres URL (host **without** `-pooler`). `prisma/schema.prisma` uses **`directUrl = env("DIRECT_DATABASE_URL")`** so **`migrate deploy` / `migrate dev`** use that connection while the app keeps using pooled **`DATABASE_URL`**. On local Postgres, set **`DIRECT_DATABASE_URL`** to the **same** string as **`DATABASE_URL`**. The repo’s **`npm run db:migrate`** runs **`scripts/prisma-env.mjs`**, which **falls back** to copying **`DATABASE_URL`** when **`DIRECT_DATABASE_URL`** is unset (enough for local Postgres; **Neon production should still set a real direct URL**). If P1002 persists, ensure no other migrate/studio/CI job is running and check Neon for stuck sessions.
+
+**Migrate says P3009 (failed migration) — what do I do?**  
+Prisma recorded **`20260413100000_content_calendar_spotlights`** as **failed** in **`_prisma_migrations`**, so **`migrate deploy`** will not run anything else until you fix that row.
+
+1. In **Neon → SQL Editor** (branch **Primary**, DB **neondb**), run:
+
+```sql
+-- Did spotlight tables get created?
+SELECT EXISTS (
+  SELECT 1 FROM information_schema.tables
+  WHERE table_schema = 'public' AND table_name = 'content_spotlights'
+) AS content_spotlights_exists;
+
+SELECT migration_name, finished_at, rolled_back_at, logs
+FROM "_prisma_migrations"
+WHERE migration_name = '20260413100000_content_calendar_spotlights';
+```
+
+2. **If `content_spotlights_exists` is `false`** (nothing was created): mark the migration as rolled back, then deploy again:
+
+```bash
+npm run db:migrate:resolve:content-calendar-rolled-back
+npm run db:migrate
+```
+
+3. **If `content_spotlights_exists` is `true`** (tables are there): mark the migration as applied so Prisma’s history matches the DB:
+
+```bash
+npm run db:migrate:resolve:content-calendar-applied
+```
+
+4. If **`content_spotlights_exists` is `true` but something is half-broken** (e.g. enums missing), fix manually in SQL or restore from backup before using **`--applied`**.
+
+More detail: [Prisma — production troubleshooting / resolve](https://www.prisma.io/docs/guides/migrate/production-troubleshooting).
+
 ---
 
 ## 1. POSTING SURFACE MAP
@@ -155,3 +195,21 @@ In **`/admin/stories`** → open a story → **Basic info** → **Browse covers 
 **Backfill (existing linked drafts):** After deploy/migrate, run once against the target database: **`npm run backfill:episode-transcripts`** (requires **`DATABASE_URL`**). This reads each linked draft’s **`script_package`** and updates matching **`episodes`** rows by **`story_id`** + **`episode_number`**.
 
 **Env (server-only):** see `.env.example` — `OPENROUTER_*`, `ELEVENLABS_*`, `SUNO_*`, and `STORY_STUDIO_IMAGE_API_KEY`, `STORY_STUDIO_IMAGE_MODEL`, `STORY_STUDIO_IMAGE_API_URL` (OpenRouter `/api/v1/chat/completions` for image-capable models), optional `FFMPEG_PATH` for intro trim.
+
+---
+
+## 8. CONTENT CALENDAR (SPOTLIGHTS)
+
+**Neon migrations:** Set **`DIRECT_DATABASE_URL`** (see Agent FAQ) before **`npx prisma migrate deploy`** so migrations do not hit **P1002** on the pooler.
+
+**Admin UI:** `/admin/content-calendar` — calendar month grid, spotlight CRUD (`/spotlights`, `/spotlights/new`, `/spotlights/[id]/edit`), badge asset library, placements explainer, preview links, JSON settings singleton (`content_calendar_settings`).
+
+**Models (Prisma):** `ContentSpotlight` (includes **`badgeCorner`** / `ContentSpotlightBadgeCorner`), `ContentSpotlightStory`, `BadgeAsset`, `ContentCalendarSetting` — see `prisma/schema.prisma`.
+
+**APIs (admin, `session.user.role === admin`):** `GET/POST /api/admin/content-calendar/spotlights`, `GET/PATCH/DELETE /api/admin/content-calendar/spotlights/[id]`, duplicate/pause/resume/publish subroutes, `GET /api/admin/content-calendar/month`, `GET /api/admin/content-calendar/stories/search`, `GET/POST /api/admin/content-calendar/badge-assets`, `GET/PATCH /api/admin/content-calendar/settings`.
+
+**Badge PNG upload:** `POST /api/upload` with `FormData`: `file`, **`assetKind=spotlight_badge`**. Server validates PNG signature and size (≤ 1MB), stores under **`spotlight-badges/…`**. Then **`POST /api/admin/content-calendar/badge-assets`** with `{ name, publicUrl, storagePath, altText, … }` so spotlights can set **`badgeAssetId`**.
+
+**Public resolution:** `src/lib/content-spotlight/resolve.ts` — homepage/library rails and per-story badge use **`publishedAt`**, status **`active`/`scheduled`**, effective date window (supports **`recurring_yearly`** via `src/lib/content-spotlight/window.ts` + spotlight **`timezone`**). One winning badge per cover: highest **`priority`**, then newest **`updatedAt`**.
+
+**Seed:** `prisma/seed.mjs` creates sample spotlights when published stories exist (`npm run db:seed`).

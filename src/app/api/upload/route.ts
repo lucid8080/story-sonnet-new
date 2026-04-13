@@ -4,6 +4,8 @@ import prisma from '@/lib/prisma';
 import {
   buildCoverKey,
   buildPrivateAudioKey,
+  buildSpotlightBadgeKey,
+  isPngBuffer,
   makeUniqueSafeFileName,
   parseAudioSubPathSegments,
   sanitizeUploadFileName,
@@ -20,6 +22,8 @@ import { parseAudioDurationSecondsFromBuffer } from '@/lib/audio-duration';
 
 export const runtime = 'nodejs';
 
+const SPOTLIGHT_BADGE_MAX_BYTES = 1_000_000;
+
 export async function POST(req: Request) {
   const session = await auth();
   if (session?.user?.role !== 'admin') {
@@ -29,8 +33,12 @@ export async function POST(req: Request) {
   const formData = await req.formData();
   const file = formData.get('file') as File | null;
   const assetKindRaw = (formData.get('assetKind') as string) || 'cover';
-  const assetKind =
-    assetKindRaw === 'audio' ? 'audio' : ('cover' as 'cover' | 'audio');
+  const assetKind: 'cover' | 'audio' | 'spotlight_badge' =
+    assetKindRaw === 'audio'
+      ? 'audio'
+      : assetKindRaw === 'spotlight_badge'
+        ? 'spotlight_badge'
+        : 'cover';
 
   const bucketField =
     (formData.get('bucket') as string) ||
@@ -69,13 +77,59 @@ export async function POST(req: Request) {
     throw e;
   }
 
-  if (storySlug) {
+  if (storySlug || assetKind === 'spotlight_badge') {
     safeName = makeUniqueSafeFileName(safeName);
   }
 
   const buf = Buffer.from(await file.arrayBuffer());
 
   try {
+    if (assetKind === 'spotlight_badge') {
+      if (buf.length > SPOTLIGHT_BADGE_MAX_BYTES) {
+        return NextResponse.json(
+          {
+            error: `PNG badge must be at most ${SPOTLIGHT_BADGE_MAX_BYTES} bytes`,
+          },
+          { status: 400 }
+        );
+      }
+      if (!isPngBuffer(buf)) {
+        return NextResponse.json(
+          { error: 'Spotlight badge must be a valid PNG file' },
+          { status: 400 }
+        );
+      }
+      const lower = safeName.toLowerCase();
+      if (!lower.endsWith('.png')) {
+        safeName = `${safeName.replace(/\.[^.]+$/, '')}.png`;
+      }
+      const key = buildSpotlightBadgeKey({ safeFileName: safeName });
+      const { url } = await uploadPublicObject({
+        bucket: bucketField,
+        key,
+        body: buf,
+        contentType: 'image/png',
+      });
+
+      if (process.env.DATABASE_URL) {
+        await prisma.upload.create({
+          data: {
+            fileName: file.name,
+            fileType: 'image/png',
+            fileUrl: url,
+            storagePath: key,
+            uploadedBy: session.user.id,
+          },
+        });
+      }
+
+      return NextResponse.json({
+        assetKind: 'spotlight_badge',
+        fileUrl: url,
+        storagePath: key,
+      });
+    }
+
     if (assetKind === 'audio') {
       const durationSeconds = await parseAudioDurationSecondsFromBuffer({
         buffer: buf,

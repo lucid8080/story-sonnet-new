@@ -4,6 +4,11 @@ import { fetchStories } from '@/lib/stories';
 import { mapAppStoriesToBrowseStories } from '@/lib/browseStory';
 import { fetchSavedStorySlugs } from '@/lib/userSavedStories';
 import { parseLibrarySearchParams } from '@/lib/librarySearchParams';
+import type { StorySpotlightBadgeDTO } from '@/lib/content-spotlight/types';
+import {
+  resolveLibrarySpotlightRails,
+  resolveSpotlightBadgesBySlug,
+} from '@/lib/content-spotlight/resolve';
 import LibraryBrowseClient from '@/components/library/LibraryBrowseClient';
 import StoryGridSkeleton from '@/components/library/StoryGridSkeleton';
 
@@ -33,6 +38,14 @@ async function LibraryStories({
     userId != null ? await fetchSavedStorySlugs(userId) : [];
   const appStories = await fetchStories();
   const browseStories = mapAppStoriesToBrowseStories(appStories);
+  const slugs = browseStories.map((s) => s.slug);
+  const [spotlightRails, spotlightBadgeBySlug] = await Promise.all([
+    resolveLibrarySpotlightRails(),
+    resolveSpotlightBadgesBySlug(slugs),
+  ]);
+  const badgeRecord = Object.fromEntries(
+    spotlightBadgeBySlug
+  ) as Record<string, StorySpotlightBadgeDTO>;
   const { sort: initialSort, filters: initialFilters } =
     parseLibrarySearchParams(searchParams);
 
@@ -44,6 +57,8 @@ async function LibraryStories({
       isLoggedIn={!!userId}
       initialSort={initialSort}
       initialFilters={initialFilters}
+      spotlightRails={spotlightRails}
+      spotlightBadgeBySlug={badgeRecord}
     />
   );
 }

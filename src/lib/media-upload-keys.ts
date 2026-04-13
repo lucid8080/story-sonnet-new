@@ -83,6 +83,19 @@ export function buildCoverKey(params: {
   return key;
 }
 
+/** Public PNG spotlight badges (transparent-friendly), separate from story covers. */
+export function buildSpotlightBadgeKey(params: { safeFileName: string }): string {
+  const key = `spotlight-badges/${params.safeFileName}`;
+  assertKeyLength(key);
+  return key;
+}
+
+const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+export function isPngBuffer(buf: Buffer): boolean {
+  return buf.length >= 8 && buf.subarray(0, 8).equals(PNG_MAGIC);
+}
+
 export function buildPrivateAudioKey(params: {
   storySlug?: string;
   subPathSegments?: string[];
