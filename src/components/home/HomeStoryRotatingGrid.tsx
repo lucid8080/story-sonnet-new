@@ -145,7 +145,7 @@ export function HomeStoryRotatingGrid({ pool }: Props) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+    <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
       {slots.map((story, i) => {
         const cf = crossfade?.slotIndex === i ? crossfade : null;
         const activeStory = cf ? cf.incoming : story;

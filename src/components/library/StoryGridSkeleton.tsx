@@ -6,7 +6,7 @@ export default function StoryGridSkeleton() {
         <div className="h-6 w-40 animate-pulse rounded bg-slate-200/80" />
         <div className="h-11 w-36 animate-pulse rounded-xl bg-slate-200/80" />
       </div>
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-6 lg:grid-cols-3 xl:grid-cols-4">
         {Array.from({ length: 8 }).map((_, i) => (
           <div
             key={i}

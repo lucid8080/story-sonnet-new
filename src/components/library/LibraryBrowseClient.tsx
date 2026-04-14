@@ -162,7 +162,7 @@ export default function LibraryBrowseClient({
           ) : results.length === 0 ? (
             <EmptyResults onClearFilters={clearFilters} />
           ) : (
-            <ul className="grid list-none gap-6 p-0 sm:grid-cols-2 xl:grid-cols-3">
+            <ul className="grid list-none grid-cols-2 gap-6 p-0 xl:grid-cols-3">
               {results.map((story) => (
                 <li key={story.slug}>
                   <StoryCard
