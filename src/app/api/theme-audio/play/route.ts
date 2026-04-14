@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
+import { userHasPremiumPlayback } from '@/lib/billing/premiumAccess';
 import { canPlayEpisode } from '@/lib/audioEntitlement';
+import prisma from '@/lib/prisma';
 import { fetchStoryBySlug } from '@/lib/stories';
 import {
   presignPrivateAudioGetUrl,
@@ -10,10 +12,14 @@ import { themeAudioKeyCandidates } from '@/lib/themeAudioUrls';
 
 export const runtime = 'nodejs';
 
-function isSubscribedFromSession(
-  sub: string | null | undefined
-): boolean {
-  return sub === 'active' || sub === 'trialing';
+async function hasPremiumPlaybackFromSession(): Promise<boolean> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return false;
+  return userHasPremiumPlayback(prisma, {
+    userId,
+    subscriptionStatus: session?.user?.subscriptionStatus,
+  });
 }
 
 export async function GET(req: Request) {
@@ -34,10 +40,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'No episodes' }, { status: 404 });
   }
 
-  const session = await auth();
-  const isSubscribed = isSubscribedFromSession(
-    session?.user?.subscriptionStatus
-  );
+  const isSubscribed = await hasPremiumPlaybackFromSession();
 
   const canPlay = canPlayEpisode(
     story.isPremium,

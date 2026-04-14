@@ -65,6 +65,7 @@ function SignupForm() {
           await fetch('/api/campaigns/trial/claim', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
             body: JSON.stringify({ campaignId: trialCampaignId }),
           });
         } catch {

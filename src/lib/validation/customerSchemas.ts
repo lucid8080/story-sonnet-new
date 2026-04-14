@@ -12,6 +12,8 @@ export const customerListQuerySchema = z.object({
   joined: z.enum(['all', 'last7', 'last30']).default('all'),
   activity: z.enum(['all', 'active7', 'inactive30', 'never', 'no_activity_after_signup']).default('all'),
   flagged: z.enum(['all', 'yes', 'no']).default('all'),
+  /** First TrialClaim (by createdAt) — app/cardless trial window per premiumAccess. */
+  trial: z.enum(['all', 'active', 'ended', 'none']).default('all'),
   sort: z
     .enum([
       'created_desc',

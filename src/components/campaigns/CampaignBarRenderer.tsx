@@ -19,6 +19,21 @@ function storageKey(id: string) {
   return `story-sonnet:campaign-dismiss:${id}`;
 }
 
+function parseStoredDismiss(raw: string | null): {
+  hidden: boolean;
+  remove: boolean;
+} {
+  if (!raw) return { hidden: false, remove: false };
+  try {
+    const j = JSON.parse(raw) as { until?: number; claimDismissed?: boolean };
+    if (j.claimDismissed === true) return { hidden: true, remove: false };
+    if (typeof j.until === 'number' && Date.now() < j.until) return { hidden: true, remove: false };
+    return { hidden: false, remove: true };
+  } catch {
+    return { hidden: false, remove: true };
+  }
+}
+
 function dismissUntilMs(policy: string, campaignEnds?: string): number | null {
   const now = Date.now();
   if (policy === 'session') return null;
@@ -33,42 +48,51 @@ function dismissUntilMs(policy: string, campaignEnds?: string): number | null {
 
 function useDismissState(
   campaignId: string,
+  barContentKey: string,
   dismissPolicy: string,
   dismissible: boolean,
   campaignEndsAt?: string
 ) {
   const [hidden, setHidden] = useState(false);
+  const storageId = barContentKey.trim() || campaignId;
 
   useEffect(() => {
     if (!dismissible || typeof window === 'undefined') return;
-    const key = storageKey(campaignId);
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return;
-    try {
-      const j = JSON.parse(raw) as { until?: number };
-      if (typeof j.until === 'number' && Date.now() < j.until) {
-        setHidden(true);
-      } else {
-        window.localStorage.removeItem(key);
+    const key = storageKey(storageId);
+    let raw = window.localStorage.getItem(key);
+    if (!raw && storageId !== campaignId) {
+      const legacy = window.localStorage.getItem(storageKey(campaignId));
+      if (legacy) {
+        window.localStorage.setItem(key, legacy);
+        window.localStorage.removeItem(storageKey(campaignId));
+        raw = window.localStorage.getItem(key);
       }
-    } catch {
-      window.localStorage.removeItem(key);
     }
-  }, [campaignId, dismissible]);
+    const parsed = parseStoredDismiss(raw);
+    if (parsed.remove && raw) window.localStorage.removeItem(key);
 
-  useEffect(() => {
-    if (!dismissible || dismissPolicy !== 'session' || typeof window === 'undefined') return;
-    const key = storageKey(campaignId);
-    const v = window.sessionStorage.getItem(key);
-    if (v === '1') setHidden(true);
-  }, [campaignId, dismissPolicy, dismissible]);
+    let showHidden = parsed.hidden;
+    if (dismissPolicy === 'session') {
+      let v = window.sessionStorage.getItem(key);
+      if (!v && storageId !== campaignId) {
+        const legacy = window.sessionStorage.getItem(storageKey(campaignId));
+        if (legacy === '1') {
+          window.sessionStorage.setItem(key, '1');
+          window.sessionStorage.removeItem(storageKey(campaignId));
+          v = '1';
+        }
+      }
+      if (v === '1') showHidden = true;
+    }
+    setHidden(showHidden);
+  }, [campaignId, storageId, dismissible, dismissPolicy]);
 
   const dismiss = useCallback(() => {
     const until = dismissUntilMs(dismissPolicy, campaignEndsAt);
     if (dismissPolicy === 'session' && typeof window !== 'undefined') {
-      window.sessionStorage.setItem(storageKey(campaignId), '1');
+      window.sessionStorage.setItem(storageKey(storageId), '1');
     } else if (until && typeof window !== 'undefined') {
-      window.localStorage.setItem(storageKey(campaignId), JSON.stringify({ until }));
+      window.localStorage.setItem(storageKey(storageId), JSON.stringify({ until }));
     }
     setHidden(true);
     void fetch('/api/campaigns/events', {
@@ -78,13 +102,30 @@ function useDismissState(
         events: [{ campaignId, type: 'dismiss', placement: 'global_top_bar' }],
       }),
     }).catch(() => {});
-  }, [campaignId, dismissPolicy, campaignEndsAt]);
+  }, [campaignId, storageId, dismissPolicy, campaignEndsAt]);
 
-  return { hidden, dismiss };
+  const dismissForClaim = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(
+      storageKey(storageId),
+      JSON.stringify({ claimDismissed: true })
+    );
+    setHidden(true);
+    void fetch('/api/campaigns/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        events: [{ campaignId, type: 'dismiss', placement: 'global_top_bar' }],
+      }),
+    }).catch(() => {});
+  }, [campaignId, storageId]);
+
+  return { hidden, dismiss, dismissForClaim };
 }
 
 function BarShell({
   campaignId,
+  barContentKey,
   dismissible,
   dismissPolicy,
   campaignEndsAt,
@@ -95,8 +136,10 @@ function BarShell({
   title,
   subtitle,
   cta,
+  ctaFactory,
 }: {
   campaignId: string;
+  barContentKey: string;
   dismissible: boolean;
   dismissPolicy: string;
   campaignEndsAt?: string;
@@ -106,10 +149,12 @@ function BarShell({
   badge: ReactNode;
   title: ReactNode;
   subtitle: ReactNode;
-  cta: ReactNode;
+  cta?: ReactNode;
+  ctaFactory?: (ctx: { dismissForClaim: () => void }) => ReactNode;
 }) {
-  const { hidden, dismiss } = useDismissState(
+  const { hidden, dismiss, dismissForClaim } = useDismissState(
     campaignId,
+    barContentKey,
     dismissPolicy,
     dismissible,
     campaignEndsAt
@@ -137,7 +182,7 @@ function BarShell({
         <div className="flex min-w-0 flex-1 flex-row flex-wrap items-center gap-x-2 gap-y-1 sm:gap-x-3">
           <span className={`min-w-0 font-semibold leading-snug ${textClasses.primary}`}>{title}</span>
           {subtitle}
-          {cta}
+          {ctaFactory ? ctaFactory({ dismissForClaim }) : cta}
         </div>
         {dismissible ? (
           <button
@@ -224,6 +269,7 @@ function NotificationBarView({ payload }: { payload: PublicNotificationBarPayloa
   return (
     <BarShell
       campaignId={payload.campaignId}
+      barContentKey={payload.barContentKey}
       dismissible={payload.dismissible}
       dismissPolicy={payload.dismissPolicy}
       campaignEndsAt={payload.campaignEndsAt}
@@ -286,27 +332,10 @@ function TrialBarView({ payload }: { payload: PublicTrialPayload }) {
     <span className={`text-xs ${shell.textClasses.secondary}`}>{payload.subheadline}</span>
   ) : null;
 
-  const cta = (
-    <Link
-      href={href}
-      className={`inline-flex shrink-0 text-xs font-bold ${shell.textClasses.cta}`}
-      onClick={() =>
-        void fetch('/api/campaigns/events', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            events: [{ campaignId: payload.campaignId, type: 'cta_click', placement: 'global_top_bar' }],
-          }),
-        }).catch(() => {})
-      }
-    >
-      {payload.ctaLabel}
-    </Link>
-  );
-
   return (
     <BarShell
       campaignId={payload.campaignId}
+      barContentKey={payload.barContentKey}
       dismissible={dismissible}
       dismissPolicy={dismissPolicy}
       campaignEndsAt={payload.campaignEndsAt}
@@ -316,7 +345,30 @@ function TrialBarView({ payload }: { payload: PublicTrialPayload }) {
       badge={badge}
       title={payload.headline}
       subtitle={subtitle}
-      cta={cta}
+      ctaFactory={({ dismissForClaim }) => (
+        <Link
+          href={href}
+          className={`inline-flex shrink-0 text-xs font-bold ${shell.textClasses.cta}`}
+          onClick={() => {
+            dismissForClaim();
+            void fetch('/api/campaigns/events', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                events: [
+                  {
+                    campaignId: payload.campaignId,
+                    type: 'cta_click',
+                    placement: 'global_top_bar',
+                  },
+                ],
+              }),
+            }).catch(() => {});
+          }}
+        >
+          {payload.ctaLabel}
+        </Link>
+      )}
     />
   );
 }

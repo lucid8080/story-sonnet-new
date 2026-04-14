@@ -38,6 +38,8 @@ export type ResolveOptions = {
 export type PublicNotificationBarPayload = {
   kind: 'notification_bar';
   campaignId: string;
+  /** Hash of visible bar fields; dismiss storage keys on this so copy edits resurface the bar. */
+  barContentKey: string;
   campaignEndsAt?: string;
   messagePrimary: string;
   messageSecondary: string | null;
@@ -55,6 +57,8 @@ export type PublicNotificationBarPayload = {
 export type PublicTrialPayload = {
   kind: 'trial_offer';
   campaignId: string;
+  /** Hash of visible bar fields; dismiss storage keys on this so copy edits resurface the bar. */
+  barContentKey: string;
   /** For global bar: schedule end + dismiss-until-campaign-end */
   campaignEndsAt?: string;
   /** Top bar: same semantics as notification bar (defaults from resolver/DTO) */

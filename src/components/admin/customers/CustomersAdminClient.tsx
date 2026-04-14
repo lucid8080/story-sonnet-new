@@ -25,6 +25,9 @@ type ListItem = {
   createdAt: string;
   isFlagged: boolean;
   isVip: boolean;
+  /** Earliest TrialClaim by createdAt — app/cardless trial (see premium access). */
+  appTrialState: 'none' | 'active' | 'ended';
+  appTrialFirstClaimExpiresAt: string | null;
 };
 
 type Stats = {
@@ -48,6 +51,7 @@ const defaults: Record<string, string> = {
   joined: 'all',
   activity: 'all',
   flagged: 'all',
+  trial: 'all',
   sort: 'created_desc',
 };
 
@@ -309,6 +313,20 @@ export function CustomersAdminClient() {
             </select>
           </label>
           <label className="flex flex-col gap-1 text-xs font-semibold text-slate-500">
+            App trial
+            <select
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+              title="First trial claim window (cardless app trial)"
+              value={searchParams.get('trial') ?? 'all'}
+              onChange={(e) => patchUrl({ trial: e.target.value, page: '1' })}
+            >
+              <option value="all">Any</option>
+              <option value="active">Active</option>
+              <option value="ended">Ended</option>
+              <option value="none">No claim</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs font-semibold text-slate-500">
             Joined
             <select
               className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
@@ -435,6 +453,7 @@ export function CustomersAdminClient() {
                 joined: 'all',
                 activity: 'all',
                 flagged: 'all',
+                trial: 'all',
                 q: '',
                 page: '1',
               })
@@ -490,6 +509,13 @@ export function CustomersAdminClient() {
               <th className="p-3">Role</th>
               <th className="p-3">Status</th>
               <th className="p-3">Plan</th>
+              <th
+                className="p-3"
+                title="Cardless app trial from the first TrialClaim (matches library premium access)"
+              >
+                App trial
+              </th>
+              <th className="p-3">Trial ends</th>
               <th className="p-3 text-right">Credits</th>
               <th className="p-3 text-right">Spend</th>
               <th className="p-3 text-right">Orders</th>
@@ -504,7 +530,7 @@ export function CustomersAdminClient() {
             {loading
               ? Array.from({ length: 8 }).map((_, i) => (
                   <tr key={i} className="border-b border-slate-100">
-                    <td colSpan={13} className="p-3">
+                    <td colSpan={15} className="p-3">
                       <div className="h-10 animate-pulse rounded-lg bg-slate-100" />
                     </td>
                   </tr>
@@ -512,7 +538,7 @@ export function CustomersAdminClient() {
               : items.length === 0
                 ? (
                     <tr>
-                      <td colSpan={13} className="p-10 text-center text-slate-500">
+                      <td colSpan={15} className="p-10 text-center text-slate-500">
                         No customers match these filters.
                       </td>
                     </tr>
@@ -564,6 +590,24 @@ export function CustomersAdminClient() {
                             subscriptionStatus={row.subscriptionStatus}
                             plan={row.subscriptionPlan}
                           />
+                        </td>
+                        <td className="p-3">
+                          {row.appTrialState === 'none' ? (
+                            <span className="text-slate-400">—</span>
+                          ) : row.appTrialState === 'active' ? (
+                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-900">
+                              Active
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-700">
+                              Ended
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3 text-slate-600">
+                          {row.appTrialFirstClaimExpiresAt
+                            ? new Date(row.appTrialFirstClaimExpiresAt).toLocaleString()
+                            : '—'}
                         </td>
                         <td className="p-3 text-right tabular-nums">{row.creditBalance}</td>
                         <td className="p-3 text-right tabular-nums">

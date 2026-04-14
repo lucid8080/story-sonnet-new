@@ -9,6 +9,7 @@ import {
 } from '@/lib/userSavedStories';
 import { BRAND } from '@/lib/brand';
 import prisma from '@/lib/prisma';
+import { getFirstTrialClaimExpiresAt, isStripePayingOrTrialing } from '@/lib/billing/premiumAccess';
 import { resolvePublicAssetUrl } from '@/lib/resolvePublicAssetUrl';
 
 function SignOutButton() {
@@ -61,7 +62,8 @@ export default async function AccountPage() {
   }
 
   const sub = session.user.subscriptionStatus;
-  const isSubscribed = sub === 'active' || sub === 'trialing';
+  const isStripeSubscribed = isStripePayingOrTrialing(sub);
+  const firstTrialEnd = await getFirstTrialClaimExpiresAt(prisma, session.user.id);
   const freshUser = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: { email: true, image: true },
@@ -82,8 +84,20 @@ export default async function AccountPage() {
             Subscription:{' '}
             <span className="font-semibold text-slate-900">{sub}</span>
           </p>
+          {firstTrialEnd && firstTrialEnd.getTime() > Date.now() && !isStripeSubscribed ? (
+            <p className="mt-2 text-sm text-emerald-800">
+              App trial access until{' '}
+              <span className="font-semibold">
+                {firstTrialEnd.toLocaleString(undefined, {
+                  dateStyle: 'medium',
+                  timeStyle: 'short',
+                })}
+              </span>{' '}
+              (from your first trial offer; later offers do not extend this).
+            </p>
+          ) : null}
           <div className="mt-6 flex flex-wrap gap-3">
-            {isSubscribed && (
+            {isStripeSubscribed && (
               <form
                 action={async () => {
                   'use server';

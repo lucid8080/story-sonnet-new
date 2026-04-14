@@ -5,6 +5,7 @@ import { requireAdmin } from '@/lib/admin/requireAdmin';
 import {
   buildCustomerOrderBy,
   buildCustomerWhere,
+  mergeTrialFilter,
 } from '@/lib/admin/customers/queries';
 import { customerListQuerySchema } from '@/lib/validation/customerSchemas';
 
@@ -45,9 +46,9 @@ export async function GET(req: Request) {
       ],
     };
   } else {
-    where = {
+    where = await mergeTrialFilter(prisma, {
       AND: [filter, { profile: { isNot: null } }],
-    };
+    }, q.trial);
   }
 
   const orderBy = buildCustomerOrderBy(q.sort);

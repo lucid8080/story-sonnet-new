@@ -1,3 +1,4 @@
+import { barContentKeyForNotificationBar, barContentKeyForTrialOffer } from './barContentKey';
 import type { CampaignWithRelations, ResolvedCampaignPayload } from './types';
 
 export function toPublicPayload(c: CampaignWithRelations): ResolvedCampaignPayload | null {
@@ -6,6 +7,7 @@ export function toPublicPayload(c: CampaignWithRelations): ResolvedCampaignPaylo
     return {
       kind: 'notification_bar',
       campaignId: c.id,
+      barContentKey: barContentKeyForNotificationBar(c),
       campaignEndsAt: c.endsAt.toISOString(),
       messagePrimary: d.messagePrimary,
       messageSecondary: d.messageSecondary,
@@ -24,6 +26,7 @@ export function toPublicPayload(c: CampaignWithRelations): ResolvedCampaignPaylo
     return {
       kind: 'trial_offer',
       campaignId: c.id,
+      barContentKey: barContentKeyForTrialOffer(c),
       campaignEndsAt: c.endsAt.toISOString(),
       dismissible: true,
       dismissPolicy: 'hours_24',

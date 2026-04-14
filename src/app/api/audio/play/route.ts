@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
+import { userHasPremiumPlayback } from '@/lib/billing/premiumAccess';
 import { canPlayEpisode } from '@/lib/audioEntitlement';
 import { fetchStoryBySlug } from '@/lib/stories';
 import prisma from '@/lib/prisma';
@@ -13,10 +14,14 @@ import {
 
 export const runtime = 'nodejs';
 
-function isSubscribedFromSession(
-  sub: string | null | undefined
-): boolean {
-  return sub === 'active' || sub === 'trialing';
+async function hasPremiumPlaybackFromSession(): Promise<boolean> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return false;
+  return userHasPremiumPlayback(prisma, {
+    userId,
+    subscriptionStatus: session?.user?.subscriptionStatus,
+  });
 }
 
 function extractAudioSlugFromUrl(input: string): string | null {
@@ -79,10 +84,7 @@ export async function GET(req: Request) {
     );
   }
 
-  const session = await auth();
-  const isSubscribed = isSubscribedFromSession(
-    session?.user?.subscriptionStatus
-  );
+  const isSubscribed = await hasPremiumPlaybackFromSession();
 
   let requestEpisodeRef = rawId ?? `${slug}:${rawEpisodeNumber}`;
   let storySlug = '';

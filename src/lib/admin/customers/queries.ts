@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import type { Prisma, PrismaClient } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import type { CustomerListQuery } from '@/lib/validation/customerSchemas';
 
@@ -126,6 +126,43 @@ export function buildCustomerWhere(
 
   if (and.length === 0) return {};
   return { AND: and };
+}
+
+/** Narrows the customer list to first-claim trial state (see getFirstTrialClaimExpiresAt). */
+export async function mergeTrialFilter(
+  db: PrismaClient,
+  where: Prisma.UserWhereInput,
+  trial: CustomerListQuery['trial']
+): Promise<Prisma.UserWhereInput> {
+  if (trial === 'all') return where;
+  if (trial === 'none') {
+    return { AND: [where, { trialClaims: { none: {} } }] };
+  }
+  const rows =
+    trial === 'active'
+      ? await db.$queryRaw<{ user_id: string }[]>`
+          WITH fc AS (
+            SELECT DISTINCT ON (user_id) user_id, expires_at
+            FROM trial_claims
+            ORDER BY user_id, created_at ASC
+          )
+          SELECT user_id FROM fc
+          WHERE expires_at IS NOT NULL AND expires_at > NOW()
+        `
+      : await db.$queryRaw<{ user_id: string }[]>`
+          WITH fc AS (
+            SELECT DISTINCT ON (user_id) user_id, expires_at
+            FROM trial_claims
+            ORDER BY user_id, created_at ASC
+          )
+          SELECT user_id FROM fc
+          WHERE expires_at IS NULL OR expires_at <= NOW()
+        `;
+  const ids = rows.map((r) => r.user_id);
+  if (ids.length === 0) {
+    return { AND: [where, { id: { in: [] } }] };
+  }
+  return { AND: [where, { id: { in: ids } }] };
 }
 
 export function buildCustomerOrderBy(

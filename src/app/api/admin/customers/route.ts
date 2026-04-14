@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
+import type { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { requireAdmin } from '@/lib/admin/requireAdmin';
 import {
   buildCustomerOrderBy,
   buildCustomerWhere,
   getCustomerGlobalStats,
+  mergeTrialFilter,
 } from '@/lib/admin/customers/queries';
 import { customerListQuerySchema } from '@/lib/validation/customerSchemas';
 import { resolvePublicAssetUrl } from '@/lib/resolvePublicAssetUrl';
@@ -25,9 +27,10 @@ export async function GET(req: Request) {
 
   const q = parsed.data;
   const filter = buildCustomerWhere(q);
-  const where = {
+  let where: Prisma.UserWhereInput = {
     AND: [filter, { profile: { isNot: null } }],
   };
+  where = await mergeTrialFilter(prisma, where, q.trial);
   const orderBy = buildCustomerOrderBy(q.sort);
   const skip = (q.page - 1) * q.pageSize;
 
@@ -67,6 +70,23 @@ export async function GET(req: Request) {
       getCustomerGlobalStats(),
     ]);
 
+    const firstTrialByUser = new Map<
+      string,
+      { expiresAt: Date | null }
+    >();
+    if (rows.length > 0) {
+      const claims = await prisma.trialClaim.findMany({
+        where: { userId: { in: rows.map((r) => r.id) } },
+        orderBy: { createdAt: 'asc' },
+        select: { userId: true, expiresAt: true },
+      });
+      for (const c of claims) {
+        if (!firstTrialByUser.has(c.userId)) {
+          firstTrialByUser.set(c.userId, { expiresAt: c.expiresAt });
+        }
+      }
+    }
+
     const purchaseMap = new Map<string, number>();
     if (rows.length > 0) {
       const purchaseCounts = await prisma.customerPurchase.groupBy({
@@ -81,8 +101,17 @@ export async function GET(req: Request) {
       }
     }
 
+    const now = new Date();
     const items = rows.map((u) => {
       const p = u.profile;
+      const ft = firstTrialByUser.get(u.id);
+      const exp = ft?.expiresAt ?? null;
+      let appTrialState: 'none' | 'active' | 'ended' = 'none';
+      if (ft) {
+        if (!exp) appTrialState = 'ended';
+        else if (exp.getTime() > now.getTime()) appTrialState = 'active';
+        else appTrialState = 'ended';
+      }
       return {
         id: u.id,
         name: u.name ?? p?.fullName ?? null,
@@ -101,6 +130,8 @@ export async function GET(req: Request) {
         isFlagged: p?.isFlagged ?? false,
         isVip: p?.isVip ?? false,
         stripeCustomerId: p?.stripeCustomerId ? '••••' : null,
+        appTrialState,
+        appTrialFirstClaimExpiresAt: exp?.toISOString() ?? null,
       };
     });
 

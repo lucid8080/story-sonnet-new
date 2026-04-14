@@ -1,5 +1,7 @@
 import { notFound } from 'next/navigation';
 import { auth } from '@/auth';
+import prisma from '@/lib/prisma';
+import { userHasPremiumPlayback } from '@/lib/billing/premiumAccess';
 import { attachThemeAudioToPlayerStory } from '@/lib/attachThemeAudioToPlayerStory';
 import { probeThemeAudioAvailability } from '@/lib/themeAudioUrls';
 import { fetchStories, fetchStoryBySlug, storyToPlayerPayload } from '@/lib/stories';
@@ -27,8 +29,12 @@ export default async function StoryPage({
 
   const session = await auth();
   const isSignedIn = Boolean(session?.user);
+  const userId = session?.user?.id;
   const sub = session?.user?.subscriptionStatus;
-  const isSubscribed = sub === 'active' || sub === 'trialing';
+  const isSubscribed =
+    userId != null
+      ? await userHasPremiumPlayback(prisma, { userId, subscriptionStatus: sub })
+      : false;
 
   const playerStory = storyToPlayerPayload(story, isSubscribed);
   const themeProbe = await probeThemeAudioAvailability(slug);
