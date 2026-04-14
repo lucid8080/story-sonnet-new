@@ -1,0 +1,157 @@
+---
+title: Browser-Based Authentication
+---
+
+Authenticate users in your client-side Yoto app with these simple steps. This flow uses the OAuth2 Authorization Code with PKCE protocol[^1]—don't worry if that's new to you; we'll guide you through
+
+[^1]: This is specifically the Authorization Code flow with PKCE (Proof Key for Code Exchange), which is more secure for public clients like browser applications.
+
+## Step 1: Redirect Users to Yoto's Login Page
+
+Your app never handles user credentials. Instead, users log in directly on Yoto's secure page, then return to your app with permission granted.
+
+**First, install the PKCE and JWT helper packages:**
+
+```bash
+npm install pkce-challenge jwt-decode
+```
+
+**Start the login process:**
+
+```javascript
+import pkceChallenge from "pkce-challenge";
+
+// Generate PKCE code verifier and challenge
+const { code_verifier, code_challenge } = await pkceChallenge();
+
+// Store the code verifier in session storage for the token exchange
+sessionStorage.setItem("pkce_code_verifier", code_verifier);
+
+const authUrl = "https://login.yotoplay.com/authorize";
+const params = new URLSearchParams({
+  audience: "https://api.yotoplay.com",
+  scope: "offline_access",
+  response_type: "code",
+  client_id: "YOUR-CLIENT-ID", // this is the client id that we've given you
+  code_challenge: code_challenge,
+  code_challenge_method: "S256",
+  redirect_uri: "https://your-app.com/callback", // this where the user will be redirected after login,
+  // you can set this to window.location.href to redirect to the current page
+});
+
+// Redirect user to Yoto's login page
+window.location.href = `${authUrl}?${params.toString()}`;
+```
+
+## Step 2: Exchange the Authorization Code for Tokens
+
+After users log in, Yoto redirects them back to your callback URL with a single-use `code` in the query string (e.g., `https://your-app.com/callback?code=12345`).
+
+::: tip Access Token? Refresh Token? 🤔
+If you're not sure what these terms are, refer to our [Authentication Overview](/authentication/auth)
+:::
+
+**Exchange this code for tokens:**
+
+```javascript
+// Get the authorization code from the URL
+const params = new URLSearchParams(window.location.search);
+const code = params.get("code");
+
+if (!code) {
+  console.error("No authorization code received");
+  return;
+}
+
+// Get the stored code verifier from PKCE Step 1
+const codeVerifier = sessionStorage.getItem("pkce_code_verifier");
+if (!codeVerifier) {
+  console.error("No PKCE code verifier found");
+  return;
+}
+
+// Make a POST request to exchange the code for tokens using PKCE
+const response = await fetch("https://login.yotoplay.com/oauth/token", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/x-www-form-urlencoded",
+  },
+  body: new URLSearchParams({
+    grant_type: "authorization_code",
+    client_id: "your-client-id",
+    code_verifier: codeVerifier,
+    code: code,
+    redirect_uri: "https://your-app.com/callback", // this is the same as the redirect_uri you used in Step 1, make sure you added it to your app in the developer portal
+  }),
+});
+
+const { access_token, refresh_token } = await response.json();
+
+// Clean up the PKCE code verifier from session storage
+sessionStorage.removeItem("pkce_code_verifier");
+```
+
+## Step 3: Use the Access Token for API Requests
+
+With your `access_token`, you’re ready to call the Yoto API. Include it in every request:
+
+```javascript
+const response = await fetch("https://api.yotoplay.com/content/mine", {
+  headers: {
+    Authorization: `Bearer ${access_token}`,
+  },
+});
+
+const data = await response.json();
+console.log(data.cards);
+// you should see an array of cards in the console
+```
+
+---
+
+## Step 4: Refresh Expired Tokens
+
+Access tokens expire quickly. Use `jwt-decode` to check expiration:
+
+```javascript
+import jwtDecode from "jwt-decode";
+
+function isTokenExpired(access_token) {
+  try {
+    const decoded = jwtDecode(access_token);
+    return Date.now() >= decoded.exp * 1000; // exp is in seconds
+  } catch (error) {
+    console.error("Error decoding token:", error);
+    return true; // Assume expired if we can't verify
+  }
+}
+```
+
+When your access token expires, use the refresh token to get a new one.
+
+Refresh tokens can only be used once. This means that when you use the refresh token to get a new access token, you'll also get a new refresh token, and the old one will become invalid.
+
+> 🔄 **Tip:** Refresh tokens are single-use. Always replace your old tokens with the new ones!
+
+```javascript
+const response = await fetch("https://login.yotoplay.com/oauth/token", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/x-www-form-urlencoded",
+  },
+  body: new URLSearchParams({
+    grant_type: "refresh_token",
+    client_id: "your-client-id",
+    refresh_token: refresh_token,
+  }),
+});
+
+const { access_token, refresh_token } = await response.json();
+// now you can store the new refresh token and keep using the access token to make API requests
+```
+
+## Next Steps
+
+- Explore our [API Reference](/api/) to see all endpoints.
+- Get inspired by [our sample apps](/get-started/sample-apps).
+- Build something brilliant—we can’t wait to see what you create!
