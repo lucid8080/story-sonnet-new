@@ -6,29 +6,30 @@ export function isStripePayingOrTrialing(subscriptionStatus: string | null | und
 }
 
 /**
- * End time of the user's app trial window. Only the chronologically first
- * {@link TrialClaim} counts; later claims never extend this date.
+ * End time of the user's app trial window.
+ * We honor the best available claim window by taking the maximum `expiresAt`
+ * across the user's claims.
  */
-export async function getFirstTrialClaimExpiresAt(
+export async function getEffectiveAppTrialExpiresAt(
   prisma: PrismaClient,
   userId: string
 ): Promise<Date | null> {
-  const first = await prisma.trialClaim.findFirst({
+  const latest = await prisma.trialClaim.findFirst({
     where: { userId },
-    orderBy: { createdAt: 'asc' },
+    orderBy: { expiresAt: 'desc' },
     select: { expiresAt: true },
   });
-  return first?.expiresAt ?? null;
+  return latest?.expiresAt ?? null;
 }
 
-export function hasActiveAppTrial(firstClaimExpiresAt: Date | null, now: Date = new Date()): boolean {
-  if (!firstClaimExpiresAt) return false;
-  return firstClaimExpiresAt.getTime() > now.getTime();
+export function hasActiveAppTrial(expiresAt: Date | null, now: Date = new Date()): boolean {
+  if (!expiresAt) return false;
+  return expiresAt.getTime() > now.getTime();
 }
 
 /**
- * Premium playback: paying Stripe subscriber, or within the non-extendable app trial
- * window from the first trial claim.
+ * Premium playback: paying Stripe subscriber, or within the app trial window
+ * from the user's best available claim expiry.
  */
 export async function userHasPremiumPlayback(
   prisma: PrismaClient,
@@ -39,6 +40,6 @@ export async function userHasPremiumPlayback(
   }
 ): Promise<boolean> {
   if (isStripePayingOrTrialing(params.subscriptionStatus)) return true;
-  const exp = await getFirstTrialClaimExpiresAt(prisma, params.userId);
+  const exp = await getEffectiveAppTrialExpiresAt(prisma, params.userId);
   return hasActiveAppTrial(exp, params.now ?? new Date());
 }

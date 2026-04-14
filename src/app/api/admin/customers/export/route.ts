@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { requireAdmin } from '@/lib/admin/requireAdmin';
 import {
@@ -81,6 +81,18 @@ export async function GET(req: Request) {
         },
       },
     });
+    const effectiveTrialByUser = new Map<string, Date | null>();
+    if (rows.length > 0) {
+      const trialRows = await prisma.$queryRaw<{ user_id: string; effective_expires_at: Date | null }[]>`
+        SELECT user_id, MAX(expires_at) AS effective_expires_at
+        FROM trial_claims
+        WHERE user_id IN (${Prisma.join(rows.map((r) => r.id))})
+        GROUP BY user_id
+      `;
+      for (const r of trialRows) {
+        effectiveTrialByUser.set(r.user_id, r.effective_expires_at);
+      }
+    }
 
     const header = [
       'id',
@@ -99,12 +111,17 @@ export async function GET(req: Request) {
       'is_flagged',
       'is_vip',
       'marketing_opt_in',
+      'app_trial_state',
+      'app_trial_effective_expires_at',
     ];
 
     const lines = [
       header.join(','),
       ...rows.map((u) => {
         const p = u.profile;
+        const trialExp = effectiveTrialByUser.get(u.id);
+        const appTrialState =
+          trialExp == null ? 'none' : trialExp.getTime() > Date.now() ? 'active' : 'ended';
         return [
           csvEscape(u.id),
           csvEscape(u.email),
@@ -122,6 +139,8 @@ export async function GET(req: Request) {
           csvEscape(p?.isFlagged),
           csvEscape(p?.isVip),
           csvEscape(p?.marketingOptIn),
+          csvEscape(appTrialState),
+          csvEscape(trialExp?.toISOString() ?? ''),
         ].join(',');
       }),
     ];

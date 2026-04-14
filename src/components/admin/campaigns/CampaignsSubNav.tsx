@@ -15,6 +15,18 @@ const links = [
 
 export function CampaignsSubNav() {
   const pathname = usePathname();
+  const isFreeTrials = pathname === '/admin/campaigns/free-trials';
+  const isPromoCodes = pathname === '/admin/campaigns/promo-codes';
+  const newHref = isFreeTrials
+    ? '/admin/campaigns/new?type=trial_offer'
+    : isPromoCodes
+      ? '/admin/campaigns/new?type=promo_code'
+      : '/admin/campaigns/new?type=notification_bar';
+  const newLabel = isFreeTrials
+    ? 'New free trial'
+    : isPromoCodes
+      ? 'New promo code'
+      : 'New notification bar';
   return (
     <div className="mb-6 flex flex-wrap gap-2 border-b border-slate-200 pb-3 text-xs font-semibold text-slate-600">
       {links.map((l) => {
@@ -34,10 +46,10 @@ export function CampaignsSubNav() {
         );
       })}
       <Link
-        href="/admin/campaigns/new"
+        href={newHref}
         className="ml-auto rounded-full bg-slate-900 px-3 py-1.5 text-white hover:bg-slate-800"
       >
-        New campaign
+        {newLabel}
       </Link>
     </div>
   );

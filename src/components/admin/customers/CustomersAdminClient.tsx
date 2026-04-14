@@ -25,9 +25,9 @@ type ListItem = {
   createdAt: string;
   isFlagged: boolean;
   isVip: boolean;
-  /** Earliest TrialClaim by createdAt — app/cardless trial (see premium access). */
+  /** Effective app-trial expiry (max claim expiresAt), aligned with premium access. */
   appTrialState: 'none' | 'active' | 'ended';
-  appTrialFirstClaimExpiresAt: string | null;
+  appTrialEffectiveExpiresAt: string | null;
 };
 
 type Stats = {
@@ -316,7 +316,7 @@ export function CustomersAdminClient() {
             App trial
             <select
               className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-              title="First trial claim window (cardless app trial)"
+              title="Effective app trial window (best claim expiry)"
               value={searchParams.get('trial') ?? 'all'}
               onChange={(e) => patchUrl({ trial: e.target.value, page: '1' })}
             >
@@ -511,7 +511,7 @@ export function CustomersAdminClient() {
               <th className="p-3">Plan</th>
               <th
                 className="p-3"
-                title="Cardless app trial from the first TrialClaim (matches library premium access)"
+                title="Cardless app trial using best claim expiry (matches library premium access)"
               >
                 App trial
               </th>
@@ -605,8 +605,8 @@ export function CustomersAdminClient() {
                           )}
                         </td>
                         <td className="p-3 text-slate-600">
-                          {row.appTrialFirstClaimExpiresAt
-                            ? new Date(row.appTrialFirstClaimExpiresAt).toLocaleString()
+                          {row.appTrialEffectiveExpiresAt
+                            ? new Date(row.appTrialEffectiveExpiresAt).toLocaleString()
                             : '—'}
                         </td>
                         <td className="p-3 text-right tabular-nums">{row.creditBalance}</td>

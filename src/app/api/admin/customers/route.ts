@@ -70,19 +70,19 @@ export async function GET(req: Request) {
       getCustomerGlobalStats(),
     ]);
 
-    const firstTrialByUser = new Map<
+    const effectiveTrialByUser = new Map<
       string,
       { expiresAt: Date | null }
     >();
     if (rows.length > 0) {
       const claims = await prisma.trialClaim.findMany({
         where: { userId: { in: rows.map((r) => r.id) } },
-        orderBy: { createdAt: 'asc' },
+        orderBy: [{ userId: 'asc' }, { expiresAt: 'desc' }],
         select: { userId: true, expiresAt: true },
       });
       for (const c of claims) {
-        if (!firstTrialByUser.has(c.userId)) {
-          firstTrialByUser.set(c.userId, { expiresAt: c.expiresAt });
+        if (!effectiveTrialByUser.has(c.userId)) {
+          effectiveTrialByUser.set(c.userId, { expiresAt: c.expiresAt });
         }
       }
     }
@@ -104,7 +104,7 @@ export async function GET(req: Request) {
     const now = new Date();
     const items = rows.map((u) => {
       const p = u.profile;
-      const ft = firstTrialByUser.get(u.id);
+      const ft = effectiveTrialByUser.get(u.id);
       const exp = ft?.expiresAt ?? null;
       let appTrialState: 'none' | 'active' | 'ended' = 'none';
       if (ft) {
@@ -131,7 +131,7 @@ export async function GET(req: Request) {
         isVip: p?.isVip ?? false,
         stripeCustomerId: p?.stripeCustomerId ? '••••' : null,
         appTrialState,
-        appTrialFirstClaimExpiresAt: exp?.toISOString() ?? null,
+        appTrialEffectiveExpiresAt: exp?.toISOString() ?? null,
       };
     });
 

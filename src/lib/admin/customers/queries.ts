@@ -128,7 +128,7 @@ export function buildCustomerWhere(
   return { AND: and };
 }
 
-/** Narrows the customer list to first-claim trial state (see getFirstTrialClaimExpiresAt). */
+/** Narrows the customer list to trial state using the best (max) claim expiry, matching app access. */
 export async function mergeTrialFilter(
   db: PrismaClient,
   where: Prisma.UserWhereInput,
@@ -141,22 +141,22 @@ export async function mergeTrialFilter(
   const rows =
     trial === 'active'
       ? await db.$queryRaw<{ user_id: string }[]>`
-          WITH fc AS (
-            SELECT DISTINCT ON (user_id) user_id, expires_at
+          WITH effective AS (
+            SELECT user_id, MAX(expires_at) AS effective_expires_at
             FROM trial_claims
-            ORDER BY user_id, created_at ASC
+            GROUP BY user_id
           )
-          SELECT user_id FROM fc
-          WHERE expires_at IS NOT NULL AND expires_at > NOW()
+          SELECT user_id FROM effective
+          WHERE effective_expires_at IS NOT NULL AND effective_expires_at > NOW()
         `
       : await db.$queryRaw<{ user_id: string }[]>`
-          WITH fc AS (
-            SELECT DISTINCT ON (user_id) user_id, expires_at
+          WITH effective AS (
+            SELECT user_id, MAX(expires_at) AS effective_expires_at
             FROM trial_claims
-            ORDER BY user_id, created_at ASC
+            GROUP BY user_id
           )
-          SELECT user_id FROM fc
-          WHERE expires_at IS NULL OR expires_at <= NOW()
+          SELECT user_id FROM effective
+          WHERE effective_expires_at IS NULL OR effective_expires_at <= NOW()
         `;
   const ids = rows.map((r) => r.user_id);
   if (ids.length === 0) {
