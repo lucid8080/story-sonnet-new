@@ -1,5 +1,6 @@
 import type { AgeRangeId, GenreId, MoodId } from '@/constants/storyFilters';
 import type { ArtStyleId } from '@/lib/story-studio/art-style-options';
+import type { PresetFieldEnabledMap } from '@/lib/story-studio/preset-field-toggles';
 
 export type { ArtStyleId } from '@/lib/story-studio/art-style-options';
 
@@ -141,6 +142,8 @@ export type GenerationRequest = {
   /** Optional catalog overrides from preset (must match filter ids) */
   genreHint?: string;
   moodHint?: string;
+  /** Per-category preset influence toggles; false means exclude from generation context. */
+  presetFieldEnabled?: PresetFieldEnabledMap;
 };
 
 export type BriefPayload = {

@@ -5,6 +5,7 @@ import {
 } from '@/constants/storyFilters';
 import { ART_STYLE_OPTIONS } from '@/lib/story-studio/art-style-options';
 import type { ArtStyleId } from '@/lib/story-studio/art-style-options';
+import { PRESET_FIELD_TOGGLE_KEYS } from '@/lib/story-studio/preset-field-toggles';
 
 const artStyleEnum = z.enum(
   ART_STYLE_OPTIONS.map((o) => o.id) as [ArtStyleId, ...ArtStyleId[]]
@@ -86,6 +87,7 @@ const moodHint = z.enum(
 );
 
 const targetLengthRange = z.enum(['2-3', '3-4', '4-5']);
+const presetFieldToggleKey = z.enum(PRESET_FIELD_TOGGLE_KEYS);
 
 /** Maps legacy `targetMinutes` from DB/presets into `targetLengthRange`. */
 function coerceLegacyGenerationRequestPatch(val: unknown): unknown {
@@ -133,6 +135,7 @@ export const generationRequestPatchSchema = z.preprocess(
     musicDirection: z.string().max(4000).optional(),
     genreHint: genreHint.optional(),
     moodHint: moodHint.optional(),
+    presetFieldEnabled: z.record(presetFieldToggleKey, z.boolean()).optional(),
   })
 );
 

@@ -11,6 +11,9 @@ export function SelectionChips(props: {
   value: string;
   onChange: (id: string) => void;
   columns?: 2 | 3 | 4;
+  muted?: boolean;
+  toggleChecked?: boolean;
+  onToggleChange?: (v: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -59,30 +62,46 @@ export function SelectionChips(props: {
   }, [open]);
 
   return (
-    <div className="relative space-y-2">
+    <div
+      className={clsx(
+        'relative space-y-2 rounded-xl p-1 transition',
+        props.muted ? 'bg-slate-50/80 opacity-70' : ''
+      )}
+    >
       <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
         {props.label}
       </p>
-      <button
-        id={triggerId}
-        ref={triggerRef}
-        type="button"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-controls={panelId}
-        onClick={() => setOpen((s) => !s)}
-        className={clsx(
-          'flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm font-medium transition',
-          open
-            ? 'border-violet-400 bg-violet-50 text-violet-950 shadow-sm'
-            : 'border-slate-200 bg-white text-slate-800 hover:border-violet-200'
+      <div className="flex items-center gap-2">
+        <button
+          id={triggerId}
+          ref={triggerRef}
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-controls={panelId}
+          onClick={() => setOpen((s) => !s)}
+          className={clsx(
+            'flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm font-medium transition',
+            open
+              ? 'border-violet-400 bg-violet-50 text-violet-950 shadow-sm'
+              : 'border-slate-200 bg-white text-slate-800 hover:border-violet-200'
+          )}
+        >
+          <span className="truncate">{selected?.label ?? 'Select option'}</span>
+          <span className="ml-3 shrink-0 text-xs text-slate-500">
+            {open ? 'Close' : 'Choose'}
+          </span>
+        </button>
+        {props.onToggleChange && typeof props.toggleChecked === 'boolean' && (
+          <input
+            type="checkbox"
+            aria-label={`${props.label} preset toggle`}
+            className="h-4 w-4 shrink-0 rounded border-slate-300 text-violet-600"
+            checked={props.toggleChecked}
+            onChange={(e) => props.onToggleChange?.(e.target.checked)}
+          />
         )}
-      >
-        <span className="truncate">{selected?.label ?? 'Select option'}</span>
-        <span className="ml-3 shrink-0 text-xs text-slate-500">
-          {open ? 'Close' : 'Choose'}
-        </span>
-      </button>
+      </div>
       {open && (
         <div
           id={panelId}
