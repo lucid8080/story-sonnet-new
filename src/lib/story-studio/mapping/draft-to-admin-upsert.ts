@@ -76,7 +76,16 @@ export function draftToAdminUpsertInput(draft: DraftForMapping): AdminStoryUpser
     brief?.estimatedRuntimeMinutes ??
     fallbackMinutes;
 
-  const coverAsset = latestAssetByKind(draft.assets, 'cover');
+  const selectedCoverAsset =
+    req.mainCoverAssetId?.trim()
+      ? draft.assets.find(
+          (a) =>
+            a.id === req.mainCoverAssetId &&
+            a.kind === 'cover' &&
+            !!a.publicUrl?.trim()
+        )
+      : undefined;
+  const coverAsset = selectedCoverAsset ?? latestAssetByKind(draft.assets, 'cover');
   const coverUrl = coverAsset?.publicUrl ?? null;
 
   const episodesSorted = [...draft.episodes].sort(

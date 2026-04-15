@@ -12,10 +12,16 @@ import {
   useState,
   type MouseEvent,
 } from 'react';
+import {
+  ART_STYLE_OPTIONS,
+  type ArtStylePromptOverrides,
+} from '@/lib/story-studio/art-style-options';
+import type { ArtStyleId } from '@/lib/story-studio/art-style-options';
 import { draftSlugFromTitle } from '@/lib/story-studio/draft-slug-from-title';
 import { buildDraftCoverImagePrompt } from '@/lib/story-studio/prompt-builder';
 import { studioSeriesTitleForDraftMeta } from '@/lib/story-studio/studio-series-for-draft-meta';
 import type { GenerationRequest } from '@/lib/story-studio/types';
+import { ArtStylePresetPromptsEditor } from './ArtStylePresetPromptsEditor';
 import { GenerationStatusBar } from './GenerationStatusBar';
 import { PreviewTabs, type PreviewTabId } from './PreviewTabs';
 import { SelectionChips, ToggleRow } from './SelectionChips';
@@ -234,6 +240,9 @@ export function StoryStudioClient() {
   const [tab, setTab] = useState<PreviewTabId>('brief');
   const [idea, setIdea] = useState('');
   const [prompt, setPrompt] = useState('');
+  const [customArtStyleEdit, setCustomArtStyleEdit] = useState('');
+  const [artStylePromptOverrides, setArtStylePromptOverrides] =
+    useState<ArtStylePromptOverrides>({});
   const [slugEdit, setSlugEdit] = useState('');
   const [titleEdit, setTitleEdit] = useState('');
   const [audioUrls, setAudioUrls] = useState<Record<string, string>>({});
@@ -326,6 +335,7 @@ export function StoryStudioClient() {
           applyMetaFromDraft(d);
           setIdea(d.request.simpleIdea ?? '');
           setPrompt(d.request.customPrompt ?? '');
+          setCustomArtStyleEdit(d.request.customArtStyle ?? '');
         }
       } catch (e) {
         setLoadError(e instanceof Error ? e.message : 'Narration failed');
@@ -434,6 +444,31 @@ export function StoryStudioClient() {
       .catch(() => setPresets([]));
   }, []);
 
+  useEffect(() => {
+    if (!draftIdFromUrl) return;
+    let cancelled = false;
+    void fetch('/api/admin/story-studio/settings')
+      .then(async (r) => {
+        const j = (await r.json()) as {
+          ok?: boolean;
+          artStylePromptOverrides?: ArtStylePromptOverrides;
+          error?: string;
+        };
+        if (!r.ok) throw new Error(j.error || 'Settings load failed');
+        return j;
+      })
+      .then((j) => {
+        if (cancelled) return;
+        setArtStylePromptOverrides(j.artStylePromptOverrides ?? {});
+      })
+      .catch(() => {
+        if (!cancelled) setArtStylePromptOverrides({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [draftIdFromUrl]);
+
   const refreshDraftLists = useCallback(() => {
     setDraftListsLoading(true);
     setDraftListsError(null);
@@ -479,6 +514,7 @@ export function StoryStudioClient() {
     applyMetaFromDraft(d);
     setIdea(d.request.simpleIdea ?? '');
     setPrompt(d.request.customPrompt ?? '');
+    setCustomArtStyleEdit(d.request.customArtStyle ?? '');
     router.replace(`/admin/story-studio?draft=${encodeURIComponent(id)}`, {
       scroll: false,
     });
@@ -533,6 +569,7 @@ export function StoryStudioClient() {
         applyMetaFromDraft(d);
         setIdea(d.request.simpleIdea ?? '');
         setPrompt(d.request.customPrompt ?? '');
+        setCustomArtStyleEdit(d.request.customArtStyle ?? '');
       }
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'Generation failed');
@@ -578,6 +615,7 @@ export function StoryStudioClient() {
             ...r,
             simpleIdea: idea,
             customPrompt: prompt,
+            customArtStyle: customArtStyleEdit.trim(),
           },
         });
         if (!opts?.silent) {
@@ -594,6 +632,7 @@ export function StoryStudioClient() {
       flashSaveNotice,
       idea,
       prompt,
+      customArtStyleEdit,
       saveDraftPatch,
       slugEdit,
       titleEdit,
@@ -673,6 +712,14 @@ export function StoryStudioClient() {
     });
   }, [draft]);
 
+  const activeMainCoverAssetId = useMemo(() => {
+    const selected = req?.mainCoverAssetId?.trim();
+    if (selected && draftCoverAssets.some((a) => a.id === selected)) {
+      return selected;
+    }
+    return draftCoverAssets[0]?.id ?? null;
+  }, [draftCoverAssets, req?.mainCoverAssetId]);
+
   /** Resolved prompt shown by default (matches server cover step when draft override empty). */
   const resolvedCoverImagePrompt = useMemo(() => {
     if (!draft) return '';
@@ -682,8 +729,39 @@ export function StoryStudioClient() {
       const stored = a.imagePrompt?.trim();
       if (stored) return stored;
     }
-    return buildDraftCoverImagePrompt(draft.request, draft);
-  }, [draft, draftCoverAssets]);
+    return buildDraftCoverImagePrompt(
+      draft.request,
+      draft,
+      artStylePromptOverrides
+    );
+  }, [draft, draftCoverAssets, artStylePromptOverrides]);
+
+  const setMainCoverAsset = useCallback(
+    async (assetId: string) => {
+      if (!draft?.id) return;
+      if (activeMainCoverAssetId === assetId) return;
+      cancelDebouncedRequestSave();
+      setBusy(true);
+      setLoadError(null);
+      try {
+        await saveDraftPatch({
+          request: { mainCoverAssetId: assetId },
+        });
+        flashSaveNotice('Main cover selected');
+      } catch (e) {
+        setLoadError(e instanceof Error ? e.message : 'Could not set main cover');
+      } finally {
+        setBusy(false);
+      }
+    },
+    [
+      activeMainCoverAssetId,
+      cancelDebouncedRequestSave,
+      draft?.id,
+      flashSaveNotice,
+      saveDraftPatch,
+    ]
+  );
 
   useEffect(() => {
     if (!draft?.id) {
@@ -1093,32 +1171,140 @@ export function StoryStudioClient() {
             </div>
           )}
 
-          <SelectionChips
-            label="Age band"
-            options={AGE}
-            value={req.studioAgeBand}
-            onChange={(id) =>
-              patchRequest({
-                studioAgeBand: id as GenerationRequest['studioAgeBand'],
-              })
-            }
-          />
-          <SelectionChips
-            label="Story type"
-            options={STORY_TYPES}
-            value={req.storyType}
-            onChange={(id) =>
-              patchRequest({ storyType: id as GenerationRequest['storyType'] })
-            }
-          />
-          <SelectionChips
-            label="Format"
-            options={FORMATS}
-            value={req.format}
-            onChange={(id) =>
-              patchRequest({ format: id as GenerationRequest['format'] })
-            }
-          />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-3 sm:col-span-2">
+              <SelectionChips
+                label="Art Style"
+                options={ART_STYLE_OPTIONS}
+                columns={4}
+                value={req.artStyle}
+                onChange={(id) =>
+                  patchRequest({
+                    artStyle: id as ArtStyleId,
+                  })
+                }
+              />
+              <div>
+                <label className="text-xs font-bold uppercase text-slate-500">
+                  Custom art style
+                </label>
+                <input
+                  type="text"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Optional — extra direction for cover illustration"
+                  value={customArtStyleEdit}
+                  maxLength={600}
+                  onChange={(e) => setCustomArtStyleEdit(e.target.value)}
+                  onBlur={() => void saveMeta()}
+                />
+              </div>
+              <ArtStylePresetPromptsEditor
+                storedOverrides={artStylePromptOverrides}
+                onSaved={setArtStylePromptOverrides}
+              />
+            </div>
+            <SelectionChips
+              label="Age band"
+              options={AGE}
+              value={req.studioAgeBand}
+              onChange={(id) =>
+                patchRequest({
+                  studioAgeBand: id as GenerationRequest['studioAgeBand'],
+                })
+              }
+            />
+            <SelectionChips
+              label="Story type"
+              options={STORY_TYPES}
+              value={req.storyType}
+              onChange={(id) =>
+                patchRequest({ storyType: id as GenerationRequest['storyType'] })
+              }
+            />
+            <SelectionChips
+              label="Format"
+              options={FORMATS}
+              value={req.format}
+              onChange={(id) =>
+                patchRequest({ format: id as GenerationRequest['format'] })
+              }
+            />
+            <SelectionChips
+              label="Target length"
+              options={TARGET_LENGTH_RANGES}
+              value={req.targetLengthRange}
+              onChange={(id) =>
+                patchRequest({
+                  targetLengthRange: id as GenerationRequest['targetLengthRange'],
+                })
+              }
+            />
+            <SelectionChips
+              label="Tone"
+              options={TONES}
+              value={req.tone}
+              onChange={(id) =>
+                patchRequest({ tone: id as GenerationRequest['tone'] })
+              }
+            />
+            <SelectionChips
+              label="Lesson / theme"
+              options={LESSONS}
+              value={req.lesson}
+              onChange={(id) =>
+                patchRequest({ lesson: id as GenerationRequest['lesson'] })
+              }
+            />
+            <SelectionChips
+              label="Main character"
+              options={CHARS}
+              value={req.characterType}
+              onChange={(id) =>
+                patchRequest({
+                  characterType: id as GenerationRequest['characterType'],
+                })
+              }
+            />
+            <SelectionChips
+              label="Setting"
+              options={SETTINGS}
+              value={req.setting}
+              onChange={(id) =>
+                patchRequest({ setting: id as GenerationRequest['setting'] })
+              }
+            />
+            <SelectionChips
+              label="Narration style"
+              options={NARRATION}
+              value={req.narrationStyle}
+              onChange={(id) =>
+                patchRequest({
+                  narrationStyle: id as GenerationRequest['narrationStyle'],
+                })
+              }
+            />
+            <SelectionChips
+              label="Voice energy"
+              options={ENERGY}
+              value={req.voiceEnergy}
+              onChange={(id) =>
+                patchRequest({
+                  voiceEnergy: id as GenerationRequest['voiceEnergy'],
+                })
+              }
+            />
+            <SelectionChips
+              label="Expression tag density"
+              options={TAGS}
+              value={req.tagDensity}
+              onChange={(id) =>
+                patchRequest({
+                  tagDensity: id as GenerationRequest['tagDensity'],
+                })
+              }
+            />
+          </div>
+
           {req.format !== 'standalone' && (
             <div>
               <label className="text-xs font-bold uppercase text-slate-500">
@@ -1141,80 +1327,6 @@ export function StoryStudioClient() {
               />
             </div>
           )}
-          <SelectionChips
-            label="Target length"
-            options={TARGET_LENGTH_RANGES}
-            value={req.targetLengthRange}
-            onChange={(id) =>
-              patchRequest({
-                targetLengthRange: id as GenerationRequest['targetLengthRange'],
-              })
-            }
-          />
-          <SelectionChips
-            label="Tone"
-            options={TONES}
-            value={req.tone}
-            onChange={(id) =>
-              patchRequest({ tone: id as GenerationRequest['tone'] })
-            }
-          />
-          <SelectionChips
-            label="Lesson / theme"
-            options={LESSONS}
-            value={req.lesson}
-            onChange={(id) =>
-              patchRequest({ lesson: id as GenerationRequest['lesson'] })
-            }
-          />
-          <SelectionChips
-            label="Main character"
-            options={CHARS}
-            value={req.characterType}
-            onChange={(id) =>
-              patchRequest({
-                characterType: id as GenerationRequest['characterType'],
-              })
-            }
-          />
-          <SelectionChips
-            label="Setting"
-            options={SETTINGS}
-            value={req.setting}
-            onChange={(id) =>
-              patchRequest({ setting: id as GenerationRequest['setting'] })
-            }
-          />
-          <SelectionChips
-            label="Narration style"
-            options={NARRATION}
-            value={req.narrationStyle}
-            onChange={(id) =>
-              patchRequest({
-                narrationStyle: id as GenerationRequest['narrationStyle'],
-              })
-            }
-          />
-          <SelectionChips
-            label="Voice energy"
-            options={ENERGY}
-            value={req.voiceEnergy}
-            onChange={(id) =>
-              patchRequest({
-                voiceEnergy: id as GenerationRequest['voiceEnergy'],
-              })
-            }
-          />
-          <SelectionChips
-            label="Expression tag density"
-            options={TAGS}
-            value={req.tagDensity}
-            onChange={(id) =>
-              patchRequest({
-                tagDensity: id as GenerationRequest['tagDensity'],
-              })
-            }
-          />
 
           <div className="space-y-2">
             <p className="text-xs font-bold uppercase text-slate-500">
@@ -1408,7 +1520,7 @@ export function StoryStudioClient() {
                     Generated covers ({draftCoverAssets.length})
                   </div>
                   <p className="mb-3 text-xs text-slate-500">
-                    Newest first. The latest is used when you push to the
+                    Newest first. Main cover is used when you push to the
                     library. Click a cover to view full size.
                   </p>
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -1434,6 +1546,22 @@ export function StoryStudioClient() {
                           />
                           <span className="sr-only">Open full size</span>
                         </button>
+                        <div className="flex items-center justify-center gap-2">
+                          {a.id === activeMainCoverAssetId ? (
+                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
+                              Main cover
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => void setMainCoverAsset(a.id)}
+                              className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-700 hover:border-violet-300 hover:text-violet-700 disabled:opacity-50"
+                            >
+                              Set as main
+                            </button>
+                          )}
+                        </div>
                         {a.createdAt ? (
                           <p className="text-center text-[11px] leading-tight text-slate-500">
                             {formatCoverAssetCaption(a.createdAt)}

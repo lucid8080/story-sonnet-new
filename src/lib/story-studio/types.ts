@@ -1,4 +1,7 @@
 import type { AgeRangeId, GenreId, MoodId } from '@/constants/storyFilters';
+import type { ArtStyleId } from '@/lib/story-studio/art-style-options';
+
+export type { ArtStyleId } from '@/lib/story-studio/art-style-options';
 
 export type StoryStudioMode = 'quick' | 'prompt';
 
@@ -110,6 +113,10 @@ export type GenerationRequest = {
   narrationStyle: NarrationStyleId;
   voiceEnergy: VoiceEnergyId;
   tagDensity: TagDensityId;
+  /** Quick Build / Prompt Mode illustration style for cover + brief alignment */
+  artStyle: ArtStyleId;
+  /** Free-text art direction (combined with preset chip); empty if unused */
+  customArtStyle: string;
   simpleIdea: string;
   customPrompt: string;
   includeIntroMusic: boolean;
@@ -128,6 +135,8 @@ export type GenerationRequest = {
   coverArtDirection?: string;
   /** Full image API prompt override for Cover Art; used when non-empty after trim. */
   coverImagePromptDraft?: string;
+  /** Selected generated asset id used as primary cover when pushing/syncing. */
+  mainCoverAssetId?: string;
   musicDirection?: string;
   /** Optional catalog overrides from preset (must match filter ids) */
   genreHint?: string;

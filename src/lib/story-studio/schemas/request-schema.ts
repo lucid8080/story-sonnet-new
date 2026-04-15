@@ -3,6 +3,12 @@ import {
   GENRE_FILTER_OPTIONS,
   MOOD_FILTER_OPTIONS,
 } from '@/constants/storyFilters';
+import { ART_STYLE_OPTIONS } from '@/lib/story-studio/art-style-options';
+import type { ArtStyleId } from '@/lib/story-studio/art-style-options';
+
+const artStyleEnum = z.enum(
+  ART_STYLE_OPTIONS.map((o) => o.id) as [ArtStyleId, ...ArtStyleId[]]
+);
 
 const studioAgeBand = z.enum([
   'toddler',
@@ -110,6 +116,8 @@ export const generationRequestPatchSchema = z.preprocess(
     narrationStyle: narrationStyle.optional(),
     voiceEnergy: voiceEnergy.optional(),
     tagDensity: tagDensity.optional(),
+    artStyle: artStyleEnum.optional(),
+    customArtStyle: z.string().max(600).optional(),
     simpleIdea: z.string().max(8000).optional(),
     customPrompt: z.string().max(12000).optional(),
     includeIntroMusic: z.boolean().optional(),
@@ -121,6 +129,7 @@ export const generationRequestPatchSchema = z.preprocess(
     flavor: z.string().max(4000).optional(),
     coverArtDirection: z.string().max(4000).optional(),
     coverImagePromptDraft: z.string().max(16000).optional(),
+    mainCoverAssetId: z.string().max(200).optional(),
     musicDirection: z.string().max(4000).optional(),
     genreHint: genreHint.optional(),
     moodHint: moodHint.optional(),
