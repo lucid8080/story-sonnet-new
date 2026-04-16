@@ -496,6 +496,15 @@ model StoryStudioPreset {
   @@map("story_studio_presets")
 }
 
+/** Singleton row (`id = global`) for Story Studio admin options (e.g. art style prompt overrides). */
+model StoryStudioSettings {
+  id                          String @id @default("global")
+  artStylePromptOverridesJson Json   @default("{}") @map("art_style_prompt_overrides_json")
+  updatedAt                   DateTime @updatedAt @map("updated_at")
+
+  @@map("story_studio_settings")
+}
+
 model StoryStudioDraft {
   id              String   @id @default(cuid())
   createdByUserId String?  @map("created_by_user_id")

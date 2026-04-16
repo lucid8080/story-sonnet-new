@@ -12,6 +12,7 @@ import {
 } from '@/lib/story-studio/prompt-builder';
 import { openRouterChatCompletion } from '@/lib/story-studio/openrouter';
 import { resolveDraftGenerationRequest } from '@/lib/story-studio/normalize-request';
+import { getArtStylePromptOverrides } from '@/lib/story-studio/story-studio-settings';
 import { elevenLabsTextToSpeech } from '@/lib/story-studio/vendors/elevenlabs';
 import { sunoGenerateTheme } from '@/lib/story-studio/vendors/suno';
 import { generateStoryCoverImage } from '@/lib/story-studio/vendors/image-generation';
@@ -203,6 +204,7 @@ export async function executeGenerationStep(
 
   const draft = await loadDraftFull(draftId);
   const req = resolveDraftGenerationRequest(draft);
+  const artStyleOverrides = await getArtStylePromptOverrides(prisma);
 
   if (step === 'brief') {
     const varietySeed = `${Date.now().toString(36)}-${Math.floor(
@@ -210,6 +212,7 @@ export async function executeGenerationStep(
     ).toString(36)}`;
     const messages = buildOpenRouterMessagesForBrief(req, {
       varietySeed,
+      artStyleOverrides,
     });
     const raw = await openRouterChatCompletion({
       messages,
@@ -241,7 +244,11 @@ export async function executeGenerationStep(
     if (!briefData) {
       throw new Error('Generate a brief first (or run full package).');
     }
-    const messages = buildOpenRouterMessagesForScript(req, briefData);
+    const messages = buildOpenRouterMessagesForScript(
+      req,
+      briefData,
+      artStyleOverrides
+    );
     const raw = await openRouterChatCompletion({
       messages,
       maxTokens: 12000,
@@ -269,7 +276,7 @@ export async function executeGenerationStep(
     const prompt =
       draftPrompt && draftPrompt.length > 0
         ? draftPrompt
-        : buildDraftCoverImagePrompt(req, draft);
+        : buildDraftCoverImagePrompt(req, draft, artStyleOverrides);
     const img = await generateStoryCoverImage({ prompt });
     if (!img.ok) {
       throw new Error(img.message);

@@ -11,6 +11,7 @@ import type {
 } from '@/lib/story-studio/types';
 import type { GenerationRequestPatch } from '@/lib/story-studio/schemas/request-schema';
 import { generationRequestPatchSchema } from '@/lib/story-studio/schemas/request-schema';
+import { defaultPresetFieldEnabled } from '@/lib/story-studio/preset-field-toggles';
 
 export function studioAgeToCatalogAgeRange(band: StudioAgeBand): AgeRangeId {
   switch (band) {
@@ -119,6 +120,8 @@ const BASE_REQUEST: Omit<
   narrationStyle: 'warm',
   voiceEnergy: 'expressive',
   tagDensity: 'medium',
+  artStyle: 'whimsical-storybook',
+  customArtStyle: '',
   simpleIdea: '',
   customPrompt: '',
   includeIntroMusic: true,
@@ -126,13 +129,21 @@ const BASE_REQUEST: Omit<
   generateAudio: true,
   generateTheme: true,
   autoPublish: false,
+  presetFieldEnabled: defaultPresetFieldEnabled(),
 };
 
 export function mergeGenerationRequest(
   base: GenerationRequest,
   patch: GenerationRequestPatch
 ): GenerationRequest {
-  const merged = { ...base, ...patch };
+  const merged = {
+    ...base,
+    ...patch,
+    presetFieldEnabled: {
+      ...(base.presetFieldEnabled ?? defaultPresetFieldEnabled()),
+      ...(patch.presetFieldEnabled ?? {}),
+    },
+  };
   merged.catalogAgeRange = studioAgeToCatalogAgeRange(merged.studioAgeBand);
   merged.catalogGenre =
     safeGenreHint(merged.genreHint) ?? storyTypeToGenre(merged.storyType);

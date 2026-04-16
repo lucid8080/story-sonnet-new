@@ -7,8 +7,15 @@ import {
   storyCoreSystemPreamble,
 } from '@/lib/story-studio/story-core';
 import { STORY_STUDIO_MAX_SCRIPT_CHARS_PER_EPISODE } from '@/lib/story-studio/constants';
+import {
+  formatArtStylePromptBlock,
+  type ArtStylePromptOverrides,
+} from '@/lib/story-studio/art-style-options';
+import { isPresetFieldEnabled } from '@/lib/story-studio/preset-field-toggles';
 import type { GenerationRequest } from '@/lib/story-studio/types';
 import { catalogAgeLabel } from '@/lib/story-studio/normalize-request';
+
+export type { ArtStylePromptOverrides } from '@/lib/story-studio/art-style-options';
 
 const TARGET_LENGTH_LABEL: Record<GenerationRequest['targetLengthRange'], string> =
   {
@@ -17,30 +24,86 @@ const TARGET_LENGTH_LABEL: Record<GenerationRequest['targetLengthRange'], string
     '4-5': '4–5',
   };
 
-function requestSummary(req: GenerationRequest): string {
+function requestSummary(
+  req: GenerationRequest,
+  artStyleOverrides?: ArtStylePromptOverrides
+): string {
   const idea =
     req.mode === 'prompt' && req.customPrompt.trim()
       ? req.customPrompt.trim()
       : req.simpleIdea.trim() || '(no extra idea — invent from selections)';
 
-  return `MODE: ${req.mode}
-TARGET LENGTH: about ${TARGET_LENGTH_LABEL[req.targetLengthRange]} minutes of spoken audio (approximate).
-FORMAT: ${req.format} (episode count: ${req.episodeCount})
-AGE BAND: ${req.studioAgeBand} (${catalogAgeLabel(req.studioAgeBand)}; catalog bucket ${req.catalogAgeRange})
-STORY TYPE: ${req.storyType}
-TONE: ${req.tone}
-THEME / LESSON (soft): ${req.lesson}
-MAIN CHARACTER TYPE: ${req.characterType}
-SETTING: ${req.setting}
-NARRATION STYLE: ${req.narrationStyle}
-VOICE ENERGY: ${req.voiceEnergy}
-TAG DENSITY: ${req.tagDensity}
-${expressionTagDensityGuidance(req.tagDensity)}
+  const lines: string[] = [`MODE: ${req.mode}`];
+  if (isPresetFieldEnabled(req.presetFieldEnabled, 'targetLengthRange')) {
+    lines.push(
+      `TARGET LENGTH: about ${TARGET_LENGTH_LABEL[req.targetLengthRange]} minutes of spoken audio (approximate).`
+    );
+  }
+  if (isPresetFieldEnabled(req.presetFieldEnabled, 'format')) {
+    lines.push(`FORMAT: ${req.format} (episode count: ${req.episodeCount})`);
+  } else if (isPresetFieldEnabled(req.presetFieldEnabled, 'episodeCount')) {
+    lines.push(`EPISODE COUNT: ${req.episodeCount}`);
+  }
+  if (isPresetFieldEnabled(req.presetFieldEnabled, 'studioAgeBand')) {
+    lines.push(
+      `AGE BAND: ${req.studioAgeBand} (${catalogAgeLabel(req.studioAgeBand)}; catalog bucket ${req.catalogAgeRange})`
+    );
+  }
+  if (isPresetFieldEnabled(req.presetFieldEnabled, 'storyType')) {
+    lines.push(`STORY TYPE: ${req.storyType}`);
+  }
+  if (isPresetFieldEnabled(req.presetFieldEnabled, 'tone')) {
+    lines.push(`TONE: ${req.tone}`);
+  }
+  if (isPresetFieldEnabled(req.presetFieldEnabled, 'lesson')) {
+    lines.push(`THEME / LESSON (soft): ${req.lesson}`);
+  }
+  if (isPresetFieldEnabled(req.presetFieldEnabled, 'characterType')) {
+    lines.push(`MAIN CHARACTER TYPE: ${req.characterType}`);
+  }
+  if (isPresetFieldEnabled(req.presetFieldEnabled, 'setting')) {
+    lines.push(`SETTING: ${req.setting}`);
+  }
+  if (isPresetFieldEnabled(req.presetFieldEnabled, 'narrationStyle')) {
+    lines.push(`NARRATION STYLE: ${req.narrationStyle}`);
+  }
+  if (isPresetFieldEnabled(req.presetFieldEnabled, 'voiceEnergy')) {
+    lines.push(`VOICE ENERGY: ${req.voiceEnergy}`);
+  }
+  if (isPresetFieldEnabled(req.presetFieldEnabled, 'tagDensity')) {
+    lines.push(`TAG DENSITY: ${req.tagDensity}`);
+    lines.push(expressionTagDensityGuidance(req.tagDensity));
+  }
+  if (isPresetFieldEnabled(req.presetFieldEnabled, 'artStyle')) {
+    lines.push(formatArtStylePromptBlock(req, artStyleOverrides));
+  }
+
+  const optionalBlocks: string[] = [];
+  if (
+    req.flavor &&
+    isPresetFieldEnabled(req.presetFieldEnabled, 'flavor')
+  ) {
+    optionalBlocks.push(`PRESET FLAVOR:\n${req.flavor}`);
+  }
+  if (
+    req.coverArtDirection &&
+    isPresetFieldEnabled(req.presetFieldEnabled, 'coverArtDirection')
+  ) {
+    optionalBlocks.push(`VISUAL DIRECTION HINT:\n${req.coverArtDirection}`);
+  }
+  if (
+    req.musicDirection &&
+    isPresetFieldEnabled(req.presetFieldEnabled, 'musicDirection')
+  ) {
+    optionalBlocks.push(`MUSIC DIRECTION HINT:\n${req.musicDirection}`);
+  }
+
+  return `${lines.join('\n')}
 
 USER IDEA / PROMPT:
 ${idea}
 
-${req.flavor ? `PRESET FLAVOR:\n${req.flavor}\n` : ''}${req.coverArtDirection ? `VISUAL DIRECTION HINT:\n${req.coverArtDirection}\n` : ''}${req.musicDirection ? `MUSIC DIRECTION HINT:\n${req.musicDirection}\n` : ''}`;
+${optionalBlocks.join('\n\n')}`;
 }
 
 const BRIEF_JSON_INSTRUCTIONS = `Return a single JSON object with these keys:
@@ -54,7 +117,7 @@ const BRIEF_JSON_INSTRUCTIONS = `Return a single JSON object with these keys:
 - suggestedMood (one of: bedtime, calm-quiet, learning-time, car-ride, quick-listen, uplifting — or null)
 - ageRange (one of: 0-2, 3-5, 6-8, 9-12 — must match the age band above)
 - episodeOutline (array of { title, beat } — length must match episode count requested)
-- coverArtPrompt (one paragraph: kid-safe illustration only — scene, characters, palette, mood; do not describe on-image title or typography here; do not reserve space for series names, subtitles, bottom banners, or “label margins” — no extra text areas)
+- coverArtPrompt (one paragraph: kid-safe illustration only — scene, characters, palette, mood; **match the ART STYLE and any CUSTOM ART STYLE NOTES from the request above**; do not describe on-image title or typography here; do not reserve space for series names, subtitles, bottom banners, or “label margins” — no extra text areas)
 - musicPrompt (single paragraph: style, tempo, instruments; prefer instrumental)
 - estimatedRuntimeMinutes (number from 1 to 5, within the requested minute range)
 - safetyNotes (short: how you stayed age-safe)`;
@@ -94,6 +157,8 @@ function forestAnimalProtagonistSpin(
   req: GenerationRequest,
   varietySeed: string
 ): string | null {
+  if (!isPresetFieldEnabled(req.presetFieldEnabled, 'characterType')) return null;
+  if (!isPresetFieldEnabled(req.presetFieldEnabled, 'setting')) return null;
   if (req.characterType !== 'animal' || req.setting !== 'forest') return null;
   const s = varietySeed.trim();
   if (!s) return null;
@@ -108,7 +173,7 @@ function scriptJsonInstructions(density: string): string {
 - summary (short catalog summary)
 - fullScript (optional string: entire story in one block if standalone single episode)
 - episodes (array of length matching episode count; each has title, summary, scriptText, optional hookEnding for series)
-- coverArtPrompt (refined: same rules as brief — illustration/scene only; no series labels, subtitles, or reserved margins for extra text)
+- coverArtPrompt (refined: same rules as brief — illustration/scene only; match ART STYLE / custom art notes from the request; no series labels, subtitles, or reserved margins for extra text)
 - musicPrompt (refined)
 - narrationNotes (bullets for voice director)
 - estimatedRuntimeMinutes (number from 1 to 5, within the requested minute range)
@@ -117,8 +182,11 @@ function scriptJsonInstructions(density: string): string {
 - expressionTagDensity (must be exactly: "${density}")`;
 }
 
-export function buildBriefUserPrompt(req: GenerationRequest): string {
-  return `${requestSummary(req)}
+export function buildBriefUserPrompt(
+  req: GenerationRequest,
+  artStyleOverrides?: ArtStylePromptOverrides
+): string {
+  return `${requestSummary(req, artStyleOverrides)}
 
 TASK: Write a STORY BRIEF only (no full script yet).
 
@@ -129,13 +197,14 @@ ${BRIEF_JSON_INSTRUCTIONS}`;
 
 export function buildScriptUserPrompt(
   req: GenerationRequest,
-  brief: BriefPayloadParsed
+  brief: BriefPayloadParsed,
+  artStyleOverrides?: ArtStylePromptOverrides
 ): string {
   const briefJson = JSON.stringify(brief, null, 2);
   const density = req.tagDensity;
   const scriptInstructions = scriptJsonInstructions(density);
 
-  return `${requestSummary(req)}
+  return `${requestSummary(req, artStyleOverrides)}
 
 APPROVED BRIEF (follow closely; you may refine titles for read-aloud rhythm):
 ${briefJson}
@@ -156,9 +225,9 @@ SCRIPT RULES:
 
 export function buildOpenRouterMessagesForBrief(
   req: GenerationRequest,
-  opts?: { varietySeed?: string }
+  opts?: { varietySeed?: string; artStyleOverrides?: ArtStylePromptOverrides }
 ) {
-  let user = buildBriefUserPrompt(req);
+  let user = buildBriefUserPrompt(req, opts?.artStyleOverrides);
   const seed = opts?.varietySeed?.trim() ?? '';
   const spin = forestAnimalProtagonistSpin(req, seed);
   if (spin) {
@@ -172,11 +241,15 @@ export function buildOpenRouterMessagesForBrief(
 
 export function buildOpenRouterMessagesForScript(
   req: GenerationRequest,
-  brief: BriefPayloadParsed
+  brief: BriefPayloadParsed,
+  artStyleOverrides?: ArtStylePromptOverrides
 ) {
   return [
     { role: 'system' as const, content: storyCoreSystemPreamble() },
-    { role: 'user' as const, content: buildScriptUserPrompt(req, brief) },
+    {
+      role: 'user' as const,
+      content: buildScriptUserPrompt(req, brief, artStyleOverrides),
+    },
   ];
 }
 
@@ -210,7 +283,8 @@ Expression tag density for bracket tags must match: "${density}".`;
 export function buildSingleEpisodeUserPrompt(
   req: GenerationRequest,
   brief: BriefPayloadParsed,
-  ctx: SingleEpisodePromptContext
+  ctx: SingleEpisodePromptContext,
+  artStyleOverrides?: ArtStylePromptOverrides
 ): string {
   const briefJson = JSON.stringify(brief, null, 2);
   const priorBlock =
@@ -231,7 +305,7 @@ export function buildSingleEpisodeUserPrompt(
     ctx.directions.trim() ||
     '(No extra directions — follow the brief and continuity.)';
 
-  return `${requestSummary(req)}
+  return `${requestSummary(req, artStyleOverrides)}
 
 APPROVED SERIES BRIEF (stay consistent with characters, setting, and tone):
 ${briefJson}
@@ -259,13 +333,19 @@ SCRIPT RULES:
 export function buildOpenRouterMessagesForSingleEpisode(
   req: GenerationRequest,
   brief: BriefPayloadParsed,
-  ctx: SingleEpisodePromptContext
+  ctx: SingleEpisodePromptContext,
+  artStyleOverrides?: ArtStylePromptOverrides
 ) {
   return [
     { role: 'system' as const, content: storyCoreSystemPreamble() },
     {
       role: 'user' as const,
-      content: buildSingleEpisodeUserPrompt(req, brief, ctx),
+      content: buildSingleEpisodeUserPrompt(
+        req,
+        brief,
+        ctx,
+        artStyleOverrides
+      ),
     },
   ];
 }
@@ -322,16 +402,21 @@ export type DraftCoverImagePromptInput = {
 /** Full prompt sent to the image API for this draft’s current brief/script/title. */
 export function buildDraftCoverImagePrompt(
   req: GenerationRequest,
-  draft: DraftCoverImagePromptInput
+  draft: DraftCoverImagePromptInput,
+  artStyleOverrides?: ArtStylePromptOverrides
 ): string {
   const scriptPkg = draft.scriptPackage as ScriptPackagePayloadParsed | null;
   const brief = draft.brief as BriefPayloadParsed | null;
   const title = scriptPkg?.title ?? brief?.title ?? draft.title;
   const logline = resolveCoverLogline(brief, req);
-  const coverArtPrompt = pickCoverArtPromptSegment(
+  const scene = pickCoverArtPromptSegment(
     scriptPkg,
     brief,
     draft.title
   );
+  const styleBlock = isPresetFieldEnabled(req.presetFieldEnabled, 'artStyle')
+    ? formatArtStylePromptBlock(req, artStyleOverrides)
+    : '';
+  const coverArtPrompt = styleBlock ? `${scene}\n\n${styleBlock}` : scene;
   return buildCoverImagePrompt({ logline, title, coverArtPrompt });
 }

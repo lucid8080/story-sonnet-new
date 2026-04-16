@@ -18,6 +18,10 @@ import {
 } from '@/lib/story-studio/art-style-options';
 import type { ArtStyleId } from '@/lib/story-studio/art-style-options';
 import { draftSlugFromTitle } from '@/lib/story-studio/draft-slug-from-title';
+import {
+  defaultPresetFieldEnabled,
+  type PresetFieldToggleKey,
+} from '@/lib/story-studio/preset-field-toggles';
 import { buildDraftCoverImagePrompt } from '@/lib/story-studio/prompt-builder';
 import { studioSeriesTitleForDraftMeta } from '@/lib/story-studio/studio-series-for-draft-meta';
 import type { GenerationRequest } from '@/lib/story-studio/types';
@@ -390,6 +394,11 @@ export function StoryStudioClient() {
   }, [saveDraftPatch]);
 
   const req = draft?.request;
+  const presetFieldEnabled = req?.presetFieldEnabled ?? defaultPresetFieldEnabled();
+  const isPresetFieldOn = useCallback(
+    (key: PresetFieldToggleKey) => presetFieldEnabled[key] !== false,
+    [presetFieldEnabled]
+  );
 
   useEffect(() => {
     if (tab !== 'audio') return;
@@ -435,6 +444,18 @@ export function StoryStudioClient() {
       });
     },
     [debouncedFlushRequest]
+  );
+
+  const setPresetFieldEnabled = useCallback(
+    (key: PresetFieldToggleKey, enabled: boolean) => {
+      const current = requestRef.current;
+      const nextMap = {
+        ...(current?.presetFieldEnabled ?? defaultPresetFieldEnabled()),
+        [key]: enabled,
+      };
+      patchRequest({ presetFieldEnabled: nextMap });
+    },
+    [patchRequest]
   );
 
   useEffect(() => {
@@ -1178,6 +1199,9 @@ export function StoryStudioClient() {
                 options={ART_STYLE_OPTIONS}
                 columns={4}
                 value={req.artStyle}
+                muted={!isPresetFieldOn('artStyle')}
+                toggleChecked={isPresetFieldOn('artStyle')}
+                onToggleChange={(v) => setPresetFieldEnabled('artStyle', v)}
                 onChange={(id) =>
                   patchRequest({
                     artStyle: id as ArtStyleId,
@@ -1207,6 +1231,9 @@ export function StoryStudioClient() {
               label="Age band"
               options={AGE}
               value={req.studioAgeBand}
+              muted={!isPresetFieldOn('studioAgeBand')}
+              toggleChecked={isPresetFieldOn('studioAgeBand')}
+              onToggleChange={(v) => setPresetFieldEnabled('studioAgeBand', v)}
               onChange={(id) =>
                 patchRequest({
                   studioAgeBand: id as GenerationRequest['studioAgeBand'],
@@ -1217,6 +1244,9 @@ export function StoryStudioClient() {
               label="Story type"
               options={STORY_TYPES}
               value={req.storyType}
+              muted={!isPresetFieldOn('storyType')}
+              toggleChecked={isPresetFieldOn('storyType')}
+              onToggleChange={(v) => setPresetFieldEnabled('storyType', v)}
               onChange={(id) =>
                 patchRequest({ storyType: id as GenerationRequest['storyType'] })
               }
@@ -1225,6 +1255,9 @@ export function StoryStudioClient() {
               label="Format"
               options={FORMATS}
               value={req.format}
+              muted={!isPresetFieldOn('format')}
+              toggleChecked={isPresetFieldOn('format')}
+              onToggleChange={(v) => setPresetFieldEnabled('format', v)}
               onChange={(id) =>
                 patchRequest({ format: id as GenerationRequest['format'] })
               }
@@ -1233,6 +1266,9 @@ export function StoryStudioClient() {
               label="Target length"
               options={TARGET_LENGTH_RANGES}
               value={req.targetLengthRange}
+              muted={!isPresetFieldOn('targetLengthRange')}
+              toggleChecked={isPresetFieldOn('targetLengthRange')}
+              onToggleChange={(v) => setPresetFieldEnabled('targetLengthRange', v)}
               onChange={(id) =>
                 patchRequest({
                   targetLengthRange: id as GenerationRequest['targetLengthRange'],
@@ -1243,6 +1279,9 @@ export function StoryStudioClient() {
               label="Tone"
               options={TONES}
               value={req.tone}
+              muted={!isPresetFieldOn('tone')}
+              toggleChecked={isPresetFieldOn('tone')}
+              onToggleChange={(v) => setPresetFieldEnabled('tone', v)}
               onChange={(id) =>
                 patchRequest({ tone: id as GenerationRequest['tone'] })
               }
@@ -1251,6 +1290,9 @@ export function StoryStudioClient() {
               label="Lesson / theme"
               options={LESSONS}
               value={req.lesson}
+              muted={!isPresetFieldOn('lesson')}
+              toggleChecked={isPresetFieldOn('lesson')}
+              onToggleChange={(v) => setPresetFieldEnabled('lesson', v)}
               onChange={(id) =>
                 patchRequest({ lesson: id as GenerationRequest['lesson'] })
               }
@@ -1259,6 +1301,9 @@ export function StoryStudioClient() {
               label="Main character"
               options={CHARS}
               value={req.characterType}
+              muted={!isPresetFieldOn('characterType')}
+              toggleChecked={isPresetFieldOn('characterType')}
+              onToggleChange={(v) => setPresetFieldEnabled('characterType', v)}
               onChange={(id) =>
                 patchRequest({
                   characterType: id as GenerationRequest['characterType'],
@@ -1269,6 +1314,9 @@ export function StoryStudioClient() {
               label="Setting"
               options={SETTINGS}
               value={req.setting}
+              muted={!isPresetFieldOn('setting')}
+              toggleChecked={isPresetFieldOn('setting')}
+              onToggleChange={(v) => setPresetFieldEnabled('setting', v)}
               onChange={(id) =>
                 patchRequest({ setting: id as GenerationRequest['setting'] })
               }
@@ -1277,6 +1325,9 @@ export function StoryStudioClient() {
               label="Narration style"
               options={NARRATION}
               value={req.narrationStyle}
+              muted={!isPresetFieldOn('narrationStyle')}
+              toggleChecked={isPresetFieldOn('narrationStyle')}
+              onToggleChange={(v) => setPresetFieldEnabled('narrationStyle', v)}
               onChange={(id) =>
                 patchRequest({
                   narrationStyle: id as GenerationRequest['narrationStyle'],
@@ -1287,6 +1338,9 @@ export function StoryStudioClient() {
               label="Voice energy"
               options={ENERGY}
               value={req.voiceEnergy}
+              muted={!isPresetFieldOn('voiceEnergy')}
+              toggleChecked={isPresetFieldOn('voiceEnergy')}
+              onToggleChange={(v) => setPresetFieldEnabled('voiceEnergy', v)}
               onChange={(id) =>
                 patchRequest({
                   voiceEnergy: id as GenerationRequest['voiceEnergy'],
@@ -1297,6 +1351,9 @@ export function StoryStudioClient() {
               label="Expression tag density"
               options={TAGS}
               value={req.tagDensity}
+              muted={!isPresetFieldOn('tagDensity')}
+              toggleChecked={isPresetFieldOn('tagDensity')}
+              onToggleChange={(v) => setPresetFieldEnabled('tagDensity', v)}
               onChange={(id) =>
                 patchRequest({
                   tagDensity: id as GenerationRequest['tagDensity'],
@@ -1310,21 +1367,32 @@ export function StoryStudioClient() {
               <label className="text-xs font-bold uppercase text-slate-500">
                 Episodes (mini-series)
               </label>
-              <input
-                type="number"
-                min={2}
-                max={12}
-                className="mt-1 w-28 rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                value={req.episodeCount}
-                onChange={(e) =>
-                  patchRequest({
-                    episodeCount: Math.min(
-                      12,
-                      Math.max(2, Number(e.target.value) || 2)
-                    ),
-                  })
-                }
-              />
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  type="number"
+                  min={2}
+                  max={12}
+                  className="w-28 rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  value={req.episodeCount}
+                  onChange={(e) =>
+                    patchRequest({
+                      episodeCount: Math.min(
+                        12,
+                        Math.max(2, Number(e.target.value) || 2)
+                      ),
+                    })
+                  }
+                />
+                <input
+                  type="checkbox"
+                  aria-label="Episode count preset toggle"
+                  className="h-4 w-4 rounded border-slate-300 text-violet-600"
+                  checked={isPresetFieldOn('episodeCount')}
+                  onChange={(e) =>
+                    setPresetFieldEnabled('episodeCount', e.target.checked)
+                  }
+                />
+              </div>
             </div>
           )}
 

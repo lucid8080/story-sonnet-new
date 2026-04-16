@@ -7,6 +7,7 @@ import {
   type SingleEpisodePromptContext,
 } from '@/lib/story-studio/prompt-builder';
 import { resolveDraftGenerationRequest } from '@/lib/story-studio/normalize-request';
+import { getArtStylePromptOverrides } from '@/lib/story-studio/story-studio-settings';
 import {
   parseJsonToScriptEpisode,
   type BriefPayloadParsed,
@@ -78,6 +79,7 @@ export async function POST(req: Request) {
   }
 
   const reqResolved = resolveDraftGenerationRequest(draft);
+  const artStyleOverrides = await getArtStylePromptOverrides(prisma);
   const eps = draft.episodes;
   const n = eps.length;
 
@@ -123,7 +125,8 @@ export async function POST(req: Request) {
   const messages = buildOpenRouterMessagesForSingleEpisode(
     reqResolved,
     brief,
-    ctx
+    ctx,
+    artStyleOverrides
   );
 
   try {
