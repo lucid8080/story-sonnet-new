@@ -144,7 +144,6 @@ export default function Footer() {
             </h2>
             <nav aria-label="Help and account" className="flex flex-col space-y-3 text-sm">
               <FooterNavLink href="/how-it-works">How it Works</FooterNavLink>
-              <FooterNavLink href="/pricing">Membership</FooterNavLink>
               <FooterNavLink href="/faq">FAQ</FooterNavLink>
               <FooterNavLink href="/contact">Contact</FooterNavLink>
               <FooterNavLink href="/login">Log in</FooterNavLink>
