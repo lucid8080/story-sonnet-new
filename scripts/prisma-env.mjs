@@ -44,6 +44,50 @@ if (prismaArgs.length === 0) {
   process.exit(1);
 }
 
+/**
+ * On Windows, `prisma generate` renames a temp file onto `query_engine-*.dll.node`.
+ * If another Node process (e.g. `next dev`) has loaded that DLL, rename fails with EPERM.
+ * Removing the existing engine first avoids the conflict when the file is not locked.
+ */
+function prepareWindowsPrismaGenerate(projectRoot) {
+  if (process.platform !== 'win32' || prismaArgs[0] !== 'generate') return;
+
+  const clientDir = path.join(projectRoot, 'node_modules', '.prisma', 'client');
+  if (!fs.existsSync(clientDir)) return;
+
+  let entries;
+  try {
+    entries = fs.readdirSync(clientDir);
+  } catch {
+    return;
+  }
+
+  const toRemove = entries.filter(
+    (name) =>
+      (name.startsWith('query_engine-') && name.endsWith('.dll.node')) ||
+      (name.includes('query_engine') && name.includes('.tmp'))
+  );
+
+  for (const name of toRemove) {
+    const full = path.join(clientDir, name);
+    try {
+      fs.unlinkSync(full);
+    } catch (e) {
+      const code = /** @type {{ code?: string }} */ (e)?.code;
+      if (code === 'EPERM' || code === 'EBUSY' || code === 'ENOENT') {
+        if (code === 'ENOENT') continue;
+        console.error(
+          '[prisma-env] Cannot update Prisma query engine (file is in use). Stop `npm run dev` and any other Node processes using this project, then run the command again.'
+        );
+        process.exit(1);
+      }
+      throw e;
+    }
+  }
+}
+
+prepareWindowsPrismaGenerate(root);
+
 const result = spawnSync('npx', ['prisma', ...prismaArgs], {
   cwd: root,
   stdio: 'inherit',

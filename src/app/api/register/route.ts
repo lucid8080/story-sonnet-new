@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import { validatePasswordPolicy } from '@/lib/auth/passwordPolicy';
 import prisma from '@/lib/prisma';
 
 export async function POST(req: Request) {
@@ -10,11 +11,16 @@ export async function POST(req: Request) {
     const fullName =
       typeof body.fullName === 'string' ? body.fullName.trim() : null;
 
-    if (!email || !password || password.length < 8) {
+    if (!email || !password) {
       return NextResponse.json(
-        { error: 'Valid email and password (8+ chars) required.' },
+        { error: 'Valid email and password are required.' },
         { status: 400 }
       );
+    }
+
+    const policyError = validatePasswordPolicy(password, 'register');
+    if (policyError) {
+      return NextResponse.json({ error: policyError }, { status: 400 });
     }
 
     const existing = await prisma.user.findUnique({ where: { email } });

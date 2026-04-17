@@ -1,21 +1,10 @@
 import bcrypt from 'bcryptjs';
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
+import { validatePasswordPolicy } from '@/lib/auth/passwordPolicy';
 import prisma from '@/lib/prisma';
 
 export const runtime = 'nodejs';
-
-const MIN_PASSWORD_LENGTH = 8;
-
-function validateNewPassword(password: string): string | null {
-  if (password.length < MIN_PASSWORD_LENGTH) {
-    return `New password must be at least ${MIN_PASSWORD_LENGTH} characters long.`;
-  }
-  if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
-    return 'New password must contain at least one letter and one number.';
-  }
-  return null;
-}
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -53,7 +42,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const passwordPolicyError = validateNewPassword(newPassword);
+  const passwordPolicyError = validatePasswordPolicy(newPassword, 'change');
   if (passwordPolicyError) {
     return NextResponse.json({ error: passwordPolicyError }, { status: 400 });
   }

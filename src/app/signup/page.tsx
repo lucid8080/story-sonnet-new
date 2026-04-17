@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { z } from 'zod';
+import { MIN_PASSWORD_LENGTH, PASSWORD_REQUIREMENTS_HINT } from '@/lib/auth/passwordPolicy';
 
 function mergeTrialCampaignIntoCallback(callbackUrl: string, trialCampaignId: string | null): string {
   if (!trialCampaignId) return callbackUrl;
@@ -138,9 +139,11 @@ function SignupForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={8}
+                minLength={MIN_PASSWORD_LENGTH}
+                autoComplete="new-password"
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-rose-300 focus:bg-white focus:ring-2 focus:ring-rose-100"
               />
+              <p className="mt-1.5 text-xs text-slate-500">{PASSWORD_REQUIREMENTS_HINT}</p>
             </div>
             {error && (
               <div className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600 ring-1 ring-rose-100">
