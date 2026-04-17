@@ -64,15 +64,15 @@ export default function PricingCard({
       <div className="mt-5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
         {isAnnual ? (
           <>
-            <div className="text-4xl font-black text-slate-900">$96</div>
+            <div className="text-4xl font-black text-slate-900">$76.80</div>
             <div className="text-sm font-semibold text-slate-500">/ year</div>
             <div className="w-full text-sm text-slate-600">
-              $8/mo billed yearly — save vs $120 paid monthly
+              $6.40/mo billed yearly — save vs $96 paid monthly
             </div>
           </>
         ) : (
           <>
-            <div className="text-4xl font-black text-slate-900">$10</div>
+            <div className="text-4xl font-black text-slate-900">$8</div>
             <div className="text-sm font-semibold text-slate-500">/ month</div>
           </>
         )}
@@ -91,8 +91,8 @@ export default function PricingCard({
         {disabled
           ? 'Preparing checkout…'
           : isAnnual
-            ? 'Subscribe for $96/year'
-            : 'Subscribe for $10/month'}
+            ? 'Subscribe for $76.80/year'
+            : 'Subscribe for $8/month'}
       </button>
       <p className="mt-3 text-xs text-slate-400">
         Secure payments are handled by Stripe. You can manage or cancel your
