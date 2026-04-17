@@ -1,5 +1,16 @@
 import sanitizeHtml from 'sanitize-html';
 
+const storyEmbedDivAttributes = [
+  'class',
+  'data-story-embed',
+  'data-story-slug',
+  'data-story-title',
+  'data-cover-url',
+  'data-show-cover',
+  'data-audio-mode',
+  'data-episode-number',
+] as const;
+
 const blogSanitizeOptions: sanitizeHtml.IOptions = {
   allowedTags: sanitizeHtml.defaults.allowedTags.concat([
     'img',
@@ -16,6 +27,7 @@ const blogSanitizeOptions: sanitizeHtml.IOptions = {
     ...sanitizeHtml.defaults.allowedAttributes,
     a: ['href', 'name', 'target', 'rel'],
     img: ['src', 'alt', 'title', 'width', 'height', 'loading'],
+    div: [...storyEmbedDivAttributes],
     '*': ['class'],
   },
   allowedSchemes: ['http', 'https', 'mailto'],
