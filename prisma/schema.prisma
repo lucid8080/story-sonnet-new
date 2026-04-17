@@ -355,6 +355,15 @@ model BlogKeyword {
   @@map("blog_keywords")
 }
 
+/// Singleton (id = global): blog admin UI settings (e.g. custom feature-image style presets).
+model BlogAdminSettings {
+  id                                 String   @id @default("global")
+  featureImageStyleCustomPresetsJson Json     @default("[]") @map("feature_image_style_custom_presets_json")
+  updatedAt                          DateTime @updatedAt @map("updated_at")
+
+  @@map("blog_admin_settings")
+}
+
 model AdminInboxEvent {
   id        String             @id @default(cuid())
   type      AdminInboxEventType
