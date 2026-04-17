@@ -179,6 +179,180 @@ model User {
   trialClaims              TrialClaim[]
   campaignStatusAudits     CampaignStatusHistory[] @relation("CampaignStatusActor")
   badgeAssetsUploaded      BadgeAsset[]             @relation("BadgeAssetUploadedBy")
+  blogPostsAuthored        BlogPost[]               @relation("BlogPostAuthor")
+}
+
+// --- Blog -------------------------------------------------------------------
+
+enum BlogPostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum BlogGenerationSource {
+  MANUAL
+  AI_SCRATCH
+  AI_KEYWORDS
+  AI_REWRITE
+}
+
+enum BlogKeywordPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum BlogKeywordStatus {
+  UNUSED
+  TOPIC_CREATED
+  DRAFT_CREATED
+  PUBLISHED
+  SKIPPED
+}
+
+enum BlogKeywordSourceType {
+  MANUAL
+  IMPORTED
+  AI_SUGGESTED
+}
+
+model BlogCategory {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  accentColor String?  @map("accent_color")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  posts    BlogPost[]
+  keywords BlogKeyword[]
+
+  @@index([slug])
+  @@index([createdAt])
+  @@map("blog_categories")
+}
+
+model BlogTag {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  posts BlogPostTag[]
+
+  @@index([slug])
+  @@index([createdAt])
+  @@map("blog_tags")
+}
+
+model BlogPostTag {
+  postId String @map("post_id")
+  tagId  String @map("tag_id")
+
+  post BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag  BlogTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+  @@index([tagId])
+  @@map("blog_post_tags")
+}
+
+model BlogKeywordGroup {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  keywords BlogKeyword[]
+
+  @@index([slug])
+  @@map("blog_keyword_groups")
+}
+
+model BlogPost {
+  id                      String               @id @default(cuid())
+  title                   String
+  slug                    String               @unique
+  excerpt                 String?
+  contentHtml             String               @map("content_html") @db.Text
+  status                  BlogPostStatus       @default(DRAFT)
+  featuredImageUrl        String?              @map("featured_image_url")
+  featuredImageStorageKey String?              @map("featured_image_storage_key")
+  seoTitle                String?              @map("seo_title")
+  seoDescription          String?              @map("seo_description") @db.Text
+  canonicalUrl            String?              @map("canonical_url")
+  authorName              String?              @map("author_name")
+  authorId                String?              @map("author_id")
+  publishedAt             DateTime?            @map("published_at")
+  scheduledAt             DateTime?            @map("scheduled_at")
+  isFeatured              Boolean              @default(false) @map("is_featured")
+  allowComments           Boolean              @default(false) @map("allow_comments")
+  readingTimeMinutes      Int?                 @map("reading_time_minutes")
+  viewCount               Int                  @default(0) @map("view_count")
+  metaKeywords            String?              @map("meta_keywords") @db.Text
+  aiPrompt                String?              @map("ai_prompt") @db.Text
+  aiKeywords              Json?                @map("ai_keywords")
+  generationSource        BlogGenerationSource @default(MANUAL) @map("generation_source")
+  categoryId              String?              @map("category_id")
+  createdAt               DateTime             @default(now()) @map("created_at")
+  updatedAt               DateTime             @updatedAt @map("updated_at")
+
+  category      BlogCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  author        User?         @relation("BlogPostAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  tags          BlogPostTag[]
+  linkedKeyword BlogKeyword? @relation("BlogPostKeywordLink")
+
+  @@index([slug])
+  @@index([status])
+  @@index([publishedAt])
+  @@index([scheduledAt])
+  @@index([categoryId])
+  @@index([isFeatured])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([status, publishedAt])
+  @@index([status, scheduledAt])
+  @@map("blog_posts")
+}
+
+model BlogKeyword {
+  id                  String               @id @default(cuid())
+  keyword             String
+  normalizedKeyword   String               @unique @map("normalized_keyword")
+  searchIntent        String?              @map("search_intent")
+  notes               String?              @db.Text
+  priority            BlogKeywordPriority  @default(MEDIUM)
+  status              BlogKeywordStatus    @default(UNUSED)
+  sourceType          BlogKeywordSourceType @default(MANUAL) @map("source_type")
+  categoryId          String?              @map("category_id")
+  groupId             String?              @map("group_id")
+  targetAudience      String?              @map("target_audience")
+  relatedQuestions    Json?                @map("related_questions")
+  tagsJson            Json?                @map("tags_json")
+  assignedTopicTitle  String?              @map("assigned_topic_title")
+  assignedBlogPostId  String?              @unique @map("assigned_blog_post_id")
+  lastGeneratedAt     DateTime?            @map("last_generated_at")
+  completedAt         DateTime?            @map("completed_at")
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+
+  category     BlogCategory?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  group        BlogKeywordGroup?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  assignedPost BlogPost?          @relation("BlogPostKeywordLink", fields: [assignedBlogPostId], references: [id], onDelete: SetNull)
+
+  @@index([keyword])
+  @@index([normalizedKeyword])
+  @@index([status])
+  @@index([priority])
+  @@index([categoryId])
+  @@index([createdAt])
+  @@map("blog_keywords")
 }
 
 model AdminInboxEvent {
