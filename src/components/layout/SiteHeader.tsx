@@ -140,6 +140,13 @@ export default function SiteHeader() {
             Library
           </NavLink>
           <NavLink
+            href="/blog"
+            activeClass="hidden rounded-full bg-rose-500 px-3 py-1.5 text-white sm:inline-flex"
+            idleClass="hidden rounded-full px-3 py-1.5 text-rose-600 hover:bg-rose-50 sm:inline-flex"
+          >
+            Blog
+          </NavLink>
+          <NavLink
             href="/pricing"
             activeClass="rounded-full bg-rose-500 px-3 py-1.5 text-white"
             idleClass="rounded-full px-3 py-1.5 text-rose-600 hover:bg-rose-50"
@@ -196,6 +203,12 @@ export default function SiteHeader() {
               className="rounded-xl px-3 py-2 font-semibold text-rose-600 hover:bg-rose-50"
             >
               Library
+            </Link>
+            <Link
+              href="/blog"
+              className="rounded-xl px-3 py-2 font-semibold text-rose-600 hover:bg-rose-50"
+            >
+              Blog
             </Link>
             <Link
               href="/pricing"

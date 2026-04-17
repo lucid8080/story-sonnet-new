@@ -2,6 +2,7 @@
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 import {
+  buildBlogImageKey,
   buildCoverKey,
   buildPrivateAudioKey,
   buildSpotlightBadgeKey,
@@ -33,12 +34,21 @@ export async function POST(req: Request) {
   const formData = await req.formData();
   const file = formData.get('file') as File | null;
   const assetKindRaw = (formData.get('assetKind') as string) || 'cover';
-  const assetKind: 'cover' | 'audio' | 'spotlight_badge' =
+  const assetKind:
+    | 'cover'
+    | 'audio'
+    | 'spotlight_badge'
+    | 'blog_cover'
+    | 'blog_inline' =
     assetKindRaw === 'audio'
       ? 'audio'
       : assetKindRaw === 'spotlight_badge'
         ? 'spotlight_badge'
-        : 'cover';
+        : assetKindRaw === 'blog_cover'
+          ? 'blog_cover'
+          : assetKindRaw === 'blog_inline'
+            ? 'blog_inline'
+            : 'cover';
 
   const bucketField =
     (formData.get('bucket') as string) ||
@@ -61,10 +71,12 @@ export async function POST(req: Request) {
   let safeName = sanitizeUploadFileName(file.name);
 
   let storySlug = '';
+  let blogSlug = '';
   let audioSubPathSegments: string[] = [];
 
   try {
     storySlug = validateStorySlugInput(formData.get('storySlug') as string);
+    blogSlug = validateStorySlugInput(formData.get('blogSlug') as string);
     if (assetKind === 'audio') {
       audioSubPathSegments = parseAudioSubPathSegments(
         formData.get('audioSubPath') as string
@@ -77,7 +89,11 @@ export async function POST(req: Request) {
     throw e;
   }
 
-  if (storySlug || assetKind === 'spotlight_badge') {
+  if (
+    storySlug ||
+    assetKind === 'spotlight_badge' ||
+    ((assetKind === 'blog_cover' || assetKind === 'blog_inline') && blogSlug)
+  ) {
     safeName = makeUniqueSafeFileName(safeName);
   }
 
@@ -125,6 +141,43 @@ export async function POST(req: Request) {
 
       return NextResponse.json({
         assetKind: 'spotlight_badge',
+        fileUrl: url,
+        storagePath: key,
+      });
+    }
+
+    if (assetKind === 'blog_cover' || assetKind === 'blog_inline') {
+      if (!blogSlug) {
+        return NextResponse.json(
+          {
+            error:
+              'Blog uploads require blogSlug (lowercase slug for the post path segment).',
+          },
+          { status: 400 }
+        );
+      }
+      const key = buildBlogImageKey({ blogSlug, safeFileName: safeName });
+      const { url } = await uploadPublicObject({
+        bucket: bucketField,
+        key,
+        body: buf,
+        contentType: file.type || 'image/jpeg',
+      });
+
+      if (process.env.DATABASE_URL) {
+        await prisma.upload.create({
+          data: {
+            fileName: file.name,
+            fileType: file.type || 'image/jpeg',
+            fileUrl: url,
+            storagePath: key,
+            uploadedBy: session.user.id,
+          },
+        });
+      }
+
+      return NextResponse.json({
+        assetKind,
         fileUrl: url,
         storagePath: key,
       });

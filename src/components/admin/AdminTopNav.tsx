@@ -27,6 +27,9 @@ export function AdminTopNav() {
       <Link href="/admin/content-calendar" className="hover:text-violet-600">
         Content Calendar
       </Link>
+      <Link href="/admin/blog" className="hover:text-violet-600">
+        Blog
+      </Link>
       <span className="ml-auto flex items-center gap-1">
         <AdminNotificationBell />
         <Link href="/" className="pl-2 text-slate-500 hover:text-slate-800">

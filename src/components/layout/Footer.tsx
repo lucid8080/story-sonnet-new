@@ -101,6 +101,7 @@ export default function Footer() {
             </h2>
             <nav aria-label="Explore Sozo Play" className="flex flex-col space-y-3 text-sm">
               <FooterNavLink href="/library">Library</FooterNavLink>
+              <FooterNavLink href="/blog">Blog</FooterNavLink>
               <FooterNavLink href="/pricing">Pricing</FooterNavLink>
               <FooterNavLink href="/library?sort=new">New Stories</FooterNavLink>
               <FooterNavLink href="/library?sort=popular">

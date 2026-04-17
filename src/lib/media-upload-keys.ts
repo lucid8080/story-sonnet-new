@@ -83,6 +83,16 @@ export function buildCoverKey(params: {
   return key;
 }
 
+/** Public blog images (featured + inline), same slug rules as story segments. */
+export function buildBlogImageKey(params: {
+  blogSlug: string;
+  safeFileName: string;
+}): string {
+  const key = `blog/${params.blogSlug}/${params.safeFileName}`;
+  assertKeyLength(key);
+  return key;
+}
+
 /** Public PNG spotlight badges (transparent-friendly), separate from story covers. */
 export function buildSpotlightBadgeKey(params: { safeFileName: string }): string {
   const key = `spotlight-badges/${params.safeFileName}`;
