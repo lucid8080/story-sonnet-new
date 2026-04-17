@@ -273,7 +273,14 @@ export function AdminBlogEditor({ postId }: { postId: string }) {
         </div>
 
         <AiBlogGenerator
+          postId={post.id}
           blogSlug={post.slug}
+          imageContext={{
+            title: post.title,
+            excerpt: post.excerpt ?? '',
+            tagNames: post.tags.map((t) => t.tag.name),
+            getContentHtml: () => contentHtmlRef.current,
+          }}
           onApplyArticle={(payload) => {
             const nextHtml =
               payload.contentHtml != null && payload.contentHtml !== ''

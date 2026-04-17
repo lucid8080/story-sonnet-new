@@ -25,13 +25,34 @@ export async function POST(req: Request) {
     );
   }
 
-  const { prompt, title, excerpt, keywords } = parsed.data;
-  const enriched = [
-    'Wide 16:9 blog hero image, no text in the image, family-friendly illustration or photography style.',
+  const {
     prompt,
-    title ? `Title context: ${title}` : '',
-    excerpt ? `Excerpt: ${excerpt}` : '',
-    keywords?.length ? `Keywords: ${keywords.join(', ')}` : '',
+    contentDirection,
+    imageStyle,
+    contentSummary,
+    title,
+    excerpt,
+    keywords,
+  } = parsed.data;
+
+  const kwLine =
+    keywords?.filter((k) => k.trim().length > 0).join(', ') ?? '';
+
+  const enriched = [
+    'Wide 16:9 blog hero image, no text in the image, family-friendly.',
+    contentDirection?.trim()
+      ? `Content direction (what to depict): ${contentDirection.trim()}`
+      : '',
+    imageStyle?.trim()
+      ? `Visual style (medium, lighting, mood): ${imageStyle.trim()}`
+      : '',
+    title?.trim() ? `Title: ${title.trim()}` : '',
+    excerpt?.trim() ? `Excerpt: ${excerpt.trim()}` : '',
+    contentSummary?.trim()
+      ? `Article summary for imagery: ${contentSummary.trim()}`
+      : '',
+    kwLine ? `Keywords: ${kwLine}` : '',
+    prompt?.trim() ? `Additional notes: ${prompt.trim()}` : '',
   ]
     .filter(Boolean)
     .join('\n');

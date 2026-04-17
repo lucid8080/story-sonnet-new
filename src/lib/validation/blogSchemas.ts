@@ -117,12 +117,53 @@ export const blogGenerateRewriteSchema = z.object({
   extraInstructions: z.string().max(2000).optional(),
 });
 
-export const blogGenerateImageSchema = z.object({
-  prompt: z.string().min(1).max(4000),
+const blogGenerateImageFields = {
+  /** Legacy freeform; optional if other context is provided */
+  prompt: z.string().max(4000).optional(),
+  /** What the image should depict (scene, subjects, metaphor) */
+  contentDirection: z.string().max(2000).optional(),
+  /** Medium, lighting, palette, illustration vs photo */
+  imageStyle: z.string().max(1000).optional(),
+  /** Plain-text excerpt of article body for grounding */
+  contentSummary: z.string().max(8000).optional(),
   title: z.string().max(300).optional(),
   excerpt: z.string().max(500).optional(),
   keywords: z.array(z.string()).max(50).optional(),
+};
+
+export const blogGenerateImageSchema = z
+  .object(blogGenerateImageFields)
+  .superRefine((data, ctx) => {
+    const has =
+      (data.prompt?.trim().length ?? 0) > 0 ||
+      (data.contentDirection?.trim().length ?? 0) > 0 ||
+      (data.imageStyle?.trim().length ?? 0) > 0 ||
+      (data.contentSummary?.trim().length ?? 0) > 0 ||
+      (data.title?.trim().length ?? 0) > 0 ||
+      (data.excerpt?.trim().length ?? 0) > 0 ||
+      (data.keywords?.some((k) => k.trim().length > 0) ?? false);
+    if (!has) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'Provide at least one of: content direction, style, additional notes, title, excerpt, article summary, or keywords',
+      });
+    }
+  });
+
+export const blogFeatureImageStyleCustomPresetSchema = z.object({
+  id: z.string().min(1).max(100),
+  label: z.string().min(1).max(120),
+  text: z.string().min(1).max(4000),
 });
+
+export const blogAdminSettingsPatchSchema = z
+  .object({
+    featureImageStyleCustomPresets: z
+      .array(blogFeatureImageStyleCustomPresetSchema)
+      .max(30),
+  })
+  .strict();
 
 export const blogPublishSchema = z.object({
   status: z.enum(['DRAFT', 'SCHEDULED', 'PUBLISHED', 'ARCHIVED']),
