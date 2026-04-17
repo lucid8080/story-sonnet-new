@@ -733,13 +733,13 @@ export function StoryPageClient({
                 ) : null}
               </div>
 
-              <ul className="divide-y divide-slate-100" aria-live="polite">
+              <ul className="divide-y divide-slate-200" aria-live="polite">
                 {showFullThemeBarUi ? (
-                  <li className="py-1">
+                  <li>
                     <div
                       className={`rounded-lg px-1 py-2 transition ${
                         coverPlaybackSelection === 'fullTheme'
-                          ? 'bg-rose-50/80 ring-1 ring-rose-100/80'
+                          ? ''
                           : 'hover:bg-slate-50/80'
                       }`}
                     >
@@ -790,11 +790,11 @@ export function StoryPageClient({
                   const hasReadMore = desc.length > 0;
                   const durationLabel = episode.duration?.trim() || '—';
                   return (
-                    <li key={episode.id} className="py-1">
+                    <li key={episode.id}>
                       <div
                         className={`flex w-full items-center gap-2 rounded-lg px-1 py-2 transition ${
                           active
-                            ? 'bg-rose-50/80 ring-1 ring-rose-100/80'
+                            ? ''
                             : 'hover:bg-slate-50/80'
                         }`}
                       >
