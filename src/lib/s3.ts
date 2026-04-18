@@ -45,12 +45,68 @@ function getSecretAccessKey(): string | undefined {
  * Order matches {@link resolvePublicAssetUrl} so admin thumbnails and DB covers
  * hit the same host as the rest of the app.
  */
-function getPublicAssetOrigin(): string | undefined {
+export function getPublicAssetOrigin(): string | undefined {
   const raw =
     process.env.NEXT_PUBLIC_ASSETS_BASE_URL?.trim() ||
     process.env.R2_PUBLIC_BASE_URL?.trim() ||
     process.env.S3_PUBLIC_BASE_URL?.trim();
   return raw?.replace(/\/+$/, '');
+}
+
+const ASSET_KEY_PREFIXES = /^(covers\/|blog\/|spotlight-badges\/|avatars\/)/;
+
+/**
+ * Inverse of {@link publicUrlForObjectKey}: extract S3/R2 object key from a public asset URL.
+ * Returns null when the URL is not under our asset origin / known R2 path (external hotlink).
+ */
+export function objectKeyFromPublicAssetUrl(raw: string): string | null {
+  const trimmed = raw?.trim();
+  if (!trimmed) return null;
+
+  const bucket =
+    process.env.R2_BUCKET?.trim() || process.env.S3_BUCKET?.trim() || '';
+
+  if (trimmed.startsWith('/') && !trimmed.startsWith('//')) {
+    const k = trimmed.replace(/^\/+/, '');
+    return k.length && ASSET_KEY_PREFIXES.test(k) ? k : null;
+  }
+
+  let u: URL;
+  try {
+    u = new URL(trimmed);
+  } catch {
+    return null;
+  }
+
+  if (u.hostname.endsWith('.r2.cloudflarestorage.com') && bucket) {
+    const parts = u.pathname.split('/').filter(Boolean);
+    if (parts[0] === bucket) {
+      const key = parts.slice(1).join('/');
+      return key || null;
+    }
+  }
+
+  const baseRaw = getPublicAssetOrigin();
+  if (baseRaw) {
+    try {
+      const baseUrl = new URL(
+        baseRaw.includes('://') ? baseRaw : `https://${baseRaw}`
+      );
+      if (u.hostname === baseUrl.hostname) {
+        const key = u.pathname.replace(/^\/+/, '');
+        return key || null;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const pathKey = u.pathname.replace(/^\/+/, '');
+  if (pathKey && ASSET_KEY_PREFIXES.test(pathKey)) {
+    return pathKey;
+  }
+
+  return null;
 }
 
 function getClient() {
@@ -277,6 +333,37 @@ export async function getPrivateAudioObjectBuffer(
     const response = await client.send(
       new GetObjectCommand({
         Bucket: bucket,
+        Key: normalized,
+      })
+    );
+    if (!response.Body) return null;
+    return await bodyToBuffer(response.Body);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Downloads a public bucket object by key (same bucket as {@link uploadPublicObject}).
+ */
+export async function getPublicObjectBuffer(
+  key: string,
+  bucket?: string
+): Promise<Buffer | null> {
+  const b = (bucket?.trim() || getDefaultStorageBucket() || '').trim();
+  if (!b) return null;
+  const accessKeyId = getAccessKeyId();
+  const secretAccessKey = getSecretAccessKey();
+  if (!accessKeyId || !secretAccessKey) return null;
+
+  const normalized = key.replace(/^\/+/, '');
+  if (!normalized) return null;
+
+  try {
+    const client = getClient();
+    const response = await client.send(
+      new GetObjectCommand({
+        Bucket: b,
         Key: normalized,
       })
     );

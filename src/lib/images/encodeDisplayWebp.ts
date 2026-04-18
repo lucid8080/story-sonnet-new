@@ -127,6 +127,91 @@ export async function encodeDisplayWebp(
   throw new Error('encodeDisplayWebp: could not produce output');
 }
 
+/** One-off backfill: cap file size (e.g. 50KB) without a minimum byte target. */
+export async function encodeCoverWebpMaxBytes(
+  input: Buffer,
+  opts: { maxBytes: number; maxWidth?: number }
+): Promise<EncodeDisplayWebpResult> {
+  const targetMaxBytes = opts.maxBytes;
+  const maxWidthStart = opts.maxWidth ?? PRESET.cover.maxWidth;
+  let maxW = maxWidthStart;
+
+  for (let round = 0; round < MAX_SHRINK_ROUNDS; round++) {
+    const base = sharp(input).rotate();
+    const meta = await base.metadata();
+    if (!meta.width || !meta.height) {
+      throw new Error('Could not read image dimensions');
+    }
+
+    const pipeline =
+      meta.width > maxW
+        ? base.resize(maxW, null, {
+            withoutEnlargement: true,
+            fit: 'inside',
+          })
+        : base;
+
+    let chosen: {
+      buf: Buffer;
+      q: number;
+      w: number;
+      h: number;
+    } | null = null;
+
+    for (const q of QUALITY_LADDER) {
+      const { data, info } = await pipeline
+        .clone()
+        .webp({ quality: q, effort: 5 })
+        .toBuffer({ resolveWithObject: true });
+      if (data.length <= targetMaxBytes) {
+        chosen = {
+          buf: data,
+          q,
+          w: info.width ?? 0,
+          h: info.height ?? 0,
+        };
+        break;
+      }
+    }
+
+    if (!chosen) {
+      const { data, info } = await pipeline
+        .clone()
+        .webp({ quality: MIN_Q, effort: 6 })
+        .toBuffer({ resolveWithObject: true });
+      chosen = {
+        buf: data,
+        q: MIN_Q,
+        w: info.width ?? 0,
+        h: info.height ?? 0,
+      };
+    }
+
+    const byteLength = chosen.buf.length;
+    const inBand = byteLength <= targetMaxBytes;
+
+    if (byteLength <= targetMaxBytes || round === MAX_SHRINK_ROUNDS - 1) {
+      if (byteLength > targetMaxBytes) {
+        console.warn(
+          `[encodeCoverWebpMaxBytes] output ${byteLength}b exceeds max ${targetMaxBytes}b (quality=${chosen.q}, maxW=${maxW})`
+        );
+      }
+      return {
+        webpBuffer: chosen.buf,
+        width: chosen.w,
+        height: chosen.h,
+        qualityUsed: chosen.q,
+        byteLength,
+        targetBandHit: inBand,
+      };
+    }
+
+    maxW = Math.max(280, Math.floor(maxW * 0.82));
+  }
+
+  throw new Error('encodeCoverWebpMaxBytes: could not produce output');
+}
+
 export function getDisplayWebpPreset(
   preset: DisplayWebpPreset
 ): (typeof PRESET)[DisplayWebpPreset] {
