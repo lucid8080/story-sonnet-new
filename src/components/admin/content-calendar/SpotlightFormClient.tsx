@@ -644,7 +644,7 @@ export function SpotlightFormClient({ spotlightId }: Props) {
         ) : null}
         <div className="relative mt-4 aspect-[3/4] w-40 overflow-hidden rounded-xl bg-slate-200">
           <Image
-            src="/branding/logo.png"
+            src="/branding/logo_display.webp"
             alt="Sample cover"
             fill
             className="object-cover object-top"
