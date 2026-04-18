@@ -51,13 +51,13 @@ export const metadata: Metadata = {
     description: BRAND.description,
     siteName: BRAND.productName,
     type: 'website',
-    images: ['/branding/logo.png'],
+    images: ['/branding/logo_display.webp'],
   },
   twitter: {
     card: 'summary_large_image',
     title: BRAND.productName,
     description: BRAND.description,
-    images: ['/branding/logo.png'],
+    images: ['/branding/logo_display.webp'],
   },
   manifest: '/branding/favicon/site.webmanifest',
 };

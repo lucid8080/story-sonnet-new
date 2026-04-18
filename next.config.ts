@@ -65,37 +65,18 @@ function buildAllowedDevOrigins(): string[] {
 
 const allowedDevOrigins = buildAllowedDevOrigins();
 
-/** 31 days — stable cover URLs; fewer edge re-transforms (Vercel Image Optimization). */
-const IMAGE_MIN_CACHE_TTL_SEC = 31 * 24 * 60 * 60;
-
-/**
- * Fewer widths ⇒ fewer distinct `/_next/image` variants per source URL.
- * Aligned to Tailwind breakpoints and typical `sizes` on story grids / hero.
- */
-const IMAGE_DEVICE_SIZES = [
-  384, 640, 768, 1024, 1280, 1536, 1920,
-] as const;
-
-/**
- * Thumbnails and small fixed slots (e.g. admin spotlight list ~40px → next step 48).
- */
-const IMAGE_SIZES = [48, 64, 96, 128, 256, 384] as const;
-
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   outputFileTracingRoot: path.join(process.cwd()),
   ...(allowedDevOrigins.length > 0 ? { allowedDevOrigins } : {}),
   images: {
+    /** Pre-generated WebP on R2 / `public/`; avoid Vercel Image Optimization transforms. */
+    unoptimized: true,
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
     contentSecurityPolicy:
       "default-src 'self'; script-src 'none'; sandbox;",
     remotePatterns: buildImageRemotePatterns(),
-    minimumCacheTTL: IMAGE_MIN_CACHE_TTL_SEC,
-    formats: ['image/webp'],
-    qualities: [75],
-    deviceSizes: [...IMAGE_DEVICE_SIZES],
-    imageSizes: [...IMAGE_SIZES],
   },
 };
 

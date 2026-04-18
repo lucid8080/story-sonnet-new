@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
-import { getDefaultStorageBucket, uploadPublicObject } from '@/lib/s3';
+import { uploadOriginalPlusDisplayWebp } from '@/lib/images/dualPublicImageUpload';
+import { getDefaultStorageBucket } from '@/lib/s3';
 import { resolvePublicAssetUrl } from '@/lib/resolvePublicAssetUrl';
 
 export const runtime = 'nodejs';
@@ -64,21 +65,26 @@ export async function POST(req: Request) {
   const key = `avatars/${session.user.id}/${Date.now()}-${sanitizeFileName(file.name)}`;
 
   try {
-    const { url } = await uploadPublicObject({
+    const dual = await uploadOriginalPlusDisplayWebp({
       bucket,
-      key,
+      originalKey: key,
       body: buffer,
-      contentType: file.type,
+      originalContentType: file.type,
+      preset: 'avatar',
     });
 
-    const imageUrl = resolvePublicAssetUrl(url) ?? url;
+    const imageUrl =
+      resolvePublicAssetUrl(dual.displayUrl) ?? dual.displayUrl;
 
     await prisma.user.update({
       where: { id: session.user.id },
       data: { image: imageUrl },
     });
 
-    return NextResponse.json({ imageUrl });
+    return NextResponse.json({
+      imageUrl,
+      originalImageUrl: resolvePublicAssetUrl(dual.originalUrl) ?? dual.originalUrl,
+    });
   } catch (error) {
     console.error('[account/avatar POST]', error);
     return NextResponse.json(

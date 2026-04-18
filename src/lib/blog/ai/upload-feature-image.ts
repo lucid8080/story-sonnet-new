@@ -3,14 +3,20 @@ import {
   makeUniqueSafeFileName,
   sanitizeUploadFileName,
 } from '@/lib/media-upload-keys';
-import { getDefaultStorageBucket, uploadPublicObject } from '@/lib/s3';
+import { uploadOriginalPlusDisplayWebp } from '@/lib/images/dualPublicImageUpload';
+import { getDefaultStorageBucket } from '@/lib/s3';
 
 export async function uploadBlogFeatureImageBuffer(opts: {
   blogSlug: string;
   buffer: Buffer;
   mimeType: string;
   fileNameHint?: string;
-}): Promise<{ fileUrl: string; storageKey: string }> {
+}): Promise<{
+  fileUrl: string;
+  storageKey: string;
+  originalFileUrl: string;
+  originalStorageKey: string;
+}> {
   const bucket = getDefaultStorageBucket();
   if (!bucket) throw new Error('Storage bucket not configured');
 
@@ -25,11 +31,17 @@ export async function uploadBlogFeatureImageBuffer(opts: {
   );
   const leaf = makeUniqueSafeFileName(`${safe.replace(/\.[^.]+$/, '')}.${ext}`);
   const key = buildBlogImageKey({ blogSlug: opts.blogSlug, safeFileName: leaf });
-  const { url } = await uploadPublicObject({
+  const dual = await uploadOriginalPlusDisplayWebp({
     bucket,
-    key,
+    originalKey: key,
     body: opts.buffer,
-    contentType: opts.mimeType,
+    originalContentType: opts.mimeType,
+    preset: 'blog',
   });
-  return { fileUrl: url, storageKey: key };
+  return {
+    fileUrl: dual.displayUrl,
+    storageKey: dual.displayKey,
+    originalFileUrl: dual.originalUrl,
+    originalStorageKey: dual.originalKey,
+  };
 }

@@ -64,7 +64,7 @@ export default function Footer() {
           >
             <div className="flex items-center gap-2">
               <Image
-                src="/branding/logo.png"
+                src="/branding/logo_display.webp"
                 alt=""
                 width={120}
                 height={40}

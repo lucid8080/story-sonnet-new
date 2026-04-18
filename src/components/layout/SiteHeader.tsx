@@ -64,7 +64,7 @@ export default function SiteHeader() {
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-3 sm:gap-4 sm:px-7 lg:px-8">
         <Link href="/" className="flex shrink-0 items-center gap-1.5">
           <Image
-            src="/branding/logo.png"
+            src="/branding/logo_display.webp"
             alt={BRAND.productName}
             width={96}
             height={32}

@@ -320,7 +320,7 @@ async function seedContentSpotlights() {
   const baseUrl = (
     process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
   ).replace(/\/+$/, '');
-  const placeholderBadgeUrl = `${baseUrl}/branding/logo.png`;
+  const placeholderBadgeUrl = `${baseUrl}/branding/logo_display.webp`;
 
   const existing = await prisma.badgeAsset.findFirst({
     where: { name: 'seed-spotlight-badge' },

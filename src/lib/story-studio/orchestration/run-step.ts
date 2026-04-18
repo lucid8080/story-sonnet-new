@@ -21,8 +21,8 @@ import {
   getPrivateAudioBucket,
   getPrivateAudioObjectBuffer,
   uploadPrivateAudioObject,
-  uploadPublicObject,
 } from '@/lib/s3';
+import { uploadOriginalPlusDisplayWebp } from '@/lib/images/dualPublicImageUpload';
 import {
   buildCoverKey,
   buildPrivateAudioKey,
@@ -293,21 +293,27 @@ export async function executeGenerationStep(
       storySlug: `studio-draft-${draftId}`,
       safeFileName: safeName,
     });
-    const { url } = await uploadPublicObject({
+    const dual = await uploadOriginalPlusDisplayWebp({
       bucket,
-      key,
+      originalKey: key,
       body: img.imageBuffer,
-      contentType: img.mimeType,
+      originalContentType: img.mimeType,
+      preset: 'cover',
     });
     const asset = await prisma.storyStudioGeneratedAsset.create({
       data: {
         draftId,
         kind: 'cover',
-        publicUrl: url,
-        storageKey: key,
-        mimeType: img.mimeType,
+        publicUrl: dual.displayUrl,
+        storageKey: dual.displayKey,
+        mimeType: 'image/webp',
         vendor: 'story-studio-image',
-        metadata: { imagePrompt: prompt },
+        metadata: {
+          imagePrompt: prompt,
+          originalMimeType: img.mimeType,
+          originalPublicUrl: dual.originalUrl,
+          originalStorageKey: dual.originalKey,
+        },
       },
     });
     return { assetId: asset.id };

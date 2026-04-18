@@ -19,7 +19,7 @@ export const stories = [
     durationLabel: '17 min',
     summary:
       'A magical harvest-and-sports adventure series about the original little purple people of Amihan Hollow, who grow moon-bright ube, protect their fields, and play joyful rival games with Taro Village.',
-    cover: assetPath('/covers/the-ube-folk-of-amihan-hollow/cover.png'),
+    cover: assetPath('/covers/the-ube-folk-of-amihan-hollow/cover_display.webp'),
     accent: '#7c3aed',
     isPremium: false,
     episodes: [
@@ -43,7 +43,7 @@ export const stories = [
     durationLabel: '11 min',
     summary:
       'A cozy family adventure series where Zubie and his robot dinosaur best friend turn small everyday problems into warm mysteries full of heart.',
-    cover: assetPath('/covers/the-adventures-of-zubie-and-robo-rex/cover.webp'),
+    cover: assetPath('/covers/the-adventures-of-zubie-and-robo-rex/cover_display.webp'),
     accent: '#3b82f6',
     isPremium: false,
     episodes: [
@@ -67,7 +67,7 @@ export const stories = [
     durationLabel: '15 min',
     summary:
       'A twilight meadow adventure series where Nori helps tiny creatures and shy evening magic find their rhythm again.',
-    cover: assetPath('/covers/nori-and-the-pocket-meadow/cover.png'),
+    cover: assetPath('/covers/nori-and-the-pocket-meadow/cover_display.webp'),
     accent: '#84cc16',
     isPremium: false,
     episodes: [
@@ -90,7 +90,7 @@ export const stories = [
     durationLabel: '10 min',
     summary:
       'A cozy magical library-cart adventure series where Juniper helps a sighing music shelf remember how to listen again.',
-    cover: assetPath('/covers/juniper-and-the-lantern-library/cover.png'),
+    cover: assetPath('/covers/juniper-and-the-lantern-library/cover_display.webp'),
     accent: '#f59e0b',
     isPremium: false,
     episodes: [
@@ -168,7 +168,7 @@ export const stories = [
     durationLabel: '10 min',
     summary:
       'A lively block-world adventure series about building, exploring, teamwork, and funny near-disasters.',
-    cover: assetPath('/covers/blocky-explores-mine-world/cover.webp'),
+    cover: assetPath('/covers/blocky-explores-mine-world/cover_display.webp'),
     accent: '#22c55e',
     isPremium: false,
     episodes: [
@@ -200,7 +200,7 @@ export const stories = [
     durationLabel: '15:13',
     summary:
       'A wonder-filled adventure series about the cozy maintenance crew who care for a walking turtle-city and keep its streets, engines, gardens, and giant gentle heart in balance.',
-    cover: assetPath('/covers/keepers-of-turtleshell-city/cover.webp'),
+    cover: assetPath('/covers/keepers-of-turtleshell-city/cover_display.webp'),
     accent: '#14b8a6',
     isPremium: false,
     episodes: [

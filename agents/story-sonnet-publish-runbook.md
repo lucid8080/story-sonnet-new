@@ -21,6 +21,9 @@ TTS uploads MP3s and stores keys on the draft (`StoryStudioGeneratedAsset`). The
 **How do I pick an existing cover image from R2 without pasting a URL by hand?**  
 In **`/admin/stories`** → open a story → **Basic info** → **Browse covers in R2**. That loads a thumbnail grid from **`GET /api/admin/covers`** (admin-only, `ListObjectsV2` on the public bucket under `covers/…`, paginated). Pick a tile to set **`coverUrl`**; scope can be **all covers** or **this story’s folder** when the slug is valid. Same R2/S3 credentials and public base URL expectations as **`POST /api/upload`** (see `src/lib/s3.ts`).
 
+**Cover images: WebP display vs original on R2**  
+**`POST /api/upload`** (cover, blog image, spotlight badge) stores the **original** bytes at the requested key and a compressed **`_display.webp`** sidecar next to it (same basename + `_display.webp`). The JSON **`fileUrl`** is always the **display WebP** URL to paste into **`Story.coverUrl`** / blog fields so the site does not rely on Vercel Image Optimization. **`originalFileUrl`** / **`originalStoragePath`** point at the untouched upload. **`Upload`** audit rows may include two lines (original + display). Story Studio generated covers follow the same pattern; see **`metadata.originalPublicUrl`** on **`StoryStudioGeneratedAsset`**. Local static fallbacks: run **`npm run optimize:public-images`** to generate **`{base}_display.webp`** from PNG/JPEG under **`public/`**, then reference those paths (e.g. in **`src/data.js`**). Optional backfill for old DB rows: fetch each **`coverUrl`** from R2, re-upload **`_display.webp`**, **`UPDATE`** to the new URL (idempotent if the key already ends with **`_display.webp`**).
+
 **What is Content Calendar / spotlights?**  
 Admin lives at **`/admin/content-calendar`**: month view, **Spotlights** (holiday / awareness / seasonal collections), **Badge assets** (reusable PNGs), and settings. Spotlights attach to **`Story`** rows, optional **PNG badge** on cover art (corner set per spotlight via **`badgeCorner`**: bottom-right / bottom-left / top-right / top-left; default bottom-right), optional **info bar** on **`/story/[slug]`**, and optional **featured rails** above the homepage and library grids. **Badge uploads** use the same **`POST /api/upload`** as covers, with **`assetKind=spotlight_badge`** (PNG-only, max 1MB); objects land under **`spotlight-badges/`** in the public bucket. Register a row via **`POST /api/admin/content-calendar/badge-assets`** after upload so spotlights can reference **`badgeAssetId`**. Public rendering uses **`src/lib/content-spotlight/resolve.ts`** (active + published + in-window; priority tie-break).
 
@@ -68,7 +71,7 @@ More detail: [Prisma — production troubleshooting / resolve](https://www.prism
 **Cover image**
 
 - UI: `src/app/admin/uploads/page.tsx` → `fetch('/api/upload', { POST, FormData })`, default `assetKind` = cover; optional `storySlug` for `covers/<slug>/<sanitized-filename>`.
-- API: `POST` `src/app/api/upload/route.ts` → `uploadPublicObject` in `src/lib/s3.ts` (keys from `src/lib/media-upload-keys.ts`, e.g. `covers/<file>` or `covers/<slug>/<file>` — **sanitized filename only, no timestamp**; repeat upload **overwrites**).
+- API: `POST` `src/app/api/upload/route.ts` → `uploadOriginalPlusDisplayWebp` (`src/lib/images/dualPublicImageUpload.ts`) + `src/lib/s3.ts` `uploadPublicObject` (keys from `src/lib/media-upload-keys.ts`, e.g. `covers/<file>` or `covers/<slug>/<file>` — **sanitized filename only, no timestamp**; repeat upload **overwrites**). Response **`fileUrl`** is the **`_display.webp`** URL; original is **`originalFileUrl`**.
 - Link to story: `src/components/admin/stories/StoryBasicsSection.tsx` (cover URL field, optional **Browse covers in R2** gallery) → save path below.
 - Browse existing covers: `GET` `src/app/api/admin/covers/route.ts` → lists image objects under `covers/` (query `prefix`, `continuationToken`, `maxKeys`); responses use `publicUrlForObjectKey` in `src/lib/s3.ts` so URLs match upload output.
 
@@ -112,7 +115,7 @@ More detail: [Prisma — production troubleshooting / resolve](https://www.prism
 **Upload / media**
 
 - `Upload` model (Prisma): `fileName`, `fileType`, `fileUrl`, `storagePath`, optional `uploadedBy` — **audit only**; not FK’d to `Story`/`Episode`.
-- Cover: persist **`Story.coverUrl`** = public `fileUrl` from upload response.
+- Cover: persist **`Story.coverUrl`** = public **`fileUrl`** from upload response (WebP display URL; original is separate on R2).
 - Audio: persist **`Episode.audioStorageKey`** = `storageKey` from upload response (private bucket). `audioUrl` is alternate public/legacy path.
 
 **Public playback**

@@ -33,7 +33,7 @@ export async function generateMetadata({
   const canonical = post.canonicalUrl?.trim() || `${base}/blog/${post.slug}`;
   const ogImage = post.featuredImageUrl
     ? resolvePublicAssetUrl(post.featuredImageUrl) ?? post.featuredImageUrl
-    : `${base}/branding/logo.png`;
+    : `${base}/branding/logo_display.webp`;
 
   return {
     title: `${title} | ${BRAND.productName}`,

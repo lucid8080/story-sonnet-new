@@ -17,9 +17,9 @@ import {
   getDefaultStorageBucket,
   getPrivateAudioBucket,
   uploadPrivateAudioObject,
-  uploadPublicObject,
 } from '@/lib/s3';
 import { parseAudioDurationSecondsFromBuffer } from '@/lib/audio-duration';
+import { uploadOriginalPlusDisplayWebp } from '@/lib/images/dualPublicImageUpload';
 
 export const runtime = 'nodejs';
 
@@ -120,11 +120,12 @@ export async function POST(req: Request) {
         safeName = `${safeName.replace(/\.[^.]+$/, '')}.png`;
       }
       const key = buildSpotlightBadgeKey({ safeFileName: safeName });
-      const { url } = await uploadPublicObject({
+      const dual = await uploadOriginalPlusDisplayWebp({
         bucket: bucketField,
-        key,
+        originalKey: key,
         body: buf,
-        contentType: 'image/png',
+        originalContentType: 'image/png',
+        preset: 'spotlight_badge',
       });
 
       if (process.env.DATABASE_URL) {
@@ -132,17 +133,30 @@ export async function POST(req: Request) {
           data: {
             fileName: file.name,
             fileType: 'image/png',
-            fileUrl: url,
-            storagePath: key,
+            fileUrl: dual.originalUrl,
+            storagePath: dual.originalKey,
             uploadedBy: session.user.id,
           },
         });
+        if (dual.displayKey !== dual.originalKey) {
+          await prisma.upload.create({
+            data: {
+              fileName: `${file.name} (display.webp)`,
+              fileType: 'image/webp',
+              fileUrl: dual.displayUrl,
+              storagePath: dual.displayKey,
+              uploadedBy: session.user.id,
+            },
+          });
+        }
       }
 
       return NextResponse.json({
         assetKind: 'spotlight_badge',
-        fileUrl: url,
-        storagePath: key,
+        fileUrl: dual.displayUrl,
+        storagePath: dual.displayKey,
+        originalFileUrl: dual.originalUrl,
+        originalStoragePath: dual.originalKey,
       });
     }
 
@@ -157,29 +171,44 @@ export async function POST(req: Request) {
         );
       }
       const key = buildBlogImageKey({ blogSlug, safeFileName: safeName });
-      const { url } = await uploadPublicObject({
+      const ct = file.type || 'image/jpeg';
+      const dual = await uploadOriginalPlusDisplayWebp({
         bucket: bucketField,
-        key,
+        originalKey: key,
         body: buf,
-        contentType: file.type || 'image/jpeg',
+        originalContentType: ct,
+        preset: 'blog',
       });
 
       if (process.env.DATABASE_URL) {
         await prisma.upload.create({
           data: {
             fileName: file.name,
-            fileType: file.type || 'image/jpeg',
-            fileUrl: url,
-            storagePath: key,
+            fileType: ct,
+            fileUrl: dual.originalUrl,
+            storagePath: dual.originalKey,
             uploadedBy: session.user.id,
           },
         });
+        if (dual.displayKey !== dual.originalKey) {
+          await prisma.upload.create({
+            data: {
+              fileName: `${file.name} (display.webp)`,
+              fileType: 'image/webp',
+              fileUrl: dual.displayUrl,
+              storagePath: dual.displayKey,
+              uploadedBy: session.user.id,
+            },
+          });
+        }
       }
 
       return NextResponse.json({
         assetKind,
-        fileUrl: url,
-        storagePath: key,
+        fileUrl: dual.displayUrl,
+        storagePath: dual.displayKey,
+        originalFileUrl: dual.originalUrl,
+        originalStoragePath: dual.originalKey,
       });
     }
 
@@ -226,29 +255,44 @@ export async function POST(req: Request) {
       storySlug: storySlug || undefined,
       safeFileName: safeName,
     });
-    const { url } = await uploadPublicObject({
+    const ct = file.type || 'application/octet-stream';
+    const dual = await uploadOriginalPlusDisplayWebp({
       bucket: bucketField,
-      key,
+      originalKey: key,
       body: buf,
-      contentType: file.type || 'application/octet-stream',
+      originalContentType: ct,
+      preset: 'cover',
     });
 
     if (process.env.DATABASE_URL) {
       await prisma.upload.create({
         data: {
           fileName: file.name,
-          fileType: file.type || 'application/octet-stream',
-          fileUrl: url,
-          storagePath: key,
+          fileType: ct,
+          fileUrl: dual.originalUrl,
+          storagePath: dual.originalKey,
           uploadedBy: session.user.id,
         },
       });
+      if (dual.displayKey !== dual.originalKey) {
+        await prisma.upload.create({
+          data: {
+            fileName: `${file.name} (display.webp)`,
+            fileType: 'image/webp',
+            fileUrl: dual.displayUrl,
+            storagePath: dual.displayKey,
+            uploadedBy: session.user.id,
+          },
+        });
+      }
     }
 
     return NextResponse.json({
       assetKind: 'cover',
-      fileUrl: url,
-      storagePath: key,
+      fileUrl: dual.displayUrl,
+      storagePath: dual.displayKey,
+      originalFileUrl: dual.originalUrl,
+      originalStoragePath: dual.originalKey,
     });
   } catch (e) {
     if (e instanceof UploadKeyValidationError) {
