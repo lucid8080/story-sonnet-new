@@ -20,7 +20,7 @@ import type {
   SpotlightRailDTO,
   StorySpotlightBadgeDTO,
 } from '@/lib/content-spotlight/types';
-import { SpotlightCollectionRail } from '@/components/spotlight/SpotlightCollectionRail';
+import { LibrarySpotlightEventSlider } from '@/components/spotlight/LibrarySpotlightEventSlider';
 
 type Props = {
   initialStories: BrowseStory[];
@@ -80,9 +80,7 @@ export default function LibraryBrowseClient({
         </p>
       </header>
 
-      {spotlightRails.map((rail) => (
-        <SpotlightCollectionRail key={rail.spotlightId} rail={rail} />
-      ))}
+      <LibrarySpotlightEventSlider rails={spotlightRails} />
 
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <p className="text-sm font-semibold text-slate-700" aria-live="polite">

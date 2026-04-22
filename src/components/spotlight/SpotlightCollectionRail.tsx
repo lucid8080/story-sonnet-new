@@ -2,10 +2,16 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type { SpotlightRailDTO } from '@/lib/content-spotlight/types';
 
-export function SpotlightCollectionRail({ rail }: { rail: SpotlightRailDTO }) {
+export function SpotlightCollectionRail({
+  rail,
+  compactSpacing = false,
+}: {
+  rail: SpotlightRailDTO;
+  compactSpacing?: boolean;
+}) {
   if (!rail.stories.length) return null;
   return (
-    <section className="mb-10">
+    <section className={compactSpacing ? '' : 'mb-10'}>
       <div className="mb-3">
         <h2 className="text-xl font-black text-slate-900">{rail.title}</h2>
         <p className="mt-1 max-w-2xl text-sm text-slate-600">{rail.shortBlurb}</p>
