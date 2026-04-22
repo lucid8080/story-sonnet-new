@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@/auth';
-import { openRouterChatCompletion } from '@/lib/story-studio/openrouter';
-import { generateStoryCoverImage } from '@/lib/story-studio/vendors/image-generation';
+import { executeImageGeneration, executeTextGeneration } from '@/lib/generation/execute';
 import { extractJsonObject } from '@/lib/blog/ai/parse-json';
 import { blogAiArticlePayloadSchema } from '@/lib/blog/ai/output-schemas';
 import { buildBlogScratchMessages } from '@/lib/blog/ai/prompts';
@@ -41,7 +40,8 @@ export async function POST(req: Request) {
   const messages = buildBlogScratchMessages(scratch);
 
   try {
-    const rawOut = await openRouterChatCompletion({
+    const { content: rawOut } = await executeTextGeneration({
+      toolKey: 'blog_generate_text',
       messages,
       maxTokens: 12000,
       temperature: 0.78,
@@ -65,7 +65,8 @@ export async function POST(req: Request) {
       | undefined;
 
     if (generateImage && article.data.imagePrompt) {
-      const img = await generateStoryCoverImage({
+      const { result: img } = await executeImageGeneration({
+        toolKey: 'blog_generate_image',
         prompt: article.data.imagePrompt,
       });
       if (img.ok) {

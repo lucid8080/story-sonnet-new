@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
-import { openRouterChatCompletion } from '@/lib/story-studio/openrouter';
 import {
   buildOpenRouterMessagesForSingleEpisode,
   type SingleEpisodePromptContext,
@@ -13,6 +12,7 @@ import {
   type BriefPayloadParsed,
 } from '@/lib/story-studio/schemas/llm-output';
 import { z } from 'zod';
+import { executeTextGeneration } from '@/lib/generation/execute';
 
 export const runtime = 'nodejs';
 
@@ -130,7 +130,8 @@ export async function POST(req: Request) {
   );
 
   try {
-    const rawOut = await openRouterChatCompletion({
+    const { content: rawOut } = await executeTextGeneration({
+      toolKey: 'story_studio_generate_episode',
       messages,
       maxTokens: 8000,
       temperature: 0.88,

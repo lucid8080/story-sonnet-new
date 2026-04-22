@@ -10,12 +10,14 @@ import {
   buildOpenRouterMessagesForBrief,
   buildOpenRouterMessagesForScript,
 } from '@/lib/story-studio/prompt-builder';
-import { openRouterChatCompletion } from '@/lib/story-studio/openrouter';
 import { resolveDraftGenerationRequest } from '@/lib/story-studio/normalize-request';
 import { getArtStylePromptOverrides } from '@/lib/story-studio/story-studio-settings';
-import { elevenLabsTextToSpeech } from '@/lib/story-studio/vendors/elevenlabs';
 import { sunoGenerateTheme } from '@/lib/story-studio/vendors/suno';
-import { generateStoryCoverImage } from '@/lib/story-studio/vendors/image-generation';
+import {
+  executeImageGeneration,
+  executeNarrationGeneration,
+  executeTextGeneration,
+} from '@/lib/generation/execute';
 import {
   getDefaultStorageBucket,
   getPrivateAudioBucket,
@@ -214,9 +216,11 @@ export async function executeGenerationStep(
       varietySeed,
       artStyleOverrides,
     });
-    const raw = await openRouterChatCompletion({
+    const { content: raw } = await executeTextGeneration({
+      toolKey: 'story_studio_generate_brief',
       messages,
       temperature: 0.92,
+      maxTokens: undefined,
     });
     const parsed = parseJsonToBrief(raw);
     if (!parsed.success) {
@@ -249,9 +253,11 @@ export async function executeGenerationStep(
       briefData,
       artStyleOverrides
     );
-    const raw = await openRouterChatCompletion({
+    const { content: raw } = await executeTextGeneration({
+      toolKey: 'story_studio_generate_script',
       messages,
       maxTokens: 12000,
+      temperature: undefined,
     });
     const parsed = parseJsonToScriptPackage(raw);
     if (!parsed.success) {
@@ -277,7 +283,10 @@ export async function executeGenerationStep(
       draftPrompt && draftPrompt.length > 0
         ? draftPrompt
         : buildDraftCoverImagePrompt(req, draft, artStyleOverrides);
-    const img = await generateStoryCoverImage({ prompt });
+    const { result: img } = await executeImageGeneration({
+      toolKey: 'story_studio_generate_cover',
+      prompt,
+    });
     if (!img.ok) {
       throw new Error(img.message);
     }
@@ -424,7 +433,6 @@ export async function executeGenerationStep(
     if (!d.episodes.length) {
       throw new Error('No draft episodes — generate script first.');
     }
-    const voiceId = req.elevenLabsVoiceId;
     const bucket = getPrivateAudioBucket();
     if (!bucket) throw new Error('Private audio bucket not configured.');
 
@@ -449,9 +457,9 @@ export async function executeGenerationStep(
 
     for (let i = 0; i < episodesToSynthesize.length; i++) {
       const ep = episodesToSynthesize[i];
-      const tts = await elevenLabsTextToSpeech({
+      const { result: tts } = await executeNarrationGeneration({
+        toolKey: 'story_studio_narration',
         text: ep.scriptText,
-        voiceId,
       });
       if (!tts.ok) {
         throw new Error(tts.message);

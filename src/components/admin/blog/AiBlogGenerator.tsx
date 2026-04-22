@@ -11,6 +11,7 @@ import {
   presetPreview,
   type BlogFeatureImageStylePreset,
 } from '@/components/admin/blog/blogFeatureImageStylePresets';
+import { GenerationToolSelector } from '@/components/admin/generation/GenerationToolSelector';
 
 type Tab = 'scratch' | 'keywords' | 'rewrite';
 
@@ -702,6 +703,19 @@ export function AiBlogGenerator({
           </div>
         </div>
       ) : null}
+
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <GenerationToolSelector
+          family="text"
+          toolKey="blog_generate_text"
+          label="Provider + Model (Generate text)"
+        />
+        <GenerationToolSelector
+          family="image"
+          toolKey="blog_generate_image"
+          label="Provider + Model (Generate image)"
+        />
+      </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
         <button

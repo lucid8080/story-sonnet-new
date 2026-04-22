@@ -30,6 +30,9 @@ export function AdminTopNav() {
       <Link href="/admin/blog" className="hover:text-violet-600">
         Blog
       </Link>
+      <Link href="/admin/settings/generation" className="hover:text-violet-600">
+        Generation Settings
+      </Link>
       <span className="ml-auto flex items-center gap-1">
         <AdminNotificationBell />
         <Link href="/" className="pl-2 text-slate-500 hover:text-slate-800">

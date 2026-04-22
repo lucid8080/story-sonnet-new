@@ -364,6 +364,38 @@ model BlogAdminSettings {
   @@map("blog_admin_settings")
 }
 
+model GenerationOption {
+  id             String   @id @default(cuid())
+  family         String
+  provider       String
+  kind           String
+  vendorLabel    String?  @map("vendor_label")
+  label          String
+  value          String
+  envKeyRequired String?  @map("env_key_required")
+  isEnabled      Boolean  @default(true) @map("is_enabled")
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([family, provider, value])
+  @@index([family, provider, isEnabled, sortOrder])
+  @@index([family, kind, isEnabled])
+  @@map("generation_options")
+}
+
+model GenerationToolPreference {
+  id                  String   @id @default(cuid())
+  toolKey             String   @unique @map("tool_key")
+  family              String
+  selectedCompositeKey String?  @map("selected_composite_key")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@index([family, toolKey])
+  @@map("generation_tool_preferences")
+}
+
 model AdminInboxEvent {
   id        String             @id @default(cuid())
   type      AdminInboxEventType

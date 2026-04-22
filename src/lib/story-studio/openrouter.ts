@@ -17,6 +17,7 @@ export async function openRouterChatCompletion(opts: {
   messages: ChatMessage[];
   temperature?: number;
   maxTokens?: number;
+  model?: string;
 }): Promise<string> {
   const key = process.env.OPENROUTER_API_KEY?.trim();
   if (!key) {
@@ -26,7 +27,9 @@ export async function openRouterChatCompletion(opts: {
   }
 
   const model =
-    process.env.OPENROUTER_MODEL?.trim() || 'anthropic/claude-3.5-sonnet';
+    opts.model?.trim() ||
+    process.env.OPENROUTER_MODEL?.trim() ||
+    'anthropic/claude-3.5-sonnet';
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'http://localhost:3000';
 

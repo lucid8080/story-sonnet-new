@@ -31,6 +31,7 @@ import { PreviewTabs, type PreviewTabId } from './PreviewTabs';
 import { SelectionChips, ToggleRow } from './SelectionChips';
 import { StoryBriefPanel } from './StoryBriefPanel';
 import { StoryScriptPanel } from './StoryScriptPanel';
+import { GenerationToolSelector } from '@/components/admin/generation/GenerationToolSelector';
 
 type SerializedDraft = {
   id: string;
@@ -1427,7 +1428,30 @@ export function StoryStudioClient() {
             />
           </div>
 
-          <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+          <div className="grid gap-3 border-t border-slate-100 pt-4 md:grid-cols-2">
+            <GenerationToolSelector
+              family="text"
+              toolKey="story_studio_generate_brief"
+              label="Provider + Model (Generate brief)"
+            />
+            <GenerationToolSelector
+              family="text"
+              toolKey="story_studio_generate_script"
+              label="Provider + Model (Generate script)"
+            />
+            <GenerationToolSelector
+              family="image"
+              toolKey="story_studio_generate_cover"
+              label="Provider + Model (Cover)"
+            />
+            <GenerationToolSelector
+              family="audio_narration"
+              toolKey="story_studio_narration"
+              label="Provider + Voice (Narration)"
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               disabled={busy}

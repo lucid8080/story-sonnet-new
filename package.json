@@ -21,7 +21,8 @@
     "backfill:episode-transcripts": "node --env-file=.env ./node_modules/tsx/dist/cli.mjs scripts/backfill-episode-transcripts-from-studio.ts",
     "optimize:public-images": "node scripts/optimize-public-images.mjs",
     "backfill:story-cover-webp": "node --env-file=.env ./node_modules/tsx/dist/cli.mjs scripts/backfill-story-cover-webp.ts",
-    "backfill:display-webp": "node --env-file=.env ./node_modules/tsx/dist/cli.mjs scripts/backfill-story-cover-webp.ts"
+    "backfill:display-webp": "node --env-file=.env ./node_modules/tsx/dist/cli.mjs scripts/backfill-story-cover-webp.ts",
+    "check:blog-featured-url": "node --env-file=.env ./node_modules/tsx/dist/cli.mjs scripts/check-blog-featured-url.ts"
   },
   "prisma": {
     "seed": "node --env-file=.env prisma/seed.mjs"

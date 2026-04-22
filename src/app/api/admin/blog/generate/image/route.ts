@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { generateStoryCoverImage } from '@/lib/story-studio/vendors/image-generation';
+import { executeImageGeneration } from '@/lib/generation/execute';
 import { blogGenerateImageSchema } from '@/lib/validation/blogSchemas';
 import { uploadBlogFeatureImageBuffer } from '@/lib/blog/ai/upload-feature-image';
 
@@ -58,7 +58,10 @@ export async function POST(req: Request) {
     .join('\n');
 
   try {
-    const img = await generateStoryCoverImage({ prompt: enriched });
+    const { result: img } = await executeImageGeneration({
+      toolKey: 'blog_generate_image',
+      prompt: enriched,
+    });
     if (!img.ok) {
       return NextResponse.json(
         { ok: false, error: img.message, reason: img.reason },

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@/auth';
-import { openRouterChatCompletion } from '@/lib/story-studio/openrouter';
+import { executeTextGeneration } from '@/lib/generation/execute';
 import { extractJsonObject } from '@/lib/blog/ai/parse-json';
 import {
   blogAiArticlePayloadSchema,
@@ -72,7 +72,8 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: false, error: 'Invalid mode' }, { status: 400 });
     }
 
-    const rawOut = await openRouterChatCompletion({
+    const { content: rawOut } = await executeTextGeneration({
+      toolKey: 'blog_generate_text',
       messages,
       maxTokens: 12000,
       temperature: mode === 'rewrite' ? 0.5 : 0.75,
