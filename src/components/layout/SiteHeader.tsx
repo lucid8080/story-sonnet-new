@@ -5,9 +5,8 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { Menu, Pause, Play, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { BRAND } from '@/lib/brand';
-import { useStorySeriesPlayer } from '@/components/story/StorySeriesPlayerProvider';
 
 function NavLink({
   href,
@@ -37,23 +36,7 @@ export default function SiteHeader() {
   const { data: session } = useSession();
   const user = session?.user;
   const isAdmin = user?.role === 'admin';
-  const player = useStorySeriesPlayer();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const onPlayingStoryPage = Boolean(
-    player?.story &&
-      pathname &&
-      pathname.replace(/\/$/, '') === `/story/${player.story.slug}`
-  );
-
-  const showStoryMini =
-    Boolean(pathname && !pathname.startsWith('/admin')) &&
-    !onPlayingStoryPage &&
-    Boolean(
-      player?.playbackSessionActive &&
-        player.story &&
-        player.headerNowPlayingText
-    );
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -75,46 +58,6 @@ export default function SiteHeader() {
             {BRAND.productName}
           </div>
         </Link>
-
-        {showStoryMini && player?.story ? (
-          <div className="story-nav-marquee hidden min-w-0 max-w-[min(14rem,28vw)] flex-1 flex-col sm:flex">
-            <div className="flex min-w-0 items-center gap-2">
-              <button
-                type="button"
-                onClick={() => void player.togglePlay()}
-                disabled={player.mainPlayButtonDisabled}
-                className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white shadow-sm shadow-rose-900/15 transition ${
-                  player.mainPlayButtonDisabled
-                    ? 'cursor-not-allowed opacity-50'
-                    : 'hover:scale-105 active:scale-95'
-                }`}
-                aria-label={player.isPlaying ? 'Pause story' : 'Play story'}
-              >
-                {player.isPlaying ? (
-                  <Pause className="h-4 w-4 fill-current" />
-                ) : (
-                  <Play className="ml-0.5 h-4 w-4 fill-current" />
-                )}
-              </button>
-              <Link
-                href={`/story/${player.story.slug}`}
-                className="min-w-0 max-w-full flex-1 overflow-hidden text-left font-miniMarquee text-[13px] font-normal uppercase tracking-wide text-slate-700 hover:text-slate-900"
-                title={player.headerNowPlayingText}
-              >
-                <div className="story-nav-marquee max-w-full rounded-md py-0.5">
-                  <div className="story-nav-marquee__track">
-                    <span className="pr-10">
-                      {player.headerNowPlayingText}
-                    </span>
-                    <span className="pr-10" aria-hidden>
-                      {player.headerNowPlayingText}
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            </div>
-          </div>
-        ) : null}
 
         <button
           type="button"

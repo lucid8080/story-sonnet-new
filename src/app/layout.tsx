@@ -3,6 +3,7 @@ import { Outfit, Playfair_Display, Fira_Code, VT323 } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/providers';
 import SiteHeader from '@/components/layout/SiteHeader';
+import BottomStoryPlayerBar from '@/components/layout/BottomStoryPlayerBar';
 import { ActiveCampaignBarGate } from '@/components/campaigns/ActiveCampaignBarGate';
 import Footer from '@/components/layout/Footer';
 import { BRAND } from '@/lib/brand';
@@ -78,6 +79,7 @@ export default function RootLayout({
             <ActiveCampaignBarGate />
             <SiteHeader />
             <div className="flex-1">{children}</div>
+            <BottomStoryPlayerBar />
             <Footer />
           </div>
         </Providers>
