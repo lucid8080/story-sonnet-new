@@ -1,7 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   useEffect,
@@ -12,7 +12,6 @@ import {
 } from 'react';
 import {
   ChevronDown,
-  ChevronLeft,
   ChevronUp,
   Image as ImageIcon,
   Info,
@@ -383,14 +382,7 @@ export function StoryPageClient({
           </div>
         ) : null}
         <section>
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Back to library
-            </Link>
+          <div className="mb-4 flex items-center justify-end gap-3">
             <div className="flex items-center gap-2">
               <button
                 type="button"
