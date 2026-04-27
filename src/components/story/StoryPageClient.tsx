@@ -315,12 +315,17 @@ export function StoryPageClient({
   const coverScrubberProgress = inSessionWithPage ? progress : 0;
 
   const onSelectEpisodeFromTracklist = (index: number) => {
+    playAfterClaimRef.current = true;
     if (inSessionWithPage) {
       selectEpisodeIndex(index);
-    } else {
-      setPreviewPlaybackSelection('episode');
-      setPreviewEpisodeIndex(index);
+      return;
     }
+    setPreviewPlaybackSelection('episode');
+    setPreviewEpisodeIndex(index);
+    claimStorySession(story, isSubscribed, {
+      initialEpisodeIndex: index,
+      initialPlaybackSelection: 'episode',
+    });
   };
 
   const onSelectFullThemeFromTracklist = () => {
