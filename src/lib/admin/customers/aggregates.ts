@@ -27,3 +27,10 @@ export async function syncProfileEngagementCount(userId: string) {
   });
   return total;
 }
+
+export async function touchProfileLastActiveAt(userId: string, at = new Date()) {
+  await prisma.profile.updateMany({
+    where: { userId },
+    data: { lastActiveAt: at },
+  });
+}

@@ -5,6 +5,7 @@ import Google from 'next-auth/providers/google';
 import bcrypt from 'bcryptjs';
 import prisma from '@/lib/prisma';
 import { resolvePublicAssetUrl } from '@/lib/resolvePublicAssetUrl';
+import { touchProfileLastActiveAt } from '@/lib/admin/customers/aggregates';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -72,6 +73,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const userId = token.sub;
         if (userId) {
           try {
+            await touchProfileLastActiveAt(userId);
             const p = await prisma.profile.findUnique({
               where: { userId },
               select: { role: true, subscriptionStatus: true },
