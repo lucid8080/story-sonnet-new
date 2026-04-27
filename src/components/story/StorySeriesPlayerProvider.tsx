@@ -131,6 +131,8 @@ export function StorySeriesPlayerProvider({
   const prevSlugForSyncRef = useRef<string | null>(null);
   const isPlayingRef = useRef(isPlaying);
   const playbackSessionActiveRef = useRef(playbackSessionActive);
+  /** After episode audio ends, advance index then call `togglePlay` when load/unblocked. */
+  const continueAfterEpisodeEndedRef = useRef(false);
 
   useEffect(() => {
     isPlayingRef.current = isPlaying;
@@ -233,6 +235,7 @@ export function StorySeriesPlayerProvider({
       pendingPlayIntroRef.current = false;
       playEpisodeAfterIntroRef.current = false;
       introDoneForEpisodeRef.current = false;
+      continueAfterEpisodeEndedRef.current = false;
       usedEpisodePlaceholderFallbackRef.current = false;
       usedIntroPlaceholderFallbackRef.current = false;
       try {
@@ -677,8 +680,33 @@ export function StorySeriesPlayerProvider({
       setMainStream('episode');
       return;
     }
+    if (mainStream === 'episode' && story) {
+      const episodes = story.episodes;
+      for (let i = activeEpisodeIndex + 1; i < episodes.length; i++) {
+        const ep = episodes[i];
+        if (
+          canPlayEpisode(
+            story.isPremium,
+            ep.isPremium,
+            ep.isFreePreview,
+            isSubscribed
+          )
+        ) {
+          continueAfterEpisodeEndedRef.current = true;
+          setIsPlaying(false);
+          setActiveEpisodeIndex(i);
+          return;
+        }
+      }
+    }
     setIsPlaying(false);
-  }, [mainStream, resolvedAudioSrc]);
+  }, [
+    mainStream,
+    resolvedAudioSrc,
+    story,
+    activeEpisodeIndex,
+    isSubscribed,
+  ]);
 
   const persistSkipIntro = useCallback(
     (checked: boolean) => {
@@ -773,6 +801,21 @@ export function StorySeriesPlayerProvider({
     skipIntroPref,
     mainStream,
   ]);
+
+  useEffect(() => {
+    if (!continueAfterEpisodeEndedRef.current) return;
+    if (!story) {
+      continueAfterEpisodeEndedRef.current = false;
+      return;
+    }
+    if (locked) {
+      continueAfterEpisodeEndedRef.current = false;
+      return;
+    }
+    if (technicalPlayBlocked) return;
+    continueAfterEpisodeEndedRef.current = false;
+    void togglePlay();
+  }, [story, locked, technicalPlayBlocked, togglePlay]);
 
   const handleTimeUpdate = useCallback(() => {
     if (!audioRef.current) return;
