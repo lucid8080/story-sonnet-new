@@ -153,7 +153,7 @@ export default async function AccountPage() {
               >
                 Browse the library
               </Link>{' '}
-              and tap &quot;Add to library&quot; on a story you love.
+              and tap &quot;Save&quot; on a story you love.
             </p>
           ) : (
             <ul className="mt-6 grid list-none gap-6 p-0 sm:grid-cols-2">

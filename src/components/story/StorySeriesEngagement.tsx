@@ -541,7 +541,7 @@ export function StorySeriesActionsBar({ className = '' }: { className?: string }
                   aria-hidden
                 />
               )}
-              {inLibrary ? 'In your library' : 'Add to library'}
+              {inLibrary ? 'In your library' : 'Save'}
             </button>
           </>
         ) : null}
@@ -575,7 +575,7 @@ export function StorySeriesLibraryButton({ className = '' }: { className?: strin
       ? 'Loading...'
       : inLibrary
         ? 'In your library'
-        : 'Add to library';
+        : 'Save';
 
   if (!loggedIn && status !== 'loading') {
     return (
@@ -584,7 +584,7 @@ export function StorySeriesLibraryButton({ className = '' }: { className?: strin
         className={`inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-sm font-bold text-rose-600 shadow-sm ring-1 ring-slate-200 transition hover:bg-white ${className}`}
       >
         <Bookmark className="h-4 w-4" aria-hidden />
-        Add to library
+        Save
       </Link>
     );
   }

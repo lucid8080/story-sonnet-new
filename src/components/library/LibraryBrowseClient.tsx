@@ -146,7 +146,7 @@ export default function LibraryBrowseClient({
                 No saved series yet
               </p>
               <p className="mt-2 max-w-md text-sm text-slate-600">
-                Open any story, sign in, and tap &quot;Add to library&quot; to
+                Open any story, sign in, and tap &quot;Save&quot; to
                 collect favorites here.
               </p>
               <button
