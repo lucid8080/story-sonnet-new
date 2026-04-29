@@ -79,29 +79,7 @@ export function AdminBlogEditor({ postId }: { postId: string }) {
     void load();
   }, [load]);
 
-  useEffect(() => {
-    const h = (e: Event) => {
-      const d = (e as CustomEvent<{ fileUrl?: string; storageKey?: string }>).detail;
-      if (!d?.fileUrl) return;
-      setPost((p) =>
-        p
-          ? {
-              ...p,
-              featuredImageUrl: d.fileUrl ?? p.featuredImageUrl,
-              featuredImageStorageKey: d.storageKey ?? p.featuredImageStorageKey,
-            }
-          : p
-      );
-      void savePatch({
-        featuredImageUrl: d.fileUrl,
-        featuredImageStorageKey: d.storageKey ?? null,
-      });
-    };
-    window.addEventListener('blog-feature-image', h);
-    return () => window.removeEventListener('blog-feature-image', h);
-  }, [postId]);
-
-  const savePatch = async (partial: Record<string, unknown>) => {
+  const savePatch = useCallback(async (partial: Record<string, unknown>) => {
     if (!post) return;
     setSaveState('saving');
     try {
@@ -157,7 +135,29 @@ export function AdminBlogEditor({ postId }: { postId: string }) {
       setSaveState('error');
       toast.error('Save failed');
     }
-  };
+  }, [post, postId, router]);
+
+  useEffect(() => {
+    const h = (e: Event) => {
+      const d = (e as CustomEvent<{ fileUrl?: string; storageKey?: string }>).detail;
+      if (!d?.fileUrl) return;
+      setPost((p) =>
+        p
+          ? {
+              ...p,
+              featuredImageUrl: d.fileUrl ?? p.featuredImageUrl,
+              featuredImageStorageKey: d.storageKey ?? p.featuredImageStorageKey,
+            }
+          : p
+      );
+      void savePatch({
+        featuredImageUrl: d.fileUrl,
+        featuredImageStorageKey: d.storageKey ?? null,
+      });
+    };
+    window.addEventListener('blog-feature-image', h);
+    return () => window.removeEventListener('blog-feature-image', h);
+  }, [savePatch]);
 
   const scheduleDebounced = (partial: Record<string, unknown>) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);

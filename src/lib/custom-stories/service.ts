@@ -103,7 +103,7 @@ export async function createCustomStoryOrder(userId: string, input: CreateCustom
     format: pricing.episodeCount > 1 ? 'mini-series' : 'standalone',
     targetLengthRange: '4-5',
     episodeCount: pricing.episodeCount,
-  } satisfies GenerationRequestPatch);
+  } as GenerationRequestPatch);
   const draftTitle = normalizedInputs.title.trim() || deriveSeriesTitleFromSimpleIdea(normalizedInputs.simpleIdea);
 
   return prisma.$transaction(async (tx) => {

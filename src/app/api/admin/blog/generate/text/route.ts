@@ -54,17 +54,20 @@ export async function POST(req: Request) {
     let messages;
     switch (parsed.data.mode) {
       case 'scratch': {
-        const { mode: _m, ...rest } = parsed.data;
+        const rest = { ...parsed.data };
+        delete (rest as { mode?: unknown }).mode;
         messages = buildBlogScratchMessages(rest);
         break;
       }
       case 'keywords': {
-        const { mode: _m, ...rest } = parsed.data;
+        const rest = { ...parsed.data };
+        delete (rest as { mode?: unknown }).mode;
         messages = buildBlogKeywordsMessages(rest);
         break;
       }
       case 'rewrite': {
-        const { mode: _m, ...rest } = parsed.data;
+        const rest = { ...parsed.data };
+        delete (rest as { mode?: unknown }).mode;
         messages = buildBlogRewriteMessages(rest);
         break;
       }
