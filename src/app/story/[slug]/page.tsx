@@ -24,12 +24,14 @@ export default async function StoryPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const story = await fetchStoryBySlug(slug);
-  if (!story) notFound();
-
   const session = await auth();
   const isSignedIn = Boolean(session?.user);
   const userId = session?.user?.id;
+  const story = await fetchStoryBySlug(slug, {
+    viewerUserId: userId ?? null,
+    viewerRole: session?.user?.role ?? null,
+  });
+  if (!story) notFound();
   const sub = session?.user?.subscriptionStatus;
   const isSubscribed =
     userId != null

@@ -22,7 +22,7 @@ const deleteDraftBodySchema = z
 
 const patchBodySchema = z
   .object({
-    title: z.string().min(1).max(200).optional(),
+    seriesTitle: z.string().min(1).max(200).optional(),
     slug: z
       .string()
       .min(1)
@@ -105,7 +105,7 @@ export async function PATCH(
 
   const data: Prisma.StoryStudioDraftUncheckedUpdateInput = {};
 
-  if (parsed.data.title != null) data.title = parsed.data.title;
+  if (parsed.data.seriesTitle != null) data.seriesTitle = parsed.data.seriesTitle;
   if (parsed.data.slug != null) data.slug = parsed.data.slug;
   if (parsed.data.mode != null) data.mode = parsed.data.mode;
   if (parsed.data.presetId !== undefined) {

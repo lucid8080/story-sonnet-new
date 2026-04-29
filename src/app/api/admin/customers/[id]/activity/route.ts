@@ -45,7 +45,7 @@ export async function GET(
         where: { createdByUserId: id },
         orderBy: { updatedAt: 'desc' },
         take: 15,
-        select: { id: true, title: true, slug: true, updatedAt: true },
+        select: { id: true, seriesTitle: true, slug: true, updatedAt: true },
       }),
     ]);
 
@@ -78,7 +78,7 @@ export async function GET(
     for (const d of drafts) {
       feed.push({
         kind: 'studio_draft',
-        label: `Story Studio: ${d.title}`,
+        label: `Story Studio: ${d.seriesTitle}`,
         at: d.updatedAt.toISOString(),
         ref: d.id,
       });

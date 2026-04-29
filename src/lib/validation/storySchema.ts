@@ -73,7 +73,6 @@ export const adminStoryUpsertSchema = z.object({
     .refine((s) => slugRegex.test(s), {
       message: 'Slug must be lowercase letters, numbers, and hyphens',
     }),
-  title: z.string().min(1, 'Title is required'),
   seriesTitle: z.string().min(1, 'Series name is required'),
   subtitle: z.string().nullable().optional(),
   summary: z.string().min(1, 'Short description is required'),

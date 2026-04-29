@@ -17,12 +17,11 @@ const field =
   'mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-400';
 
 function defaultBrief(
-  title: string,
+  seriesTitle: string,
   req: GenerationRequest
 ): BriefPayloadParsed {
-  const t = title.trim() || 'Untitled draft';
+  const t = seriesTitle.trim() || 'Untitled draft';
   return {
-    title: t,
     seriesTitle: t,
     summary: 'Add a short summary for cards and the library.',
     logline: '',
@@ -41,18 +40,18 @@ function defaultBrief(
 
 function briefFromDraft(
   brief: unknown,
-  title: string,
+  seriesTitle: string,
   req: GenerationRequest
 ): BriefPayloadParsed {
-  if (brief == null) return defaultBrief(title, req);
+  if (brief == null) return defaultBrief(seriesTitle, req);
   const parsed = parseJsonToBrief(JSON.stringify(brief));
   if (parsed.success) return parsed.data;
-  return defaultBrief(title, req);
+  return defaultBrief(seriesTitle, req);
 }
 
 export function StoryBriefPanel({
   draftId,
-  draftTitle,
+  draftSeriesTitle,
   brief,
   request,
   busy,
@@ -60,7 +59,7 @@ export function StoryBriefPanel({
   onSaveNotice,
 }: {
   draftId: string;
-  draftTitle: string;
+  draftSeriesTitle: string;
   brief: unknown;
   request: GenerationRequest;
   busy: boolean;
@@ -73,16 +72,16 @@ export function StoryBriefPanel({
     [brief]
   );
   const [form, setForm] = useState<BriefPayloadParsed>(() =>
-    briefFromDraft(brief, draftTitle, request)
+    briefFromDraft(brief, draftSeriesTitle, request)
   );
   const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
-    setForm(briefFromDraft(brief, draftTitle, request));
+    setForm(briefFromDraft(brief, draftSeriesTitle, request));
     setSaveError(null);
     // briefJsonKey fingerprints `brief` content; omit `request` so debounced request-only saves do not wipe unsaved brief edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync when draft id, brief JSON, or saved title changes
-  }, [draftId, briefJsonKey, draftTitle]);
+  }, [draftId, briefJsonKey, draftSeriesTitle]);
 
   const briefJsonPretty = useMemo(
     () => JSON.stringify(form, null, 2),
@@ -120,7 +119,7 @@ export function StoryBriefPanel({
       if (st.length > 0) {
         await saveDraftPatch({
           brief: parsed.data,
-          title: st,
+          seriesTitle: st,
           slug: draftSlugFromTitle(st),
         });
       } else {
@@ -215,14 +214,6 @@ export function StoryBriefPanel({
 
       <div className="max-h-[560px] overflow-y-auto pr-1">
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block sm:col-span-2">
-            <span className="text-xs font-bold text-slate-700">Title</span>
-            <input
-              className={field}
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-            />
-          </label>
           <label className="block sm:col-span-2">
             <span className="text-xs font-bold text-slate-700">
               Series title

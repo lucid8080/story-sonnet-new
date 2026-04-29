@@ -55,6 +55,7 @@ export type AppStory = {
   id: string;
   slug: string;
   seriesTitle: string;
+  /** Legacy alias retained for UI compatibility; mirrors `seriesTitle`. */
   title: string;
   subtitle: string | null;
   ageGroup: string | null;
@@ -86,6 +87,9 @@ export type AppStory = {
   isFeatured: boolean;
   isPremium: boolean;
   isPublished: boolean;
+  isUserGenerated: boolean;
+  ownerUserId: string | null;
+  access: 'public' | 'private';
   metaTitle: string | null;
   metaDescription: string | null;
   episodes: AppEpisode[];
@@ -295,7 +299,7 @@ function mapDbStoryToApp(story: Story, episodes: Episode[]): AppStory {
     id: story.id.toString(),
     slug: story.slug,
     seriesTitle: story.seriesTitle,
-    title: story.title,
+    title: story.seriesTitle,
     subtitle: story.subtitle ?? null,
     ageGroup: story.ageGroup,
     ageRange: ageRange && ageRange.length ? ageRange : null,
@@ -325,6 +329,9 @@ function mapDbStoryToApp(story: Story, episodes: Episode[]): AppStory {
     isFeatured: story.isFeatured,
     isPremium: story.isPremium,
     isPublished: story.isPublished,
+    isUserGenerated: story.isUserGenerated,
+    ownerUserId: story.ownerUserId ?? null,
+    access: story.access,
     metaTitle: story.metaTitle ?? null,
     metaDescription: story.metaDescription ?? null,
     episodes: appEpisodes,
@@ -392,7 +399,7 @@ function mapStaticToApp(): AppStory[] {
       id: String(s.slug),
       slug: s.slug,
       seriesTitle: s.seriesTitle,
-      title: s.title,
+      title: s.seriesTitle,
       subtitle: null,
       ageGroup: s.ageGroup ?? null,
       ageRange: seed.ageRange,
@@ -422,6 +429,9 @@ function mapStaticToApp(): AppStory[] {
       isFeatured: !!seed.isFeatured,
       isPremium: !!s.isPremium,
       isPublished: true,
+      isUserGenerated: false,
+      ownerUserId: null,
+      access: 'public',
       metaTitle: null,
       metaDescription: null,
       episodes: eps,
@@ -439,6 +449,8 @@ export type FetchStoriesOptions = {
 
 export type FetchStoryBySlugOptions = {
   visibility?: StoryVisibility;
+  viewerUserId?: string | null;
+  viewerRole?: string | null;
 };
 
 function storyVisibleToPublic(story: AppStory): AppStory {
@@ -454,16 +466,30 @@ function applyStoryVisibility(
 ): AppStory[] {
   if (visibility === 'all') return stories;
   return stories
+    .filter((s) => !s.isUserGenerated)
     .filter((s) => s.isPublished)
     .map(storyVisibleToPublic);
 }
 
+function canAccessUserGeneratedStory(
+  story: AppStory,
+  options?: FetchStoryBySlugOptions
+): boolean {
+  if (story.access === 'public') return true;
+  if (options?.viewerRole === 'admin') return true;
+  return !!(options?.viewerUserId && options.viewerUserId === story.ownerUserId);
+}
+
 function finalizeStoryForVisibility(
   story: AppStory | null,
-  visibility: StoryVisibility
+  visibility: StoryVisibility,
+  options?: FetchStoryBySlugOptions
 ): AppStory | null {
   if (!story) return null;
   if (visibility === 'all') return story;
+  if (story.isUserGenerated) {
+    return canAccessUserGeneratedStory(story, options) ? story : null;
+  }
   if (!story.isPublished) return null;
   return storyVisibleToPublic(story);
 }
@@ -550,7 +576,7 @@ export async function fetchStoryBySlug(
 
   if (!process.env.DATABASE_URL) {
     const found = mapStaticToApp().find((s) => s.slug === slug) ?? null;
-    return finalizeStoryForVisibility(found, visibility);
+    return finalizeStoryForVisibility(found, visibility, options);
   }
 
   try {
@@ -558,7 +584,7 @@ export async function fetchStoryBySlug(
     if (!story) {
       const fallback =
         mapStaticToApp().find((s) => s.slug === slug) ?? null;
-      return finalizeStoryForVisibility(fallback, visibility);
+      return finalizeStoryForVisibility(fallback, visibility, options);
     }
 
     const episodes = await prisma.episode.findMany({
@@ -569,11 +595,11 @@ export async function fetchStoryBySlug(
     const app = overlayCatalogCoverIfSuperseded(
       mergeCatalogPublicAudioIntoDbApp(mapDbStoryToApp(story, episodes))
     );
-    return finalizeStoryForVisibility(app, visibility);
+    return finalizeStoryForVisibility(app, visibility, options);
   } catch (e) {
     console.warn('[stories] fetchStoryBySlug DB failed, using static.', e);
     const fallback = mapStaticToApp().find((s) => s.slug === slug) ?? null;
-    return finalizeStoryForVisibility(fallback, visibility);
+    return finalizeStoryForVisibility(fallback, visibility, options);
   }
 }
 
@@ -603,7 +629,6 @@ function storyCreateDataFromAdmin(
   return {
     slug: input.slug,
     seriesTitle: input.seriesTitle,
-    title: input.title,
     subtitle: input.subtitle ?? undefined,
     ageGroup: input.ageGroup ?? undefined,
     ageRange: input.ageRange,
@@ -642,7 +667,6 @@ function storyUpdateDataFromAdmin(
   return {
     slug: input.slug,
     seriesTitle: input.seriesTitle,
-    title: input.title,
     subtitle: input.subtitle,
     ageGroup: input.ageGroup,
     ageRange: input.ageRange,
@@ -830,7 +854,6 @@ async function seedStoryFromStaticFull(
     ...input,
     slug: input.slug || staticStory.slug,
     seriesTitle: input.seriesTitle || staticStory.seriesTitle,
-    title: input.title || staticStory.title,
     summary: input.summary?.trim()
       ? input.summary
       : staticStory.summary ?? 'Short description for library cards.',
@@ -949,7 +972,6 @@ export async function createDraftStory(): Promise<Story> {
     data: {
       slug,
       seriesTitle: 'Untitled series',
-      title: 'Untitled story',
       summary: 'Short description for library cards.',
       ageRange: '6-8',
       isSeries: false,
@@ -1005,8 +1027,7 @@ export async function duplicateStoryAdmin(id: string): Promise<Story> {
   return prisma.story.create({
     data: {
       slug,
-      seriesTitle: src.seriesTitle,
-      title: `${src.title} (copy)`,
+      seriesTitle: `${src.seriesTitle} (copy)`,
       subtitle: src.subtitle,
       ageGroup: src.ageGroup,
       ageRange: src.ageRange,
@@ -1059,7 +1080,7 @@ export async function duplicateStoryAdmin(id: string): Promise<Story> {
 /** @deprecated Use upsertStoryFromAdmin for admin saves. */
 export async function updateStoryMeta(input: {
   id: string;
-  title?: string;
+  seriesTitle?: string;
   is_published?: boolean;
   is_premium?: boolean;
   duration_label?: string;
@@ -1069,7 +1090,9 @@ export async function updateStoryMeta(input: {
   }
 
   const patchData: Prisma.StoryUpdateInput = {};
-  if (typeof input.title === 'string') patchData.title = input.title;
+  if (typeof input.seriesTitle === 'string') {
+    patchData.seriesTitle = input.seriesTitle;
+  }
   if (typeof input.is_published === 'boolean') {
     patchData.isPublished = input.is_published;
   }
@@ -1116,8 +1139,6 @@ export async function updateStoryMeta(input: {
 
   const minimal: AdminStoryUpsertInput = {
     slug: staticStory.slug,
-    title:
-      typeof input.title === 'string' ? input.title : staticStory.title,
     seriesTitle: staticStory.seriesTitle,
     summary: staticStory.summary ?? ' ',
     ageRange: getBrowseSeedForSlug(staticStory.slug).ageRange,

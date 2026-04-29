@@ -71,6 +71,9 @@ async function tryPresignPrivateAudioByCatalogPath(
 }
 
 export async function GET(req: Request) {
+  const session = await auth();
+  const viewerUserId = session?.user?.id ?? null;
+  const viewerRole = session?.user?.role ?? null;
   const { searchParams } = new URL(req.url);
   const rawId = searchParams.get('episodeId')?.trim();
   const slug = searchParams.get('slug')?.trim() ?? '';
@@ -112,7 +115,16 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Episode not found' }, { status: 404 });
     }
 
-    if (!episode.isPublished || !episode.story.isPublished) {
+    const isOwner = !!(viewerUserId && episode.story.ownerUserId === viewerUserId);
+    const isAdmin = viewerRole === 'admin';
+    const canAccessPrivate =
+      episode.story.isUserGenerated &&
+      (episode.story.access === 'public' || isOwner || isAdmin);
+    const canAccessCatalog =
+      !episode.story.isUserGenerated &&
+      episode.isPublished &&
+      episode.story.isPublished;
+    if (!canAccessCatalog && !canAccessPrivate) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
@@ -125,8 +137,11 @@ export async function GET(req: Request) {
     legacyUrl = episode.audioUrl?.trim() ?? '';
   } else {
     const epNum = Number(rawEpisodeNumber);
-    const story = await fetchStoryBySlug(slug);
-    if (!story?.isPublished) {
+    const story = await fetchStoryBySlug(slug, {
+      viewerUserId,
+      viewerRole,
+    });
+    if (!story) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
     const ep = story.episodes.find((x) => x.episodeNumber === epNum);

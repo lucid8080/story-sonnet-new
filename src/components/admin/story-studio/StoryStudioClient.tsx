@@ -35,7 +35,7 @@ import { GenerationToolSelector } from '@/components/admin/generation/Generation
 
 type SerializedDraft = {
   id: string;
-  title: string;
+  seriesTitle: string;
   slug: string;
   mode: string;
   presetId: string | null;
@@ -249,13 +249,13 @@ export function StoryStudioClient() {
   const [artStylePromptOverrides, setArtStylePromptOverrides] =
     useState<ArtStylePromptOverrides>({});
   const [slugEdit, setSlugEdit] = useState('');
-  const [titleEdit, setTitleEdit] = useState('');
+  const [seriesTitleEdit, setSeriesTitleEdit] = useState('');
   const [audioUrls, setAudioUrls] = useState<Record<string, string>>({});
   const [audioLoading, setAudioLoading] = useState<Record<string, boolean>>({});
 
   type DraftSummary = {
     id: string;
-    title: string;
+    seriesTitle: string;
     slug: string;
     mode: string;
     updatedAt: string;
@@ -281,10 +281,10 @@ export function StoryStudioClient() {
   const applyMetaFromDraft = useCallback((d: SerializedDraft) => {
     const st = studioSeriesTitleForDraftMeta(d.brief, d.scriptPackage);
     if (st) {
-      setTitleEdit(st);
+      setSeriesTitleEdit(st);
       setSlugEdit(draftSlugFromTitle(st));
     } else {
-      setTitleEdit(String(d.title ?? ''));
+      setSeriesTitleEdit(String(d.seriesTitle ?? ''));
       setSlugEdit(String(d.slug ?? ''));
     }
   }, []);
@@ -306,7 +306,7 @@ export function StoryStudioClient() {
       const shouldRefreshMeta =
         'brief' in body ||
         'scriptPackage' in body ||
-        'title' in body ||
+        'seriesTitle' in body ||
         'slug' in body;
       if (shouldRefreshMeta) {
         applyMetaFromDraft(d);
@@ -547,7 +547,7 @@ export function StoryStudioClient() {
     else {
       setDraft(null);
       setSlugEdit('');
-      setTitleEdit('');
+      setSeriesTitleEdit('');
     }
   }, [draftIdFromUrl, loadDraft]);
 
@@ -631,7 +631,7 @@ export function StoryStudioClient() {
         const r = requestRef.current;
         if (!r) return;
         await saveDraftPatch({
-          title: titleEdit,
+          seriesTitle: seriesTitleEdit,
           slug: slugEdit,
           request: {
             ...r,
@@ -657,7 +657,7 @@ export function StoryStudioClient() {
       customArtStyleEdit,
       saveDraftPatch,
       slugEdit,
-      titleEdit,
+      seriesTitleEdit,
     ]
   );
 
@@ -886,11 +886,11 @@ export function StoryStudioClient() {
                         >
                           <DraftCoverThumb
                             url={d.coverThumbnailUrl}
-                            title={d.title || 'Untitled draft'}
+                            title={d.seriesTitle || 'Untitled draft'}
                           />
                           <div className="min-w-0 flex-1">
                             <div className="font-semibold text-slate-900 truncate">
-                              {d.title || 'Untitled draft'}
+                              {d.seriesTitle || 'Untitled draft'}
                             </div>
                             <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">
                               <span>{formatDraftUpdated(d.updatedAt)}</span>
@@ -953,11 +953,11 @@ export function StoryStudioClient() {
                         >
                           <DraftCoverThumb
                             url={d.coverThumbnailUrl}
-                            title={d.title || 'Untitled draft'}
+                            title={d.seriesTitle || 'Untitled draft'}
                           />
                           <div className="min-w-0 flex-1">
                             <div className="font-semibold text-slate-900 truncate">
-                              {d.title || 'Untitled draft'}
+                              {d.seriesTitle || 'Untitled draft'}
                             </div>
                             <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">
                               <span>{formatDraftUpdated(d.updatedAt)}</span>
@@ -1138,15 +1138,15 @@ export function StoryStudioClient() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="text-xs font-bold uppercase text-slate-500">
-                Title
+                Series title
               </label>
               <input
                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                value={titleEdit}
+                value={seriesTitleEdit}
                 onChange={(e) => {
                   const v = e.target.value;
                   const nextS = slugFromTitle(v);
-                  setTitleEdit(v);
+                  setSeriesTitleEdit(v);
                   setSlugEdit(nextS);
                 }}
                 onBlur={() => void saveMeta()}
@@ -1524,7 +1524,7 @@ export function StoryStudioClient() {
           {tab === 'brief' && (
             <StoryBriefPanel
               draftId={draft.id}
-              draftTitle={draft.title}
+              draftSeriesTitle={draft.seriesTitle}
               brief={draft.brief}
               request={req}
               busy={busy}
@@ -1535,7 +1535,7 @@ export function StoryStudioClient() {
           {tab === 'script' && (
             <StoryScriptPanel
               draftId={draft.id}
-              draftTitle={draft.title}
+              draftTitle={draft.seriesTitle}
               request={req}
               episodes={draft.episodes}
               scriptPackage={draft.scriptPackage}

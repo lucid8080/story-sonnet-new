@@ -17,7 +17,6 @@ const spotlightInclude = {
         select: {
           id: true,
           slug: true,
-          title: true,
           coverUrl: true,
           cardTitleOverride: true,
           seriesTitle: true,
@@ -130,7 +129,7 @@ function storyCardTitle(
   if (o) return o;
   const c = story.cardTitleOverride?.trim();
   if (c) return c;
-  return story.title;
+  return story.seriesTitle;
 }
 
 function toRailDTO(s: SpotlightWithRelations): SpotlightRailDTO {

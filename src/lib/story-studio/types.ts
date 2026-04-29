@@ -147,7 +147,6 @@ export type GenerationRequest = {
 };
 
 export type BriefPayload = {
-  title: string;
   seriesTitle: string;
   summary: string;
   logline: string;
@@ -171,7 +170,6 @@ export type ScriptEpisodePayload = {
 };
 
 export type ScriptPackagePayload = {
-  title: string;
   seriesTitle: string;
   summary: string;
   fullScript?: string;

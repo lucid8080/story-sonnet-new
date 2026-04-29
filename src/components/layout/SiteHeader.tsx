@@ -89,6 +89,15 @@ export default function SiteHeader() {
           >
             Pricing
           </NavLink>
+          {user ? (
+            <NavLink
+              href="/account/custom-stories"
+              activeClass="rounded-full bg-rose-500 px-3 py-1.5 text-white"
+              idleClass="rounded-full px-3 py-1.5 text-rose-600 hover:bg-rose-50"
+            >
+              Custom Stories
+            </NavLink>
+          ) : null}
           {isAdmin && (
             <NavLink
               href="/admin"
@@ -146,6 +155,14 @@ export default function SiteHeader() {
             >
               Pricing
             </Link>
+            {user ? (
+              <Link
+                href="/account/custom-stories"
+                className="rounded-xl px-3 py-2 font-semibold text-rose-600 hover:bg-rose-50"
+              >
+                Custom Stories
+              </Link>
+            ) : null}
             {isAdmin ? (
               <Link
                 href="/admin"

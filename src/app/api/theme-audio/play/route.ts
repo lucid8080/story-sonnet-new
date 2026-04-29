@@ -23,6 +23,7 @@ async function hasPremiumPlaybackFromSession(): Promise<boolean> {
 }
 
 export async function GET(req: Request) {
+  const session = await auth();
   const { searchParams } = new URL(req.url);
   const slug = searchParams.get('slug')?.trim();
   const kind = searchParams.get('kind')?.trim();
@@ -30,8 +31,11 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Invalid slug or kind' }, { status: 400 });
   }
 
-  const story = await fetchStoryBySlug(slug);
-  if (!story?.isPublished) {
+  const story = await fetchStoryBySlug(slug, {
+    viewerUserId: session?.user?.id ?? null,
+    viewerRole: session?.user?.role ?? null,
+  });
+  if (!story) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 

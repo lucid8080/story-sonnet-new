@@ -11,12 +11,12 @@ import { draftSlugFromTitle } from '@/lib/story-studio/draft-slug-from-title';
 
 const createBodySchema = z.object({
   presetId: z.string().optional(),
-  title: z.string().min(1).max(200).optional(),
+  seriesTitle: z.string().min(1).max(200).optional(),
 });
 
 const draftListSelect = {
   id: true,
-  title: true,
+  seriesTitle: true,
   slug: true,
   mode: true,
   updatedAt: true,
@@ -31,7 +31,7 @@ const draftListSelect = {
 
 type DraftListRow = {
   id: string;
-  title: string;
+  seriesTitle: string;
   slug: string;
   mode: string;
   updatedAt: Date;
@@ -45,7 +45,7 @@ function serializeDraftListRow(d: DraftListRow) {
     resolvePublicAssetUrl(rawCoverUrl) ?? rawCoverUrl ?? null;
   return {
     id: d.id,
-    title: d.title,
+    seriesTitle: d.seriesTitle,
     slug: d.slug,
     mode: d.mode,
     updatedAt: d.updatedAt,
@@ -118,11 +118,11 @@ export async function POST(req: Request) {
     }
   }
 
-  const title = parsed.data.title ?? 'Untitled draft';
+  const seriesTitle = parsed.data.seriesTitle ?? 'Untitled draft';
   const draft = await prisma.storyStudioDraft.create({
     data: {
-      title,
-      slug: draftSlugFromTitle(title),
+      seriesTitle,
+      slug: draftSlugFromTitle(seriesTitle),
       mode: 'quick',
       presetId,
       request: requestJson,
@@ -132,6 +132,6 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     ok: true,
-    draft: { id: draft.id, slug: draft.slug, title: draft.title },
+    draft: { id: draft.id, slug: draft.slug, seriesTitle: draft.seriesTitle },
   });
 }

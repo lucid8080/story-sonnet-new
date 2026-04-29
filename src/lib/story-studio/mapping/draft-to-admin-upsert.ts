@@ -10,7 +10,7 @@ import { scriptToTranscriptLines } from '@/lib/transcripts/from-script';
 
 type DraftForMapping = {
   id: string;
-  title: string;
+  seriesTitle: string;
   slug: string;
   brief: unknown;
   scriptPackage: unknown;
@@ -49,8 +49,7 @@ export function draftToAdminUpsertInput(draft: DraftForMapping): AdminStoryUpser
   const brief = draft.brief as BriefPayloadParsed | null;
   const script = draft.scriptPackage as ScriptPackagePayloadParsed | null;
 
-  const title = script?.title ?? brief?.title ?? draft.title;
-  const seriesTitle = script?.seriesTitle ?? brief?.seriesTitle ?? title;
+  const seriesTitle = script?.seriesTitle ?? brief?.seriesTitle ?? draft.seriesTitle;
   const summary =
     script?.summary ??
     brief?.summary ??
@@ -125,7 +124,6 @@ export function draftToAdminUpsertInput(draft: DraftForMapping): AdminStoryUpser
 
   return {
     slug: draft.slug.trim().toLowerCase(),
-    title,
     seriesTitle,
     subtitle: null,
     summary,

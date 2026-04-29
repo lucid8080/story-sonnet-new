@@ -104,7 +104,6 @@ function normalizeForComparison(v: string): string {
 }
 
 export const briefPayloadSchema = z.object({
-  title: z.string().min(1),
   seriesTitle: z.string().min(1),
   summary: z.string().min(1),
   logline: z.string(),
@@ -153,7 +152,6 @@ export const scriptEpisodePayloadSchema = z.object({
 const tagDensitySchema = z.enum(['light', 'medium', 'expressive']);
 
 export const scriptPackagePayloadSchema = z.object({
-  title: z.string().min(1),
   seriesTitle: z.string().min(1),
   summary: z.string().min(1),
   fullScript: z.preprocess(nullToUndefined, z.string().optional()),
@@ -202,6 +200,12 @@ function unwrapBriefCharactersField(v: unknown): unknown {
 function normalizeBriefJsonBeforeParse(data: unknown): unknown {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return data;
   const o = { ...(data as Record<string, unknown>) };
+  if (
+    (o.seriesTitle == null || String(o.seriesTitle).trim().length === 0) &&
+    typeof o.title === 'string'
+  ) {
+    o.seriesTitle = o.title;
+  }
   if ('characters' in o) {
     o.characters = normalizeBriefCharactersValue(o.characters);
   }
@@ -218,7 +222,18 @@ export function parseJsonToBrief(raw: string) {
 export function parseJsonToScriptPackage(raw: string) {
   const text = stripJsonFence(raw);
   const data = JSON.parse(text) as unknown;
-  return scriptPackagePayloadSchema.safeParse(data);
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return scriptPackagePayloadSchema.safeParse(data);
+  }
+  const normalized = { ...(data as Record<string, unknown>) };
+  if (
+    (normalized.seriesTitle == null ||
+      String(normalized.seriesTitle).trim().length === 0) &&
+    typeof normalized.title === 'string'
+  ) {
+    normalized.seriesTitle = normalized.title;
+  }
+  return scriptPackagePayloadSchema.safeParse(normalized);
 }
 
 /** Single-episode JSON from the add-episode LLM preview endpoint. */

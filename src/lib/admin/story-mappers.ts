@@ -153,7 +153,6 @@ export function formToAdminUpsertPayload(form: StoryFormState): AdminStoryUpsert
 
   return {
     slug: form.slug.trim().toLowerCase(),
-    title: form.title.trim(),
     seriesTitle: form.seriesTitle.trim() || form.title.trim(),
     subtitle: form.subtitle.trim() === '' ? null : form.subtitle,
     summary: form.summary.trim(),

@@ -66,7 +66,6 @@ export async function POST(req: Request) {
         data: {
           slug: payload.slug,
           seriesTitle: payload.seriesTitle,
-          title: payload.title,
           summary: payload.summary,
           ageRange: payload.ageRange,
           isSeries: payload.isSeries,

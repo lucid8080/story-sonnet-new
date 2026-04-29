@@ -148,6 +148,11 @@ enum ContentSpotlightBadgeCorner {
   top_left
 }
 
+enum StoryAccess {
+  public
+  private
+}
+
 // NextAuth models
 model User {
   id            String    @id @default(cuid())
@@ -180,6 +185,8 @@ model User {
   campaignStatusAudits     CampaignStatusHistory[] @relation("CampaignStatusActor")
   badgeAssetsUploaded      BadgeAsset[]             @relation("BadgeAssetUploadedBy")
   blogPostsAuthored        BlogPost[]               @relation("BlogPostAuthor")
+  customStoryOrders        CustomStoryOrder[]
+  customOwnedStories       Story[]                  @relation("CustomStoryOwner")
 }
 
 // --- Blog -------------------------------------------------------------------
@@ -573,7 +580,6 @@ model Story {
   id            BigInt   @id @default(autoincrement())
   slug          String   @unique
   seriesTitle   String   @map("series_title")
-  title         String
   subtitle      String?
   ageGroup      String?  @map("age_group")
   ageRange      String?  @map("age_range")
@@ -603,13 +609,20 @@ model Story {
   isPremium     Boolean  @default(false) @map("is_premium")
   metaTitle     String?  @map("meta_title")
   metaDescription String? @map("meta_description")
+  isUserGenerated Boolean @default(false) @map("is_user_generated")
+  ownerUserId    String?  @map("owner_user_id")
+  access         StoryAccess @default(public)
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   episodes Episode[]
   studioDrafts StoryStudioDraft[]
   contentSpotlightStories ContentSpotlightStory[]
+  customStoryOrders CustomStoryOrder[]
+  owner User? @relation("CustomStoryOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
 
+  @@index([ownerUserId])
+  @@index([isUserGenerated, access])
   @@map("stories")
 }
 
@@ -723,7 +736,7 @@ model StoryStudioSettings {
 model StoryStudioDraft {
   id              String   @id @default(cuid())
   createdByUserId String?  @map("created_by_user_id")
-  title           String   @default("Untitled draft")
+  seriesTitle     String   @default("Untitled draft") @map("series_title")
   slug            String
   mode            String   @default("quick")
   presetId        String?  @map("preset_id")
@@ -740,6 +753,7 @@ model StoryStudioDraft {
   episodes    StoryStudioDraftEpisode[]
   assets      StoryStudioGeneratedAsset[]
   jobs        StoryStudioGenerationJob[]
+  customStoryOrders CustomStoryOrder[]
 
   @@index([createdByUserId])
   @@index([updatedAt])
@@ -1076,6 +1090,34 @@ model TrialClaim {
   @@unique([campaignId, userId])
   @@index([userId])
   @@map("trial_claims")
+}
+
+model CustomStoryOrder {
+  id               String   @id @default(cuid())
+  userId           String   @map("user_id")
+  packageType      String   @map("package_type")
+  episodeCount     Int      @map("episode_count")
+  status           String   @default("draft")
+  inputs           Json
+  storyId          BigInt?  @map("story_id")
+  storyStudioDraftId String? @unique @map("story_studio_draft_id")
+  stripeSessionId  String?  @map("stripe_session_id")
+  priceCents       Int      @map("price_cents")
+  nfcRequested     Boolean  @default(false) @map("nfc_requested")
+  nfcFulfilledAt   DateTime? @map("nfc_fulfilled_at")
+  paidAt           DateTime? @map("paid_at")
+  generationError  String?   @map("generation_error")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  story Story? @relation(fields: [storyId], references: [id], onDelete: SetNull)
+  storyStudioDraft StoryStudioDraft? @relation(fields: [storyStudioDraftId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([stripeSessionId])
+  @@map("custom_story_orders")
 }
 
 model CampaignStatusHistory {

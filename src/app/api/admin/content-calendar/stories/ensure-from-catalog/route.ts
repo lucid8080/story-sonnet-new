@@ -37,7 +37,7 @@ export async function POST(req: Request) {
       story: {
         id: row.id.toString(),
         slug: row.slug,
-        title: row.title,
+        title: row.seriesTitle,
         seriesTitle: row.seriesTitle,
         coverUrl: row.coverUrl,
         isPublished: row.isPublished,

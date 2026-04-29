@@ -73,16 +73,15 @@ async function createJob(draftId: string, step: GenerationJobStep) {
   });
 }
 
-function draftTitleAndSlugFromSeriesOrWorkTitle(options: {
+function draftMetaFromSeriesTitle(options: {
   seriesTitle: string;
-  workTitle: string;
-}): { title: string; slug: string } {
+}): { seriesTitle: string; slug: string } {
   const st = options.seriesTitle.trim();
   if (st.length > 0) {
-    return { title: st, slug: draftSlugFromTitle(st) };
+    return { seriesTitle: st, slug: draftSlugFromTitle(st) };
   }
-  const t = options.workTitle.trim() || 'Untitled draft';
-  return { title: t, slug: draftSlugFromTitle(t) };
+  const fallback = 'Untitled draft';
+  return { seriesTitle: fallback, slug: draftSlugFromTitle(fallback) };
 }
 
 async function finishJob(
@@ -120,15 +119,14 @@ async function persistScriptEpisodes(
         },
       });
     }
-    const meta = draftTitleAndSlugFromSeriesOrWorkTitle({
+    const meta = draftMetaFromSeriesTitle({
       seriesTitle: pkg.seriesTitle,
-      workTitle: pkg.title,
     });
     await tx.storyStudioDraft.update({
       where: { id: draftId },
       data: {
         scriptPackage: pkg as object,
-        title: meta.title,
+        seriesTitle: meta.seriesTitle,
         slug: meta.slug,
       },
     });
@@ -142,7 +140,7 @@ function normalizeScriptPackage(
   if (!episodes.length && pkg.fullScript?.trim()) {
     episodes = [
       {
-        title: pkg.title,
+        title: pkg.seriesTitle,
         summary: pkg.summary,
         scriptText: pkg.fullScript.trim(),
       },
@@ -228,15 +226,14 @@ export async function executeGenerationStep(
         `Brief JSON invalid: ${parsed.error.message.slice(0, 300)}`
       );
     }
-    const meta = draftTitleAndSlugFromSeriesOrWorkTitle({
+    const meta = draftMetaFromSeriesTitle({
       seriesTitle: parsed.data.seriesTitle,
-      workTitle: parsed.data.title,
     });
     await prisma.storyStudioDraft.update({
       where: { id: draftId },
       data: {
         brief: parsed.data as object,
-        title: meta.title,
+        seriesTitle: meta.seriesTitle,
         slug: meta.slug,
       },
     });
@@ -335,7 +332,7 @@ export async function executeGenerationStep(
       'Soft instrumental theme for kids.';
     const suno = await sunoGenerateTheme({
       prompt: musicPrompt,
-      title: scriptPkg?.title ?? draft.title,
+      title: scriptPkg?.seriesTitle ?? draft.seriesTitle,
     });
     if (!suno.ok) {
       throw new Error(suno.message);

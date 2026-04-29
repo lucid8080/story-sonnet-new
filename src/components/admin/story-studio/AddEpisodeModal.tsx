@@ -363,7 +363,9 @@ export function AddEpisodeModal({
               Episode preview (edit before save)
             </p>
             <label className="mt-2 block">
-              <span className="text-xs font-bold text-slate-700">Title</span>
+              <span className="text-xs font-bold text-slate-700">
+                Episode title
+              </span>
               <input
                 className={field}
                 value={previewTitle}

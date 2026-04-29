@@ -6,7 +6,7 @@ import { resolvePublicAssetUrl } from '@/lib/resolvePublicAssetUrl';
 export const runtime = 'nodejs';
 
 /**
- * Paginated story list for blog embed picker (covers + titles). Optional `q` narrows by slug/title/series.
+ * Paginated story list for blog embed picker (covers + series titles). Optional `q` narrows by slug/series.
  */
 export async function GET(req: Request) {
   const session = await auth();
@@ -26,7 +26,6 @@ export async function GET(req: Request) {
       ? {
           OR: [
             { slug: { contains: q, mode: 'insensitive' as const } },
-            { title: { contains: q, mode: 'insensitive' as const } },
             { seriesTitle: { contains: q, mode: 'insensitive' as const } },
           ],
         }
@@ -40,7 +39,6 @@ export async function GET(req: Request) {
       orderBy: { updatedAt: 'desc' },
       select: {
         slug: true,
-        title: true,
         seriesTitle: true,
         coverUrl: true,
       },
@@ -50,7 +48,7 @@ export async function GET(req: Request) {
 
   const stories = rows.map((s) => ({
     slug: s.slug,
-    title: s.title,
+    title: s.seriesTitle,
     seriesTitle: s.seriesTitle,
     coverUrl: s.coverUrl
       ? (resolvePublicAssetUrl(s.coverUrl) ?? s.coverUrl)

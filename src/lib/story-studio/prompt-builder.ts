@@ -107,8 +107,7 @@ ${optionalBlocks.join('\n\n')}`;
 }
 
 const BRIEF_JSON_INSTRUCTIONS = `Return a single JSON object with these keys:
-- title (string)
-- seriesTitle (string; for standalone can match title or be a light series name)
+- seriesTitle (string; canonical story name)
 - summary (2–4 sentences for parents)
 - logline (one line)
 - characters (array of strings only — each item one plain sentence; do not use objects or sub-keys)
@@ -168,7 +167,6 @@ function forestAnimalProtagonistSpin(
 
 function scriptJsonInstructions(density: string): string {
   return `Return a single JSON object with these keys:
-- title (string)
 - seriesTitle (string)
 - summary (short catalog summary)
 - fullScript (optional string: entire story in one block if standalone single episode)
@@ -394,7 +392,7 @@ Constraints: kid-safe, vibrant but soft, poster-style composition, no logos, no 
 
 /** Draft-shaped input for resolving script/brief cover text + constraints (orchestration + UI). */
 export type DraftCoverImagePromptInput = {
-  title: string;
+  seriesTitle: string;
   scriptPackage: unknown;
   brief: unknown;
 };
@@ -407,12 +405,12 @@ export function buildDraftCoverImagePrompt(
 ): string {
   const scriptPkg = draft.scriptPackage as ScriptPackagePayloadParsed | null;
   const brief = draft.brief as BriefPayloadParsed | null;
-  const title = scriptPkg?.title ?? brief?.title ?? draft.title;
+  const title = scriptPkg?.seriesTitle ?? brief?.seriesTitle ?? draft.seriesTitle;
   const logline = resolveCoverLogline(brief, req);
   const scene = pickCoverArtPromptSegment(
     scriptPkg,
     brief,
-    draft.title
+    draft.seriesTitle
   );
   const styleBlock = isPresetFieldEnabled(req.presetFieldEnabled, 'artStyle')
     ? formatArtStylePromptBlock(req, artStyleOverrides)

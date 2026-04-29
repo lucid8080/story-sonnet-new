@@ -62,6 +62,9 @@ export function StoryScriptPanel({
       sortOrder: e.sortOrder ?? i,
     }))
   );
+  const [expandedEpisodeIds, setExpandedEpisodeIds] = useState<Set<string>>(
+    () => new Set()
+  );
   const [saveError, setSaveError] = useState<string | null>(null);
   const [narratingEpisodeId, setNarratingEpisodeId] = useState<string | null>(
     null
@@ -75,6 +78,7 @@ export function StoryScriptPanel({
       }))
     );
     setSaveError(null);
+    setExpandedEpisodeIds(new Set());
     // episodeKey fingerprints episode content; omit `episodes` to avoid resets on array ref churn.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync when draft id or episode payload changes
   }, [draftId, episodeKey]);
@@ -131,6 +135,15 @@ export function StoryScriptPanel({
     },
     [runTtsForEpisode, onSaveNotice]
   );
+
+  const toggleEpisodeExpanded = useCallback((episodeId: string) => {
+    setExpandedEpisodeIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(episodeId)) next.delete(episodeId);
+      else next.add(episodeId);
+      return next;
+    });
+  }, []);
 
   return (
     <>
@@ -237,15 +250,22 @@ export function StoryScriptPanel({
             {rows.map((row, i) => {
               const n = row.scriptText.length;
               const over = n > STORY_STUDIO_MAX_SCRIPT_CHARS_PER_EPISODE;
+              const isExpanded = expandedEpisodeIds.has(row.id);
               return (
                 <li
                   key={row.id}
                   className="rounded-2xl border border-slate-100 bg-slate-50/90 p-4"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="text-xs font-bold uppercase text-slate-500">
-                      Episode {i + 1}
-                    </div>
+                    <button
+                      type="button"
+                      aria-expanded={isExpanded}
+                      onClick={() => toggleEpisodeExpanded(row.id)}
+                      className="inline-flex items-center gap-2 text-xs font-bold uppercase text-slate-500"
+                    >
+                      <span>{isExpanded ? '▾' : '▸'}</span>
+                      <span>Episode {i + 1}</span>
+                    </button>
                     <button
                       type="button"
                       disabled={
@@ -259,70 +279,78 @@ export function StoryScriptPanel({
                         : 'Narrate audio'}
                     </button>
                   </div>
-                  <label className="mt-2 block">
-                    <span className="text-xs font-bold text-slate-700">
-                      Title
-                    </span>
-                    <input
-                      className={field}
-                      value={row.title}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setRows((prev) =>
-                          prev.map((r, j) =>
-                            j === i ? { ...r, title: v } : r
-                          )
-                        );
-                      }}
-                    />
-                  </label>
-                  <label className="mt-3 block">
-                    <span className="text-xs font-bold text-slate-700">
-                      Episode summary
-                    </span>
-                    <textarea
-                      rows={2}
-                      className={field}
-                      value={row.summary ?? ''}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setRows((prev) =>
-                          prev.map((r, j) =>
-                            j === i ? { ...r, summary: v || null } : r
-                          )
-                        );
-                      }}
-                      placeholder="Short blurb (must not copy the script verbatim)."
-                    />
-                  </label>
-                  <label className="mt-3 block">
-                    <span className="flex flex-wrap items-baseline justify-between gap-2 text-xs font-bold text-slate-700">
-                      <span>Script text</span>
-                      <span
-                        className={
-                          over
-                            ? 'font-mono text-rose-700'
-                            : 'font-mono text-slate-500'
-                        }
-                      >
-                        {n} / {STORY_STUDIO_MAX_SCRIPT_CHARS_PER_EPISODE}
-                      </span>
-                    </span>
-                    <textarea
-                      rows={14}
-                      maxLength={STORY_STUDIO_MAX_SCRIPT_CHARS_PER_EPISODE}
-                      className={`${field} font-mono text-[13px] leading-relaxed`}
-                      value={row.scriptText}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setRows((prev) =>
-                          prev.map((r, j) =>
-                            j === i ? { ...r, scriptText: v } : r
-                          )
-                        );
-                      }}
-                    />
-                  </label>
+                  {!isExpanded ? (
+                    <p className="mt-2 text-xs text-slate-600">
+                      {row.title || 'Untitled episode'} - {n} chars
+                    </p>
+                  ) : (
+                    <>
+                      <label className="mt-2 block">
+                        <span className="text-xs font-bold text-slate-700">
+                          Episode title
+                        </span>
+                        <input
+                          className={field}
+                          value={row.title}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setRows((prev) =>
+                              prev.map((r, j) =>
+                                j === i ? { ...r, title: v } : r
+                              )
+                            );
+                          }}
+                        />
+                      </label>
+                      <label className="mt-3 block">
+                        <span className="text-xs font-bold text-slate-700">
+                          Episode summary
+                        </span>
+                        <textarea
+                          rows={2}
+                          className={field}
+                          value={row.summary ?? ''}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setRows((prev) =>
+                              prev.map((r, j) =>
+                                j === i ? { ...r, summary: v || null } : r
+                              )
+                            );
+                          }}
+                          placeholder="Short blurb (must not copy the script verbatim)."
+                        />
+                      </label>
+                      <label className="mt-3 block">
+                        <span className="flex flex-wrap items-baseline justify-between gap-2 text-xs font-bold text-slate-700">
+                          <span>Script text</span>
+                          <span
+                            className={
+                              over
+                                ? 'font-mono text-rose-700'
+                                : 'font-mono text-slate-500'
+                            }
+                          >
+                            {n} / {STORY_STUDIO_MAX_SCRIPT_CHARS_PER_EPISODE}
+                          </span>
+                        </span>
+                        <textarea
+                          rows={14}
+                          maxLength={STORY_STUDIO_MAX_SCRIPT_CHARS_PER_EPISODE}
+                          className={`${field} font-mono text-[13px] leading-relaxed`}
+                          value={row.scriptText}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setRows((prev) =>
+                              prev.map((r, j) =>
+                                j === i ? { ...r, scriptText: v } : r
+                              )
+                            );
+                          }}
+                        />
+                      </label>
+                    </>
+                  )}
                 </li>
               );
             })}

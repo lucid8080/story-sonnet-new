@@ -24,10 +24,9 @@ export function minimalScriptPackageFromDraft(opts: {
   catalogAgeRange: GenerationRequest['catalogAgeRange'];
   tagDensity: GenerationRequest['tagDensity'];
 }): ScriptPackagePayloadParsed {
-  const title = opts.draftTitle.trim() || 'Untitled draft';
+  const seriesTitle = opts.draftTitle.trim() || 'Untitled draft';
   const seed = {
-    title,
-    seriesTitle: title,
+    seriesTitle,
     summary: PLACEHOLDER_SERIES_SUMMARY,
     episodes: [
       {
@@ -70,12 +69,11 @@ export function firstEpisodePackageFromGenerated(
     hookEnding?: string;
   }
 ): ScriptPackagePayloadParsed {
-  const title = opts.draftTitle.trim() || 'Untitled draft';
+  const seriesTitle = opts.draftTitle.trim() || 'Untitled draft';
   const seriesSummary =
     opts.seriesSummaryHint?.trim() || PLACEHOLDER_SERIES_SUMMARY;
   const seed = {
-    title,
-    seriesTitle: title,
+    seriesTitle,
     summary: seriesSummary,
     episodes: [
       {

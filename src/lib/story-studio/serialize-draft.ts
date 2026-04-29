@@ -26,7 +26,7 @@ export function serializeDraft(draft: DraftWithRelations) {
   const request = resolveDraftGenerationRequest(draft);
   return {
     id: draft.id,
-    title: draft.title,
+    seriesTitle: draft.seriesTitle,
     slug: draft.slug,
     mode: draft.mode,
     presetId: draft.presetId,

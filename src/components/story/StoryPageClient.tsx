@@ -476,8 +476,9 @@ export function StoryPageClient({
                         usingPlaceholderAudio &&
                         !audioError ? (
                           <p className="text-center text-xs text-amber-100/95">
-                            Placeholder audio — upload the MP3 or fix the CDN path
-                            when ready.
+                            Episode production is still in progress. This track is
+                            using temporary audio until the final MP3 is generated
+                            and published.
                           </p>
                         ) : null}
                         <input

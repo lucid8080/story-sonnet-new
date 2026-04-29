@@ -5,7 +5,7 @@ import { fetchStoryBySlug } from '@/lib/stories';
 export const runtime = 'nodejs';
 
 /**
- * Story metadata for blog embed picker (admin): episodes, cover, title.
+ * Story metadata for blog embed picker (admin): episodes, cover, series title.
  */
 export async function GET(req: Request) {
   const session = await auth();
@@ -37,7 +37,7 @@ export async function GET(req: Request) {
     ok: true,
     story: {
       slug: story.slug,
-      title: story.title,
+      title: story.seriesTitle,
       coverUrl: story.cover ?? null,
       episodes: story.episodes
         .slice()

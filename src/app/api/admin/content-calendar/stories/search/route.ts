@@ -12,7 +12,6 @@ function staticMatchesQuery(s: StaticRow, needle: string): boolean {
   const n = needle.toLowerCase();
   return (
     s.slug.toLowerCase().includes(n) ||
-    s.title.toLowerCase().includes(n) ||
     (typeof s.seriesTitle === 'string' &&
       s.seriesTitle.toLowerCase().includes(n))
   );
@@ -34,7 +33,6 @@ export async function GET(req: Request) {
     where: {
       OR: [
         { slug: { contains: q, mode: 'insensitive' } },
-        { title: { contains: q, mode: 'insensitive' } },
         { seriesTitle: { contains: q, mode: 'insensitive' } },
       ],
     },
@@ -43,7 +41,6 @@ export async function GET(req: Request) {
     select: {
       id: true,
       slug: true,
-      title: true,
       seriesTitle: true,
       coverUrl: true,
       isPublished: true,
@@ -62,7 +59,7 @@ export async function GET(req: Request) {
   }> = dbStories.map((s) => ({
     id: s.id.toString(),
     slug: s.slug,
-    title: s.title,
+    title: s.seriesTitle,
     seriesTitle: s.seriesTitle,
     coverUrl: s.coverUrl,
     isPublished: s.isPublished,
