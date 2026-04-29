@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -23,13 +23,14 @@ export function AdminBlogListClient() {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<string>('all');
   const [loading, setLoading] = useState(true);
+  const qRef = useRef(q);
 
-  const load = async () => {
+  const load = useCallback(async (nextQ: string, nextStatus: string) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (q.trim()) params.set('q', q.trim());
-      if (status !== 'all') params.set('status', status);
+      if (nextQ.trim()) params.set('q', nextQ.trim());
+      if (nextStatus !== 'all') params.set('status', nextStatus);
       const res = await fetch(`/api/admin/blog?${params.toString()}`);
       const data = (await res.json()) as { items?: Row[]; total?: number };
       setItems(data.items ?? []);
@@ -37,11 +38,15 @@ export function AdminBlogListClient() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    void load();
-  }, [status]);
+    qRef.current = q;
+  }, [q]);
+
+  useEffect(() => {
+    void load(qRef.current, status);
+  }, [load, status]);
 
   return (
     <div>
@@ -64,12 +69,12 @@ export function AdminBlogListClient() {
           className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && void load()}
+          onKeyDown={(e) => e.key === 'Enter' && void load(q, status)}
         />
         <button
           type="button"
           className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-          onClick={() => void load()}
+          onClick={() => void load(q, status)}
         >
           Search
         </button>
@@ -159,7 +164,7 @@ export function AdminBlogListClient() {
                         });
                         if (res.ok) {
                           toast.success('Deleted');
-                          void load();
+                          void load(q, status);
                           router.refresh();
                         } else toast.error('Delete failed');
                       }}

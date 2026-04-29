@@ -11,6 +11,7 @@ import {
   type CreateCustomStoryOrderInput,
   orderInputToGenerationPatch,
 } from '@/lib/custom-stories/schemas';
+import type { GenerationRequestPatch } from '@/lib/story-studio/schemas/request-schema';
 import { defaultGenerationRequest, mergeGenerationRequest } from '@/lib/story-studio/normalize-request';
 import { draftSlugFromTitle } from '@/lib/story-studio/draft-slug-from-title';
 import { executeImageGeneration, executeNarrationGeneration, executeTextGeneration } from '@/lib/generation/execute';
@@ -32,6 +33,18 @@ type EpisodeGenerated = {
   durationSeconds: number;
   audioStorageKey: string;
   transcriptLines: ReturnType<typeof scriptToTranscriptLines>;
+};
+
+type GenerationInputShape = {
+  simpleIdea?: unknown;
+  studioSetup?: {
+    lesson?: unknown;
+    studioAgeBand?: unknown;
+    characterType?: unknown;
+    setting?: unknown;
+    narrationStyle?: unknown;
+    artStyle?: unknown;
+  };
 };
 
 function scrubFreeText(raw: string): string {
@@ -90,7 +103,7 @@ export async function createCustomStoryOrder(userId: string, input: CreateCustom
     format: pricing.episodeCount > 1 ? 'mini-series' : 'standalone',
     targetLengthRange: '4-5',
     episodeCount: pricing.episodeCount,
-  } as any);
+  } satisfies GenerationRequestPatch);
   const draftTitle = normalizedInputs.title.trim() || deriveSeriesTitleFromSimpleIdea(normalizedInputs.simpleIdea);
 
   return prisma.$transaction(async (tx) => {
@@ -237,7 +250,7 @@ export async function generateCustomStoryFromOrder(order: { id: string; storyId:
   }
 }
 
-async function generateStoryPlan(inputs: any, episodeCount: number): Promise<StoryPlan> {
+async function generateStoryPlan(inputs: GenerationInputShape, episodeCount: number): Promise<StoryPlan> {
   const idea = String(inputs.simpleIdea ?? 'A kind child learns and grows.');
   const lesson = String(inputs.studioSetup?.lesson ?? 'kindness');
   const ageBand = String(inputs.studioSetup?.studioAgeBand ?? '5-7');
@@ -274,7 +287,7 @@ async function generateEpisodeScript(
   plan: StoryPlan,
   episodePlan: StoryPlan['episodePlans'][number],
   episodeNumber: number,
-  inputs: any
+  inputs: GenerationInputShape
 ) {
   const prompt = [
     'Return strict JSON only.',
@@ -302,7 +315,11 @@ async function generateEpisodeScript(
   };
 }
 
-async function generateCoverForStory(plan: StoryPlan, inputs: any, storySlug: string): Promise<string | null> {
+async function generateCoverForStory(
+  plan: StoryPlan,
+  inputs: GenerationInputShape,
+  storySlug: string
+): Promise<string | null> {
   const prompt = [
     `${inputs.studioSetup?.artStyle ?? 'storybook'} illustrated cover art for a children's story.`,
     `Title: ${plan.title}.`,

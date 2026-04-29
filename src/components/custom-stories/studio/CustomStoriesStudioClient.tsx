@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Image from 'next/image';
 import { StoryBriefPanel } from '@/components/admin/story-studio/StoryBriefPanel';
 import { StoryScriptPanel } from '@/components/admin/story-studio/StoryScriptPanel';
 import type { GenerationRequest } from '@/lib/story-studio/types';
@@ -283,12 +284,16 @@ export function CustomStoriesStudioClient(props: {
                 onClick={() => setSelectedCoverUrl(asset.publicUrl)}
                 className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100 p-2 disabled:cursor-not-allowed"
               >
-                <div className="h-48 w-full">
-                  <img
-                    src={asset.publicUrl ?? ''}
-                    alt={`Generated cover ${index + 1}`}
-                    className="h-full w-full object-contain"
-                  />
+                <div className="relative h-48 w-full">
+                  {asset.publicUrl ? (
+                    <Image
+                      src={asset.publicUrl}
+                      alt={`Generated cover ${index + 1}`}
+                      fill
+                      className="object-contain"
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    />
+                  ) : null}
                 </div>
               </button>
             ))}
@@ -368,11 +373,13 @@ export function CustomStoriesStudioClient(props: {
                 Close
               </button>
             </div>
-            <div className="h-[70vh] w-full">
-              <img
+            <div className="relative h-[70vh] w-full">
+              <Image
                 src={selectedCoverUrl}
                 alt="Full-size generated cover"
-                className="h-full w-full object-contain"
+                fill
+                className="object-contain"
+                sizes="100vw"
               />
             </div>
           </div>

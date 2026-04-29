@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 type Family = 'text' | 'image' | 'audio_narration';
 type Provider = 'openrouter' | 'openai' | 'elevenlabs';
@@ -72,10 +72,10 @@ export function GenerationSettingsClient() {
     sortOrder: 0,
   });
 
-  const load = async () => {
+  const load = useCallback(async (nextFamily: Family) => {
     setLoading(true);
     const [optionsRes, prefsRes] = await Promise.all([
-      fetch(`/api/admin/generation/options?family=${encodeURIComponent(family)}`),
+      fetch(`/api/admin/generation/options?family=${encodeURIComponent(nextFamily)}`),
       fetch('/api/admin/generation/preferences'),
     ]);
     const optionsJson = (await optionsRes.json()) as {
@@ -92,11 +92,11 @@ export function GenerationSettingsClient() {
     });
     setPrefs(nextPrefs);
     setLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
-    void load();
-  }, [family]);
+    void load(family);
+  }, [family, load]);
 
   useEffect(() => {
     const allowed = PROVIDERS_BY_FAMILY[family];
@@ -239,7 +239,7 @@ export function GenerationSettingsClient() {
                 }),
               });
               setForm((f) => ({ ...f, label: '', value: '', vendorLabel: '' }));
-              await load();
+              await load(family);
             }}
           >
             Add custom option
@@ -350,7 +350,7 @@ export function GenerationSettingsClient() {
                                 }
                               );
                               setEditingId(null);
-                              await load();
+                              await load(family);
                             }}
                           >
                             Save
@@ -390,7 +390,7 @@ export function GenerationSettingsClient() {
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ isEnabled: false }),
                           });
-                          await load();
+                          await load(family);
                         }}
                       >
                         Disable
@@ -406,7 +406,7 @@ export function GenerationSettingsClient() {
                           await fetch(`/api/admin/generation/options/${encodeURIComponent(opt.id)}`, {
                             method: 'DELETE',
                           });
-                          await load();
+                          await load(family);
                         }}
                       >
                         Delete
