@@ -66,7 +66,6 @@ export function StoryBriefPanel({
   saveDraftPatch: (body: Record<string, unknown>) => Promise<unknown>;
   onSaveNotice: (msg: string) => void;
 }) {
-  const [showJson, setShowJson] = useState(false);
   const briefJsonKey = useMemo(
     () => JSON.stringify(brief ?? null),
     [brief]
@@ -82,11 +81,6 @@ export function StoryBriefPanel({
     // briefJsonKey fingerprints `brief` content; omit `request` so debounced request-only saves do not wipe unsaved brief edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync when draft id, brief JSON, or saved title changes
   }, [draftId, briefJsonKey, draftSeriesTitle]);
-
-  const briefJsonPretty = useMemo(
-    () => JSON.stringify(form, null, 2),
-    [form]
-  );
 
   const saveBrief = useCallback(async () => {
     setSaveError(null);
@@ -185,15 +179,6 @@ export function StoryBriefPanel({
         >
           Save brief
         </button>
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
-          <input
-            type="checkbox"
-            checked={showJson}
-            onChange={(e) => setShowJson(e.target.checked)}
-            className="rounded border-slate-300"
-          />
-          Show brief JSON
-        </label>
       </div>
       {saveError && (
         <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
@@ -204,12 +189,6 @@ export function StoryBriefPanel({
         <p className="text-sm text-amber-800">
           Add at least one character line before saving.
         </p>
-      )}
-
-      {showJson && (
-        <pre className="max-h-[280px] overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-emerald-100">
-          {briefJsonPretty}
-        </pre>
       )}
 
       <div className="max-h-[560px] overflow-y-auto pr-1">

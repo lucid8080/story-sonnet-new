@@ -6,6 +6,8 @@ declare module 'next-auth' {
       id: string;
       role: string;
       subscriptionStatus: string;
+      internalTags: string[];
+      customStoriesGlobalEnabled: boolean;
     };
   }
 }
@@ -15,5 +17,7 @@ declare module 'next-auth/jwt' {
     email?: string | null;
     role?: string;
     subscriptionStatus?: string;
+    internalTags?: string[];
+    customStoriesGlobalEnabled?: boolean;
   }
 }

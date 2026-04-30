@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { auth } from '@/auth';
 import { BRAND } from '@/lib/brand';
 import { PackagePurchaseGrid } from '@/components/custom-stories/PackagePurchaseGrid';
+import { hasCustomStoriesAccess } from '@/lib/features/customStoriesAccessCore';
 
 export const metadata: Metadata = {
   title: `Custom Stories | ${BRAND.productName}`,
@@ -27,7 +30,19 @@ const faq = [
   },
 ];
 
-export default function CustomStoriesMarketingPage() {
+export default async function CustomStoriesMarketingPage() {
+  const session = await auth();
+  if (
+    session?.user?.id &&
+    !hasCustomStoriesAccess({
+      role: session.user.role,
+      internalTags: session.user.internalTags,
+      customStoriesGlobalEnabled: session.user.customStoriesGlobalEnabled,
+    })
+  ) {
+    redirect('/account/custom-stories');
+  }
+
   return (
     <main className="min-h-[70vh] bg-gradient-to-b from-amber-50 via-rose-50/50 to-sky-50">
       <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">

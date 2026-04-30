@@ -38,3 +38,9 @@ export const generationPreferenceUpsertSchema = z.object({
   toolKey: generationToolKeySchema,
   selectedCompositeKey: z.string().trim().min(1).max(500),
 });
+
+export const generationSettingsPatchSchema = z
+  .object({
+    customStoriesGlobalEnabled: z.boolean(),
+  })
+  .strict();

@@ -403,6 +403,15 @@ model GenerationToolPreference {
   @@map("generation_tool_preferences")
 }
 
+/// Singleton (id = global): global settings for the Settings admin page.
+model GenerationSettings {
+  id                        String   @id @default("global")
+  customStoriesGlobalEnabled Boolean  @default(false) @map("custom_stories_global_enabled")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
+
+  @@map("generation_settings")
+}
+
 model AdminInboxEvent {
   id        String             @id @default(cuid())
   type      AdminInboxEventType

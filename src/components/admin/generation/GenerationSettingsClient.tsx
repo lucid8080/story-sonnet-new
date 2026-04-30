@@ -53,6 +53,8 @@ export function GenerationSettingsClient() {
   const [providerFilter, setProviderFilter] = useState<'all' | Provider>('all');
   const [options, setOptions] = useState<Option[]>([]);
   const [prefs, setPrefs] = useState<Record<string, string>>({});
+  const [customStoriesGlobalEnabled, setCustomStoriesGlobalEnabled] = useState(false);
+  const [savingGlobalToggle, setSavingGlobalToggle] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
@@ -74,15 +76,19 @@ export function GenerationSettingsClient() {
 
   const load = useCallback(async (nextFamily: Family) => {
     setLoading(true);
-    const [optionsRes, prefsRes] = await Promise.all([
+    const [optionsRes, prefsRes, settingsRes] = await Promise.all([
       fetch(`/api/admin/generation/options?family=${encodeURIComponent(nextFamily)}`),
       fetch('/api/admin/generation/preferences'),
+      fetch('/api/admin/generation/settings'),
     ]);
     const optionsJson = (await optionsRes.json()) as {
       groups?: { items?: Option[] }[];
     };
     const prefsJson = (await prefsRes.json()) as {
       preferences?: { toolKey: string; selectedCompositeKey: string | null }[];
+    };
+    const settingsJson = (await settingsRes.json()) as {
+      settings?: { customStoriesGlobalEnabled?: boolean };
     };
     const flat = (optionsJson.groups ?? []).flatMap((g) => g.items ?? []);
     setOptions(flat);
@@ -91,6 +97,9 @@ export function GenerationSettingsClient() {
       if (row.selectedCompositeKey) nextPrefs[row.toolKey] = row.selectedCompositeKey;
     });
     setPrefs(nextPrefs);
+    setCustomStoriesGlobalEnabled(
+      Boolean(settingsJson.settings?.customStoriesGlobalEnabled)
+    );
     setLoading(false);
   }, []);
 
@@ -118,10 +127,45 @@ export function GenerationSettingsClient() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Generation Settings</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
         <p className="text-sm text-slate-600">
           Manage providers, models/voices, and default selections per generation tool.
         </p>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <h2 className="text-sm font-bold uppercase text-slate-600">Custom Stories</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Global default visibility for Custom Stories. Tagged users and admins can still access
+          when disabled.
+        </p>
+        <label className="mt-3 inline-flex items-center gap-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            checked={customStoriesGlobalEnabled}
+            onChange={async (e) => {
+              const next = e.target.checked;
+              setCustomStoriesGlobalEnabled(next);
+              setSavingGlobalToggle(true);
+              try {
+                const res = await fetch('/api/admin/generation/settings', {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ customStoriesGlobalEnabled: next }),
+                });
+                if (!res.ok) {
+                  setCustomStoriesGlobalEnabled((prev) => !prev);
+                }
+              } finally {
+                setSavingGlobalToggle(false);
+              }
+            }}
+          />
+          Enable Custom Stories globally
+        </label>
+        {savingGlobalToggle ? (
+          <p className="mt-2 text-xs text-slate-500">Saving...</p>
+        ) : null}
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">

@@ -6,6 +6,25 @@ import bcrypt from 'bcryptjs';
 import prisma from '@/lib/prisma';
 import { resolvePublicAssetUrl } from '@/lib/resolvePublicAssetUrl';
 import { touchProfileLastActiveAt } from '@/lib/admin/customers/aggregates';
+import { normalizeFeatureTags } from '@/lib/features/customStoriesAccessCore';
+
+async function resolveCustomStoriesGlobalEnabled() {
+  try {
+    const generationSettings = (prisma as typeof prisma & {
+      generationSettings?: {
+        findUnique: (args: unknown) => Promise<{ customStoriesGlobalEnabled?: boolean } | null>;
+      };
+    }).generationSettings;
+    if (!generationSettings) return false;
+    const row = await generationSettings.findUnique({
+      where: { id: 'global' },
+      select: { customStoriesGlobalEnabled: true },
+    });
+    return row?.customStoriesGlobalEnabled ?? false;
+  } catch {
+    return false;
+  }
+}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -62,10 +81,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           });
           token.role = p?.role ?? 'user';
           token.subscriptionStatus = p?.subscriptionStatus ?? 'free';
+          token.internalTags = normalizeFeatureTags(p?.internalTags);
+          token.customStoriesGlobalEnabled = await resolveCustomStoriesGlobalEnabled();
         } catch (e) {
           console.warn('[auth] jwt profile fetch failed', e);
           token.role = 'user';
           token.subscriptionStatus = 'free';
+          token.internalTags = [];
+          token.customStoriesGlobalEnabled = false;
         }
       }
       return token;
@@ -91,23 +114,36 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             }
             const p = await prisma.profile.findUnique({
               where: { userId },
-              select: { role: true, subscriptionStatus: true },
+              select: { role: true, subscriptionStatus: true, internalTags: true },
             });
             session.user.role = p?.role ?? (token.role as string) ?? 'user';
             session.user.subscriptionStatus =
               p?.subscriptionStatus ??
               (token.subscriptionStatus as string) ??
               'free';
+            session.user.internalTags = normalizeFeatureTags(
+              p?.internalTags ?? token.internalTags
+            );
+            session.user.customStoriesGlobalEnabled =
+              await resolveCustomStoriesGlobalEnabled();
           } catch (e) {
             console.warn('[auth] session profile fetch failed', e);
             session.user.role = (token.role as string) ?? 'user';
             session.user.subscriptionStatus =
               (token.subscriptionStatus as string) ?? 'free';
+            session.user.internalTags = normalizeFeatureTags(token.internalTags);
+            session.user.customStoriesGlobalEnabled = Boolean(
+              token.customStoriesGlobalEnabled
+            );
           }
         } else {
           session.user.role = (token.role as string) ?? 'user';
           session.user.subscriptionStatus =
             (token.subscriptionStatus as string) ?? 'free';
+          session.user.internalTags = normalizeFeatureTags(token.internalTags);
+          session.user.customStoriesGlobalEnabled = Boolean(
+            token.customStoriesGlobalEnabled
+          );
         }
         session.user.image =
           resolvePublicAssetUrl(session.user.image) ?? session.user.image;

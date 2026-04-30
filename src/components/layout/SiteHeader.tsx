@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { Menu, X } from 'lucide-react';
 import { BRAND } from '@/lib/brand';
+import { hasCustomStoriesAccess } from '@/lib/features/customStoriesAccessCore';
 
 function NavLink({
   href,
@@ -36,6 +37,14 @@ export default function SiteHeader() {
   const { data: session } = useSession();
   const user = session?.user;
   const isAdmin = user?.role === 'admin';
+  const canUseCustomStories = Boolean(
+    user &&
+      hasCustomStoriesAccess({
+        role: user.role,
+        internalTags: user.internalTags,
+        customStoriesGlobalEnabled: user.customStoriesGlobalEnabled,
+      })
+  );
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -89,7 +98,7 @@ export default function SiteHeader() {
           >
             Pricing
           </NavLink>
-          {user ? (
+          {canUseCustomStories ? (
             <NavLink
               href="/account/custom-stories"
               activeClass="rounded-full bg-rose-500 px-3 py-1.5 text-white"
@@ -155,7 +164,7 @@ export default function SiteHeader() {
             >
               Pricing
             </Link>
-            {user ? (
+            {canUseCustomStories ? (
               <Link
                 href="/account/custom-stories"
                 className="rounded-xl px-3 py-2 font-semibold text-rose-600 hover:bg-rose-50"

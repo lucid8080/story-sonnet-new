@@ -3,6 +3,7 @@ import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 import { serializeDraft, draftInclude } from '@/lib/story-studio/serialize-draft';
 import { CustomStoriesStudioClient } from '@/components/custom-stories/studio/CustomStoriesStudioClient';
+import { hasCustomStoriesAccess } from '@/lib/features/customStoriesAccessCore';
 
 export default async function CustomStoryStudioPage({
   params,
@@ -12,6 +13,15 @@ export default async function CustomStoryStudioPage({
   const session = await auth();
   if (!session?.user?.id) {
     redirect('/signup?callbackUrl=/custom-stories/create');
+  }
+  if (
+    !hasCustomStoriesAccess({
+      role: session.user.role,
+      internalTags: session.user.internalTags,
+      customStoriesGlobalEnabled: session.user.customStoriesGlobalEnabled,
+    })
+  ) {
+    redirect('/account/custom-stories');
   }
   const { id } = await params;
   const order = await prisma.customStoryOrder.findUnique({

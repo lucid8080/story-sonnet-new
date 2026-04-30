@@ -140,7 +140,6 @@ export function CustomStoriesWizard() {
           );
           return;
         }
-
         router.push(`/custom-stories/${existingOrderId}/studio`);
         return;
       }

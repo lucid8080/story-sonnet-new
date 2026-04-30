@@ -4,6 +4,7 @@ import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 import { resolvePublicAssetUrl } from '@/lib/resolvePublicAssetUrl';
 import { CustomStoryOrderCard } from '@/components/account/CustomStoryOrderCard';
+import { hasCustomStoriesAccess } from '@/lib/features/customStoriesAccessCore';
 import {
   CUSTOM_STORY_PACKAGE_CONFIG,
   priceCentsForPackage,
@@ -15,6 +16,11 @@ export default async function AccountCustomStoriesPage() {
   if (!session?.user?.id) {
     redirect('/login?callbackUrl=/account/custom-stories');
   }
+  const canUseCustomStories = hasCustomStoriesAccess({
+    role: session.user.role,
+    internalTags: session.user.internalTags,
+    customStoriesGlobalEnabled: session.user.customStoriesGlobalEnabled,
+  });
 
   const orders = await prisma.customStoryOrder.findMany({
     where: { userId: session.user.id },
@@ -53,13 +59,21 @@ export default async function AccountCustomStoriesPage() {
       <div className="mx-auto max-w-4xl space-y-4">
         <div className="rounded-3xl bg-white p-6 shadow-xl ring-1 ring-slate-100">
           <h1 className="text-2xl font-black text-slate-900">Your custom stories</h1>
-          <p className="mt-1 text-sm text-slate-600">Play, download, and manage your personalized story orders.</p>
-          <Link
-            href="/custom-stories/create"
-            className="mt-4 inline-flex rounded-full bg-rose-500 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white"
-          >
-            Make story
-          </Link>
+          <p className="mt-1 text-sm text-slate-600">
+            Play, download, and manage your personalized story orders.
+          </p>
+          {canUseCustomStories ? (
+            <Link
+              href="/custom-stories/create"
+              className="mt-4 inline-flex rounded-full bg-rose-500 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white"
+            >
+              Make story
+            </Link>
+          ) : (
+            <p className="mt-4 rounded-2xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900 ring-1 ring-amber-200">
+              Custom Stories is not enabled on your account yet.
+            </p>
+          )}
         </div>
         {orders.length === 0 ? (
           <div className="rounded-3xl bg-white p-6 shadow-xl ring-1 ring-slate-100">

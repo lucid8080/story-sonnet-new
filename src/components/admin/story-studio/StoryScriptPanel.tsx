@@ -42,7 +42,6 @@ export function StoryScriptPanel({
   runTtsForEpisode: (draftEpisodeId: string) => Promise<void>;
   onSaveNotice: (msg: string) => void;
 }) {
-  const [showPkgJson, setShowPkgJson] = useState(false);
   const [addEpisodeOpen, setAddEpisodeOpen] = useState(false);
   const episodeKey = useMemo(
     () =>
@@ -82,15 +81,6 @@ export function StoryScriptPanel({
     // episodeKey fingerprints episode content; omit `episodes` to avoid resets on array ref churn.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync when draft id or episode payload changes
   }, [draftId, episodeKey]);
-
-  const pkgPretty = useMemo(() => {
-    if (!scriptPackage) return '';
-    try {
-      return JSON.stringify(scriptPackage, null, 2);
-    } catch {
-      return String(scriptPackage);
-    }
-  }, [scriptPackage]);
 
   const saveScript = useCallback(async () => {
     setSaveError(null);
@@ -167,8 +157,7 @@ export function StoryScriptPanel({
         <>
           <p className="text-sm text-slate-600">
             No episodes yet. Add one with the dialog (LLM optional), or run
-            Generate script on the main column. You can inspect script package
-            JSON below if present.
+            Generate script on the main column.
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -184,24 +173,6 @@ export function StoryScriptPanel({
             Dialog: directions, LLM generation, edit preview, save, then narrate
             this episode only.
           </p>
-          {pkgPretty ? (
-            <>
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
-                <input
-                  type="checkbox"
-                  checked={showPkgJson}
-                  onChange={(e) => setShowPkgJson(e.target.checked)}
-                  className="rounded border-slate-300"
-                />
-                Show script package JSON
-              </label>
-              {showPkgJson && (
-                <pre className="max-h-[480px] overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-sky-100 whitespace-pre-wrap">
-                  {pkgPretty}
-                </pre>
-              )}
-            </>
-          ) : null}
         </>
       ) : null}
 
@@ -226,25 +197,11 @@ export function StoryScriptPanel({
                 Add episode…
               </button>
             </div>
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
-              <input
-                type="checkbox"
-                checked={showPkgJson}
-                onChange={(e) => setShowPkgJson(e.target.checked)}
-                className="rounded border-slate-300"
-              />
-              Show script package JSON
-            </label>
           </div>
           {saveError && (
             <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
               {saveError}
             </p>
-          )}
-          {showPkgJson && pkgPretty && (
-            <pre className="max-h-[240px] overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-sky-100 whitespace-pre-wrap">
-              {pkgPretty}
-            </pre>
           )}
           <ul className="max-h-[480px] space-y-6 overflow-y-auto pr-1">
             {rows.map((row, i) => {

@@ -31,7 +31,7 @@ export function AdminTopNav() {
         Blog
       </Link>
       <Link href="/admin/settings/generation" className="hover:text-violet-600">
-        Generation Settings
+        Settings
       </Link>
       <span className="ml-auto flex items-center gap-1">
         <AdminNotificationBell />
