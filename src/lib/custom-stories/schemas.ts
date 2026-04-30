@@ -59,6 +59,12 @@ export const createCustomStoryOrderSchema = z.object({
   studioSetup: customStoryStudioSetupSchema.optional().default(defaultCustomStoryStudioSetup),
 });
 
+export const createCustomStoryPrepurchaseOrderSchema = z.object({
+  packageType: customStoryPackageSchema,
+  episodeCount: z.number().int().min(1).max(10).optional(),
+  nfcRequested: z.boolean().optional().default(false),
+});
+
 export const customStoryCheckoutSchema = z.object({
   orderId: z.string().cuid(),
   returnUrlSuccess: z.string().url().optional(),
@@ -71,6 +77,11 @@ export const customStoryGenerateSchema = z.object({
 
 export const customStoryNfcRequestSchema = z.object({
   requested: z.boolean().optional().default(true),
+});
+
+export const customStoryFinalizeIdeaSchema = z.object({
+  simpleIdea: z.string().trim().min(1).max(8000),
+  nfcRequested: z.boolean().optional(),
 });
 
 export type CustomStoryInputs = z.infer<typeof createCustomStoryOrderSchema>;

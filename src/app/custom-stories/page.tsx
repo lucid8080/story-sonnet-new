@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { BRAND } from '@/lib/brand';
-import { CUSTOM_STORY_PACKAGE_CONFIG, formatUsdFromCents } from '@/lib/custom-stories/config';
+import { PackagePurchaseGrid } from '@/components/custom-stories/PackagePurchaseGrid';
 
 export const metadata: Metadata = {
   title: `Custom Stories | ${BRAND.productName}`,
@@ -77,23 +77,7 @@ export default function CustomStoriesMarketingPage() {
         <section className="mt-8 rounded-3xl bg-white p-6 shadow-xl ring-1 ring-slate-100 sm:p-8">
           <h2 className="text-2xl font-black text-slate-900">Packages</h2>
           <p className="mt-2 text-sm text-slate-600">All packages include episodes with a maximum length of 5 minutes each.</p>
-          <div className="mt-5 grid gap-4 lg:grid-cols-2">
-            {Object.entries(CUSTOM_STORY_PACKAGE_CONFIG).map(([key, pkg]) => (
-              <article key={key} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <h3 className="text-lg font-bold text-slate-900">{pkg.label}</h3>
-                <p className="mt-1 text-sm font-semibold text-rose-600">
-                  {pkg.perEpisodeCents
-                    ? `${formatUsdFromCents(pkg.basePriceCents)} for ${pkg.defaultEpisodeCount} episodes + ${formatUsdFromCents(pkg.perEpisodeCents)} per extra episode`
-                    : `${formatUsdFromCents(pkg.basePriceCents)} total`}
-                </p>
-                <ul className="mt-3 space-y-1 text-sm text-slate-700">
-                  {pkg.features.map((item) => (
-                    <li key={item}>- {item}</li>
-                  ))}
-                </ul>
-              </article>
-            ))}
-          </div>
+          <PackagePurchaseGrid />
         </section>
 
         <section className="mt-8 rounded-3xl bg-white p-6 shadow-xl ring-1 ring-slate-100">

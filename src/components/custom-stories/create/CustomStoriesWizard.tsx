@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   CUSTOM_STORY_PACKAGE_CONFIG,
   formatUsdFromCents,
@@ -29,11 +29,39 @@ const initialData: WizardData = {
 
 export function CustomStoriesWizard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session } = useSession();
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<WizardData>(initialData);
+  const [existingOrderId, setExistingOrderId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const pkg = searchParams.get('packageType');
+    const stepRaw = searchParams.get('step');
+    const orderIdRaw = searchParams.get('orderId')?.trim() || '';
+    const deluxeEpisodeRaw = Number(searchParams.get('episodeCount') ?? '');
+    if (stepRaw === '1') {
+      setStep(1);
+    }
+    if (
+      pkg &&
+      (Object.keys(CUSTOM_STORY_PACKAGE_CONFIG) as string[]).includes(pkg)
+    ) {
+      setData((prev) => ({
+        ...prev,
+        packageType: pkg as CustomStoryPackageType,
+      }));
+    }
+    if (!Number.isNaN(deluxeEpisodeRaw) && deluxeEpisodeRaw >= 7 && deluxeEpisodeRaw <= 10) {
+      setData((prev) => ({
+        ...prev,
+        deluxeEpisodeCount: deluxeEpisodeRaw,
+      }));
+    }
+    setExistingOrderId(orderIdRaw || null);
+  }, [searchParams]);
 
   const episodeCount = useMemo(
     () =>
@@ -54,6 +82,30 @@ export function CustomStoriesWizard() {
     try {
       setBusy(true);
       setError(null);
+      if (existingOrderId) {
+        const finalizeRes = await fetch(
+          `/api/custom-stories/order/${encodeURIComponent(existingOrderId)}/finalize`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              simpleIdea: data.simpleIdea,
+              nfcRequested: data.nfcRequested,
+            }),
+          }
+        );
+        if (finalizeRes.status === 401) {
+          const callbackUrl = encodeURIComponent('/custom-stories/create');
+          router.push(`/signup?callbackUrl=${callbackUrl}`);
+          return;
+        }
+        const finalizeJson = await finalizeRes.json();
+        if (!finalizeRes.ok) {
+          throw new Error(finalizeJson.error ?? 'Could not save your story idea');
+        }
+        router.push(`/custom-stories/${existingOrderId}/studio`);
+        return;
+      }
       const payload = {
         packageType: data.packageType,
         episodeCount,
@@ -226,6 +278,11 @@ export function CustomStoriesWizard() {
               Package: {CUSTOM_STORY_PACKAGE_CONFIG[data.packageType].label} · {episodeCount}{' '}
               episodes (max 5 min each) · Price: {formatUsdFromCents(priceCents)}
             </p>
+            {existingOrderId ? (
+              <p className="rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                Payment received. Add your simple idea to continue to your Story Brief studio.
+              </p>
+            ) : null}
             {!session?.user && (
               <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
                 Sign in is required to create your order and pay. When you tap Create Story
@@ -267,7 +324,7 @@ export function CustomStoriesWizard() {
             disabled={busy || !data.simpleIdea.trim()}
             className="rounded-full bg-rose-500 px-4 py-2 text-xs font-semibold uppercase tracking-[0.15em] text-white disabled:opacity-40"
           >
-            {busy ? 'Please wait...' : 'Create Story Brief'}
+            {busy ? 'Please wait...' : existingOrderId ? 'Continue to Story Brief' : 'Create Story Brief'}
           </button>
         )}
       </div>

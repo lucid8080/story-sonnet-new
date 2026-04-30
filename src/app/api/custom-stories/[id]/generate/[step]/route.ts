@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import { CUSTOM_STORY_STATUS } from '@/lib/custom-stories/config';
+import { PREPURCHASE_IDEA_PLACEHOLDER } from '@/lib/custom-stories/service';
 import {
   runStoryStudioStep,
   type ExecuteGenerationStepOptions,
@@ -34,7 +36,13 @@ export async function POST(
 
   const order = await prisma.customStoryOrder.findUnique({
     where: { id },
-    select: { id: true, userId: true, storyStudioDraftId: true },
+    select: {
+      id: true,
+      userId: true,
+      storyStudioDraftId: true,
+      status: true,
+      inputs: true,
+    },
   });
   if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
   const isOwner = order.userId === session.user.id;
@@ -44,6 +52,25 @@ export async function POST(
   }
   if (!order.storyStudioDraftId) {
     return NextResponse.json({ error: 'No linked story draft' }, { status: 400 });
+  }
+  if (
+    order.status !== CUSTOM_STORY_STATUS.PAID &&
+    order.status !== CUSTOM_STORY_STATUS.GENERATING &&
+    order.status !== CUSTOM_STORY_STATUS.COMPLETED
+  ) {
+    return NextResponse.json(
+      { error: 'Payment is required before generation can start.' },
+      { status: 409 }
+    );
+  }
+  const simpleIdea = String(
+    ((order.inputs ?? {}) as { simpleIdea?: unknown }).simpleIdea ?? ''
+  ).trim();
+  if (!simpleIdea || simpleIdea === PREPURCHASE_IDEA_PLACEHOLDER) {
+    return NextResponse.json(
+      { error: 'Please add your simple idea before generating content.' },
+      { status: 409 }
+    );
   }
 
   let body: { draftEpisodeId?: string | null; voiceId?: string | null } = {};

@@ -9,6 +9,7 @@ import {
 import {
   type CustomStoryInputs,
   type CreateCustomStoryOrderInput,
+  defaultCustomStoryStudioSetup,
   orderInputToGenerationPatch,
 } from '@/lib/custom-stories/schemas';
 import type { GenerationRequestPatch } from '@/lib/story-studio/schemas/request-schema';
@@ -75,6 +76,8 @@ function sanitizeInputs(inputs: CustomStoryInputs): CustomStoryInputs {
   };
 }
 
+export const PREPURCHASE_IDEA_PLACEHOLDER = '__PENDING_SIMPLE_IDEA__';
+
 function safeParseJson<T>(raw: string): T | null {
   try {
     return JSON.parse(raw) as T;
@@ -124,6 +127,62 @@ export async function createCustomStoryOrder(userId: string, input: CreateCustom
         priceCents: pricing.priceCents,
         nfcRequested: !!normalizedInputs.nfcRequested,
         inputs: normalizedInputs as unknown as Prisma.InputJsonValue,
+        status: CUSTOM_STORY_STATUS.DRAFT,
+        storyStudioDraftId: draft.id,
+      },
+    });
+  });
+}
+
+export async function createCustomStoryPrepurchaseOrder(
+  userId: string,
+  input: { packageType: CustomStoryPackageType; episodeCount?: number; nfcRequested?: boolean }
+) {
+  const pricing = priceForOrderInput({
+    packageType: input.packageType,
+    episodeCount: input.episodeCount,
+    nfcRequested: !!input.nfcRequested,
+    title: '',
+    storySlug: '',
+    simpleIdea: PREPURCHASE_IDEA_PLACEHOLDER,
+    studioSetup: defaultCustomStoryStudioSetup,
+  });
+  const draftTitle = 'My Custom Story';
+  const request = mergeGenerationRequest(defaultGenerationRequest(), {
+    mode: 'quick',
+    format: pricing.episodeCount > 1 ? 'mini-series' : 'standalone',
+    targetLengthRange: '4-5',
+    episodeCount: pricing.episodeCount,
+    simpleIdea: '',
+  } as GenerationRequestPatch);
+  const inputs = {
+    packageType: pricing.packageType,
+    episodeCount: pricing.episodeCount,
+    nfcRequested: !!input.nfcRequested,
+    title: draftTitle,
+    storySlug: draftSlugFromTitle(draftTitle),
+    simpleIdea: PREPURCHASE_IDEA_PLACEHOLDER,
+    studioSetup: defaultCustomStoryStudioSetup,
+  };
+
+  return prisma.$transaction(async (tx) => {
+    const draft = await tx.storyStudioDraft.create({
+      data: {
+        seriesTitle: draftTitle,
+        slug: inputs.storySlug,
+        mode: 'quick',
+        request: request as unknown as Prisma.InputJsonValue,
+        createdByUserId: userId,
+      },
+    });
+    return tx.customStoryOrder.create({
+      data: {
+        userId,
+        packageType: pricing.packageType,
+        episodeCount: pricing.episodeCount,
+        priceCents: pricing.priceCents,
+        nfcRequested: !!input.nfcRequested,
+        inputs: inputs as unknown as Prisma.InputJsonValue,
         status: CUSTOM_STORY_STATUS.DRAFT,
         storyStudioDraftId: draft.id,
       },
