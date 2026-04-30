@@ -7,19 +7,11 @@ import prisma from '@/lib/prisma';
 import { resolvePublicAssetUrl } from '@/lib/resolvePublicAssetUrl';
 import { touchProfileLastActiveAt } from '@/lib/admin/customers/aggregates';
 import { normalizeFeatureTags } from '@/lib/features/customStoriesAccessCore';
+import { getOrCreateGenerationSettings } from '@/lib/generation/settings';
 
 async function resolveCustomStoriesGlobalEnabled() {
   try {
-    const generationSettings = (prisma as typeof prisma & {
-      generationSettings?: {
-        findUnique: (args: unknown) => Promise<{ customStoriesGlobalEnabled?: boolean } | null>;
-      };
-    }).generationSettings;
-    if (!generationSettings) return false;
-    const row = await generationSettings.findUnique({
-      where: { id: 'global' },
-      select: { customStoriesGlobalEnabled: true },
-    });
+    const row = await getOrCreateGenerationSettings(prisma);
     return row?.customStoriesGlobalEnabled ?? false;
   } catch {
     return false;
