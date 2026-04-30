@@ -175,6 +175,8 @@ async function loadDraftFull(draftId: string) {
 export type ExecuteGenerationStepOptions = {
   /** When set with step `tts`, narrate only this draft episode; replaces prior `episode_audio` rows for it. */
   draftEpisodeId?: string | null;
+  /** Optional one-time ElevenLabs voice override for step `tts`. */
+  voiceId?: string | null;
 };
 
 /** Core step logic (no job row). */
@@ -457,6 +459,7 @@ export async function executeGenerationStep(
       const { result: tts } = await executeNarrationGeneration({
         toolKey: 'story_studio_narration',
         text: ep.scriptText,
+        voiceId: opts?.voiceId ?? undefined,
       });
       if (!tts.ok) {
         throw new Error(tts.message);

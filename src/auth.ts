@@ -52,6 +52,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, user }) {
+      if (user?.email) {
+        token.email = user.email;
+      }
       if (user?.id) {
         try {
           const p = await prisma.profile.findUnique({
@@ -70,10 +73,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.sub as string;
+        if (token.email && typeof token.email === 'string') {
+          session.user.email = token.email;
+        }
         const userId = token.sub;
         if (userId) {
           try {
             await touchProfileLastActiveAt(userId);
+            if (!session.user.email) {
+              const u = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { email: true },
+              });
+              if (u?.email) {
+                session.user.email = u.email;
+              }
+            }
             const p = await prisma.profile.findUnique({
               where: { userId },
               select: { role: true, subscriptionStatus: true },

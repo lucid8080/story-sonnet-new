@@ -58,6 +58,7 @@ export async function executeImageGeneration(params: {
 export async function executeNarrationGeneration(params: {
   toolKey: Extract<GenerationToolKey, 'story_studio_narration'>;
   text: string;
+  voiceId?: string;
 }) {
   const selection = await resolveOrThrow(params.toolKey);
   if (selection.provider !== 'elevenlabs') {
@@ -65,7 +66,7 @@ export async function executeNarrationGeneration(params: {
   }
   const result = await elevenLabsTextToSpeech({
     text: params.text,
-    voiceId: selection.value,
+    voiceId: params.voiceId?.trim() || selection.value,
   });
   return { result, selection };
 }

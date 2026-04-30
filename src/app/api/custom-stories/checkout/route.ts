@@ -16,8 +16,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Stripe is not configured.' }, { status: 503 });
   }
   const session = await auth();
-  if (!session?.user?.id || !session.user.email) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const emailFromSession = session.user.email?.trim() || null;
+  const userRow = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { email: true },
+  });
+  const payerEmail = emailFromSession || userRow?.email?.trim() || null;
+  if (!payerEmail) {
+    return NextResponse.json(
+      { error: 'Your account has no email on file; add one in account settings to check out.' },
+      { status: 400 }
+    );
   }
   let body: unknown;
   try {
@@ -48,13 +60,17 @@ export async function POST(req: Request) {
   let customerId = profile?.stripeCustomerId ?? null;
   if (!customerId) {
     const customer = await stripe.customers.create({
-      email: session.user.email,
+      email: payerEmail,
       metadata: { app_user_id: session.user.id },
     });
     customerId = customer.id;
-    await prisma.profile.update({
+    await prisma.profile.upsert({
       where: { userId: session.user.id },
-      data: { stripeCustomerId: customerId },
+      create: {
+        userId: session.user.id,
+        stripeCustomerId: customerId,
+      },
+      update: { stripeCustomerId: customerId },
     });
   }
 

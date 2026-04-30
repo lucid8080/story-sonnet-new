@@ -74,7 +74,45 @@ export function CustomStoriesWizard() {
       if (!orderRes.ok) {
         throw new Error(orderJson.error ?? 'Could not create order');
       }
-      router.push(`/custom-stories/${orderJson.order.id}/studio`);
+      const orderId = orderJson.order?.id;
+      if (typeof orderId !== 'string' || !orderId) {
+        throw new Error('Invalid order response');
+      }
+      const origin = window.location.origin;
+      const checkoutRes = await fetch('/api/custom-stories/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId,
+          returnUrlSuccess: `${origin}/custom-stories/${orderId}/studio`,
+          returnUrlCancel: `${origin}/custom-stories/create`,
+        }),
+      });
+      if (checkoutRes.status === 401) {
+        const callbackUrl = encodeURIComponent('/custom-stories/create');
+        router.push(`/signup?callbackUrl=${callbackUrl}`);
+        return;
+      }
+      let checkoutJson: { error?: string; url?: string } = {};
+      try {
+        checkoutJson = await checkoutRes.json();
+      } catch {
+        checkoutJson = {};
+      }
+      if (!checkoutRes.ok) {
+        if (checkoutRes.status === 503) {
+          throw new Error(
+            checkoutJson.error ??
+              'Payments are unavailable (Stripe is not configured on this server).'
+          );
+        }
+        throw new Error(checkoutJson.error ?? 'Could not start checkout');
+      }
+      const stripeUrl = checkoutJson.url;
+      if (typeof stripeUrl !== 'string' || !stripeUrl.trim()) {
+        throw new Error('Checkout did not return a payment URL');
+      }
+      window.location.href = stripeUrl;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not create your story.');
     } finally {
@@ -190,8 +228,8 @@ export function CustomStoriesWizard() {
             </p>
             {!session?.user && (
               <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                You can build without logging in. We&apos;ll ask you to sign in before
-                creating your Story Brief workspace.
+                Sign in is required to create your order and pay. When you tap Create Story
+                Brief, we&apos;ll send you to sign up or log in, then to secure checkout.
               </p>
             )}
           </div>
@@ -229,7 +267,7 @@ export function CustomStoriesWizard() {
             disabled={busy || !data.simpleIdea.trim()}
             className="rounded-full bg-rose-500 px-4 py-2 text-xs font-semibold uppercase tracking-[0.15em] text-white disabled:opacity-40"
           >
-            {busy ? 'Creating...' : 'Create Story Brief'}
+            {busy ? 'Please wait...' : 'Create Story Brief'}
           </button>
         )}
       </div>

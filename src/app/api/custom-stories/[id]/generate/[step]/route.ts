@@ -46,15 +46,21 @@ export async function POST(
     return NextResponse.json({ error: 'No linked story draft' }, { status: 400 });
   }
 
-  let body: { draftEpisodeId?: string | null } = {};
+  let body: { draftEpisodeId?: string | null; voiceId?: string | null } = {};
   try {
     body = await req.json();
   } catch {
     /* empty */
   }
   const episodeId = body.draftEpisodeId?.trim();
+  const voiceId = body.voiceId?.trim();
   const genOpts: ExecuteGenerationStepOptions | undefined =
-    step === 'tts' && episodeId ? { draftEpisodeId: episodeId } : undefined;
+    step === 'tts'
+      ? {
+          draftEpisodeId: episodeId || undefined,
+          voiceId: voiceId || undefined,
+        }
+      : undefined;
 
   let stepResult: Awaited<ReturnType<typeof runStoryStudioStep>> | null = null;
   try {

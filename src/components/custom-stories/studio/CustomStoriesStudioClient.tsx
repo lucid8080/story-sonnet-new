@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { StoryBriefPanel } from '@/components/admin/story-studio/StoryBriefPanel';
 import { StoryScriptPanel } from '@/components/admin/story-studio/StoryScriptPanel';
@@ -30,6 +30,7 @@ type DraftShape = {
 };
 
 type TabId = 'brief' | 'script' | 'cover' | 'narration' | 'music';
+type VoiceOption = { id: string; name: string };
 
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: 'brief', label: 'Story Brief' },
@@ -53,6 +54,11 @@ export function CustomStoriesStudioClient(props: {
   const [visibility, setVisibility] = useState<'public' | 'private'>(
     props.initialVisibility
   );
+  const [voiceOptions, setVoiceOptions] = useState<VoiceOption[]>([]);
+  const [selectedVoiceId, setSelectedVoiceId] = useState('');
+  const [voicesLoading, setVoicesLoading] = useState(false);
+  const [voicesLoaded, setVoicesLoaded] = useState(false);
+  const [voicesError, setVoicesError] = useState<string | null>(null);
 
   const coverAssets = useMemo(
     () => draft.assets.filter((a) => a.kind === 'cover'),
@@ -84,14 +90,56 @@ export function CustomStoriesStudioClient(props: {
   const missingMp3Count = Math.max(0, totalEpisodes - episodesWithMp3Count);
   const productionIncomplete = totalEpisodes > 0 && missingMp3Count > 0;
 
-  async function runGenerate(step: string, draftEpisodeId?: string) {
+  useEffect(() => {
+    if (active !== 'narration' || voicesLoaded) return;
+    let cancelled = false;
+    const loadVoices = async () => {
+      setVoicesLoading(true);
+      setVoicesError(null);
+      try {
+        const res = await fetch('/api/custom-stories/voices', { method: 'GET' });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? 'Failed to load voices');
+        const voicesRaw = Array.isArray(json.voices) ? json.voices : [];
+        const voices = voicesRaw
+          .map((voice) => {
+            const id = typeof voice?.id === 'string' ? voice.id.trim() : '';
+            const name = typeof voice?.name === 'string' ? voice.name.trim() : '';
+            if (!id) return null;
+            return { id, name: name || id };
+          })
+          .filter((voice): voice is VoiceOption => !!voice);
+        if (!cancelled) {
+          setVoiceOptions(voices);
+          setVoicesLoaded(true);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setVoicesError(
+            e instanceof Error ? e.message : 'Failed to load narration voices'
+          );
+        }
+      } finally {
+        if (!cancelled) setVoicesLoading(false);
+      }
+    };
+    void loadVoices();
+    return () => {
+      cancelled = true;
+    };
+  }, [active, voicesLoaded]);
+
+  async function runGenerate(step: string, draftEpisodeId?: string, voiceId?: string) {
     setBusy(true);
     setNotice(null);
     try {
       const res = await fetch(`/api/custom-stories/${props.orderId}/generate/${step}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ draftEpisodeId: draftEpisodeId ?? null }),
+        body: JSON.stringify({
+          draftEpisodeId: draftEpisodeId ?? null,
+          voiceId: voiceId?.trim() || null,
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? 'Generation failed');
@@ -303,10 +351,44 @@ export function CustomStoriesStudioClient(props: {
 
       {active === 'narration' && (
         <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="space-y-1">
+            <label
+              htmlFor="narration-voice"
+              className="text-xs font-semibold uppercase tracking-wide text-slate-600"
+            >
+              Narration voice
+            </label>
+            <select
+              id="narration-voice"
+              value={selectedVoiceId}
+              disabled={busy || voicesLoading}
+              onChange={(event) => setSelectedVoiceId(event.target.value)}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 disabled:opacity-50"
+            >
+              <option value="">Default voice</option>
+              {voiceOptions.map((voice) => (
+                <option key={voice.id} value={voice.id}>
+                  {voice.name}
+                </option>
+              ))}
+            </select>
+            {voicesLoading ? (
+              <p className="text-xs text-slate-500">Loading voices...</p>
+            ) : null}
+            {voicesError ? (
+              <p className="text-xs text-rose-600">{voicesError}</p>
+            ) : null}
+          </div>
           <button
             type="button"
             disabled={busy || draft.episodes.length === 0}
-            onClick={() => void runGenerate('tts', draft.episodes[0]?.id)}
+            onClick={() =>
+              void runGenerate(
+                'tts',
+                draft.episodes[0]?.id,
+                selectedVoiceId || undefined
+              )
+            }
             className="rounded-lg bg-rose-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
             Generate narration
