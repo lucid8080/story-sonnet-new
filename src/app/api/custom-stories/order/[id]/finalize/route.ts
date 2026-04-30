@@ -9,6 +9,7 @@ import {
 } from '@/lib/custom-stories/schemas';
 import {
   CUSTOM_STORY_STATUS,
+  normalizePackageType,
   resolveEpisodeCountForPackage,
 } from '@/lib/custom-stories/config';
 import {
@@ -20,6 +21,7 @@ import {
   mergeGenerationRequest,
   parseStoredGenerationRequest,
 } from '@/lib/story-studio/normalize-request';
+import type { GenerationRequestPatch } from '@/lib/story-studio/schemas/request-schema';
 
 export async function PATCH(
   req: Request,
@@ -68,7 +70,8 @@ export async function PATCH(
 
   const simpleIdea = parsed.data.simpleIdea.trim();
   const draftTitle = deriveSeriesTitleFromSimpleIdea(simpleIdea);
-  const episodeCount = resolveEpisodeCountForPackage(order.packageType, order.episodeCount);
+  const packageType = normalizePackageType(order.packageType);
+  const episodeCount = resolveEpisodeCountForPackage(packageType, order.episodeCount);
   const existingInputs = ((order.inputs ?? {}) as Record<string, unknown>) || {};
   const studioSetup =
     typeof existingInputs.studioSetup === 'object' &&
@@ -76,7 +79,7 @@ export async function PATCH(
       ? (existingInputs.studioSetup as Record<string, unknown>)
       : defaultCustomStoryStudioSetup;
   const mergedPatch = orderInputToGenerationPatch({
-    packageType: order.packageType,
+    packageType,
     episodeCount,
     nfcRequested: parsed.data.nfcRequested ?? order.nfcRequested,
     title: draftTitle,
@@ -94,12 +97,12 @@ export async function PATCH(
       format: episodeCount > 1 ? 'mini-series' : 'standalone',
       targetLengthRange: '4-5',
       episodeCount,
-    }
+    } as GenerationRequestPatch
   );
 
   const nextInputs = {
     ...(existingInputs as Record<string, unknown>),
-    packageType: order.packageType,
+    packageType,
     episodeCount,
     nfcRequested: parsed.data.nfcRequested ?? order.nfcRequested,
     title: draftTitle,

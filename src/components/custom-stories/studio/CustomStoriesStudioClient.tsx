@@ -100,11 +100,12 @@ export function CustomStoriesStudioClient(props: {
         const res = await fetch('/api/custom-stories/voices', { method: 'GET' });
         const json = await res.json();
         if (!res.ok) throw new Error(json.error ?? 'Failed to load voices');
-        const voicesRaw = Array.isArray(json.voices) ? json.voices : [];
+        const voicesRaw: unknown[] = Array.isArray(json.voices) ? json.voices : [];
         const voices = voicesRaw
-          .map((voice) => {
-            const id = typeof voice?.id === 'string' ? voice.id.trim() : '';
-            const name = typeof voice?.name === 'string' ? voice.name.trim() : '';
+          .map((voice: unknown) => {
+            const voiceObj = voice as { id?: unknown; name?: unknown };
+            const id = typeof voiceObj.id === 'string' ? voiceObj.id.trim() : '';
+            const name = typeof voiceObj.name === 'string' ? voiceObj.name.trim() : '';
             if (!id) return null;
             return { id, name: name || id };
           })

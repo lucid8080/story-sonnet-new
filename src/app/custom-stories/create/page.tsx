@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { BRAND } from '@/lib/brand';
 import { CustomStoriesWizard } from '@/components/custom-stories/create/CustomStoriesWizard';
@@ -11,7 +12,9 @@ export default function CustomStoriesCreatePage() {
   return (
     <main className="min-h-[70vh] bg-gradient-to-b from-amber-50 via-rose-50/50 to-sky-50 px-4 py-8">
       <div className="mx-auto max-w-2xl">
-        <CustomStoriesWizard />
+        <Suspense fallback={null}>
+          <CustomStoriesWizard />
+        </Suspense>
       </div>
     </main>
   );

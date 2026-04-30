@@ -30,9 +30,14 @@ export async function POST(req: Request) {
     );
   }
   try {
-    const order = fullOrder.success
-      ? await createCustomStoryOrder(session.user.id, fullOrder.data)
-      : await createCustomStoryPrepurchaseOrder(session.user.id, prepurchaseOrder.data);
+    let order;
+    if (fullOrder.success) {
+      order = await createCustomStoryOrder(session.user.id, fullOrder.data);
+    } else if (prepurchaseOrder.success) {
+      order = await createCustomStoryPrepurchaseOrder(session.user.id, prepurchaseOrder.data);
+    } else {
+      return NextResponse.json({ error: 'Validation failed' }, { status: 400 });
+    }
     return NextResponse.json({ ok: true, order: serializeCustomStoryOrder(order) });
   } catch (e) {
     console.error('[custom-stories/order]', e);
