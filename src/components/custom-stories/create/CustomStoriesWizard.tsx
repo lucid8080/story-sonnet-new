@@ -36,6 +36,8 @@ export function CustomStoriesWizard() {
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<WizardData>(initialData);
   const [existingOrderId, setExistingOrderId] = useState<string | null>(null);
+  const [phase, setPhase] = useState<'idle' | 'saving' | 'generating'>('idle');
+  const [briefFailed, setBriefFailed] = useState(false);
 
   useEffect(() => {
     const pkg = searchParams.get('packageType');
@@ -82,7 +84,12 @@ export function CustomStoriesWizard() {
     try {
       setBusy(true);
       setError(null);
+      if (existingOrderId && briefFailed) {
+        router.push(`/custom-stories/${existingOrderId}/studio`);
+        return;
+      }
       if (existingOrderId) {
+        setPhase('saving');
         const finalizeRes = await fetch(
           `/api/custom-stories/order/${encodeURIComponent(existingOrderId)}/finalize`,
           {
@@ -103,6 +110,37 @@ export function CustomStoriesWizard() {
         if (!finalizeRes.ok) {
           throw new Error(finalizeJson.error ?? 'Could not save your story idea');
         }
+
+        setPhase('generating');
+        const briefRes = await fetch(
+          `/api/custom-stories/${encodeURIComponent(existingOrderId)}/generate/brief`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}),
+          }
+        );
+        if (briefRes.status === 401) {
+          const callbackUrl = encodeURIComponent('/custom-stories/create');
+          router.push(`/signup?callbackUrl=${callbackUrl}`);
+          return;
+        }
+        let briefJson: { error?: string; ok?: boolean } = {};
+        try {
+          briefJson = await briefRes.json();
+        } catch {
+          briefJson = {};
+        }
+        if (!briefRes.ok) {
+          setBriefFailed(true);
+          setError(
+            `${
+              briefJson.error ?? 'Generating your Story Brief failed.'
+            } Your idea was saved \u2014 tap Continue to studio to retry there.`
+          );
+          return;
+        }
+
         router.push(`/custom-stories/${existingOrderId}/studio`);
         return;
       }
@@ -169,6 +207,7 @@ export function CustomStoriesWizard() {
       setError(e instanceof Error ? e.message : 'Could not create your story.');
     } finally {
       setBusy(false);
+      setPhase('idle');
     }
   }
 
@@ -257,9 +296,13 @@ export function CustomStoriesWizard() {
               <textarea
                 placeholder="e.g. A shy robot who learns to sing"
                 value={data.simpleIdea}
-                onChange={(e) =>
-                  setData((prev) => ({ ...prev, simpleIdea: e.target.value }))
-                }
+                onChange={(e) => {
+                  setData((prev) => ({ ...prev, simpleIdea: e.target.value }));
+                  if (briefFailed) {
+                    setBriefFailed(false);
+                    setError(null);
+                  }
+                }}
                 className="mt-1 min-h-[100px] w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
               />
             </div>
@@ -280,7 +323,9 @@ export function CustomStoriesWizard() {
             </p>
             {existingOrderId ? (
               <p className="rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
-                Payment received. Add your simple idea to continue to your Story Brief studio.
+                Payment received. Add your simple idea and tap Create Story Brief
+                {' \u2014 '}we&apos;ll save it and generate your Story Brief before
+                taking you to the studio.
               </p>
             ) : null}
             {!session?.user && (
@@ -324,7 +369,13 @@ export function CustomStoriesWizard() {
             disabled={busy || !data.simpleIdea.trim()}
             className="rounded-full bg-rose-500 px-4 py-2 text-xs font-semibold uppercase tracking-[0.15em] text-white disabled:opacity-40"
           >
-            {busy ? 'Please wait...' : existingOrderId ? 'Continue to Story Brief' : 'Create Story Brief'}
+            {phase === 'saving'
+              ? 'Saving idea\u2026'
+              : phase === 'generating'
+                ? 'Generating brief\u2026'
+                : briefFailed
+                  ? 'Continue to studio'
+                  : 'Create Story Brief'}
           </button>
         )}
       </div>
