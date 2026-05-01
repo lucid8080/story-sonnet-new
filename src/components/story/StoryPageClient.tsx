@@ -145,6 +145,7 @@ export function StoryPageClient({
   }, [
     inSessionWithPage,
     mainPlayButtonDisabled,
+    playbackSelection,
     story.slug,
     playingStory?.slug,
     togglePlay,
@@ -329,11 +330,15 @@ export function StoryPageClient({
   };
 
   const onSelectFullThemeFromTracklist = () => {
+    playAfterClaimRef.current = true;
     if (inSessionWithPage) {
       selectFullTheme();
-    } else {
-      setPreviewPlaybackSelection('fullTheme');
+      return;
     }
+    setPreviewPlaybackSelection('fullTheme');
+    claimStorySession(story, isSubscribed, {
+      initialPlaybackSelection: 'fullTheme',
+    });
   };
 
   const handleCoverPlayClick = () => {
@@ -751,7 +756,7 @@ export function StoryPageClient({
                           }
                         }}
                         className="flex w-full items-center gap-3 rounded-md py-0 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
-                        aria-label="Select series theme music (play from cover)"
+                        aria-label="Select and play series theme music"
                         aria-current={
                           coverPlaybackSelection === 'fullTheme'
                             ? 'true'

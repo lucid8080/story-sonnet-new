@@ -416,6 +416,9 @@ export function StorySeriesPlayerProvider({
 
   useEffect(() => {
     if (!story) return;
+    /** Only skip forcing episode stream when both point at full theme (e.g. after claimSession fullTheme). */
+    const listeningFullTheme =
+      playbackSelection === 'fullTheme' && mainStream === 'fullTheme';
     setProgress(0);
     setDuration(0);
     setIsPlaying(false);
@@ -425,8 +428,10 @@ export function StorySeriesPlayerProvider({
     usedEpisodePlaceholderFallbackRef.current = false;
     usedIntroPlaceholderFallbackRef.current = false;
     setUsingPlaceholderAudio(false);
-    setMainStream('episode');
-    setPlaybackSelection('episode');
+    if (!listeningFullTheme) {
+      setMainStream('episode');
+      setPlaybackSelection('episode');
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `story` read via storyKey
   }, [activeEpisodeIndex, storyKey]);
 
