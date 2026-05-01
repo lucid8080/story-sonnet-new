@@ -1,7 +1,10 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { resolvePublicAssetUrl } from '@/lib/resolvePublicAssetUrl';
-import { headPrivateAudioObjectExists } from '@/lib/s3';
+import {
+  headPrivateAudioObjectExists,
+  presignPrivateAudioGetUrl,
+} from '@/lib/s3';
 
 const INTRO_REL = 'Intro_song/theme.mp3';
 const FULL_REL = 'full_song/theme.mp3';
@@ -144,6 +147,68 @@ export type ThemeAudioProbeResult = {
   themeIntroUseSignedPlayback: boolean;
   themeFullUseSignedPlayback: boolean;
 };
+
+/** First private-bucket key that exists, or null (checks run in parallel). */
+export async function firstExistingPrivateThemeKey(
+  slug: string,
+  kind: 'intro' | 'full'
+): Promise<string | null> {
+  const keys = themeAudioKeyCandidates(slug, kind);
+  const exists = await Promise.all(
+    keys.map((k) => headPrivateAudioObjectExists(k))
+  );
+  const i = exists.findIndex(Boolean);
+  return i === -1 ? null : keys[i]!;
+}
+
+/**
+ * For viewers who may play theme audio, presign private theme objects once on the story page
+ * so the client avoids an extra `/api/theme-audio/play` round trip after hydration.
+ */
+export async function resolvePrivateThemeUrlsForViewer(
+  slug: string,
+  probe: ThemeAudioProbeResult,
+  canPlayTheme: boolean
+): Promise<ThemeAudioProbeResult> {
+  if (!canPlayTheme) return probe;
+
+  let themeIntroSrc = probe.themeIntroSrc;
+  let themeFullSrc = probe.themeFullSrc;
+  let themeIntroUseSignedPlayback = probe.themeIntroUseSignedPlayback;
+  let themeFullUseSignedPlayback = probe.themeFullUseSignedPlayback;
+
+  if (probe.themeIntroUseSignedPlayback && probe.hasIntroTheme) {
+    try {
+      const key = await firstExistingPrivateThemeKey(slug, 'intro');
+      if (key) {
+        themeIntroSrc = await presignPrivateAudioGetUrl({ key });
+        themeIntroUseSignedPlayback = false;
+      }
+    } catch {
+      /* client can fall back to /api/theme-audio/play */
+    }
+  }
+
+  if (probe.themeFullUseSignedPlayback && probe.hasFullTheme) {
+    try {
+      const key = await firstExistingPrivateThemeKey(slug, 'full');
+      if (key) {
+        themeFullSrc = await presignPrivateAudioGetUrl({ key });
+        themeFullUseSignedPlayback = false;
+      }
+    } catch {
+      /* client can fall back to /api/theme-audio/play */
+    }
+  }
+
+  return {
+    ...probe,
+    themeIntroSrc,
+    themeFullSrc,
+    themeIntroUseSignedPlayback,
+    themeFullUseSignedPlayback,
+  };
+}
 
 export async function probeThemeAudioAvailability(
   slug: string

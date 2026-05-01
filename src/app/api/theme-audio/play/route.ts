@@ -4,11 +4,11 @@ import { userHasPremiumPlayback } from '@/lib/billing/premiumAccess';
 import { canPlayEpisode } from '@/lib/audioEntitlement';
 import prisma from '@/lib/prisma';
 import { fetchStoryBySlug } from '@/lib/stories';
+import { presignPrivateAudioGetUrl } from '@/lib/s3';
 import {
-  presignPrivateAudioGetUrl,
-  headPrivateAudioObjectExists,
-} from '@/lib/s3';
-import { themeAudioKeyCandidates } from '@/lib/themeAudioUrls';
+  firstExistingPrivateThemeKey,
+  themeAudioKeyCandidates,
+} from '@/lib/themeAudioUrls';
 
 export const runtime = 'nodejs';
 
@@ -58,19 +58,18 @@ export async function GET(req: Request) {
   }
 
   const keys = themeAudioKeyCandidates(slug, kind);
-  for (const key of keys) {
-    if (!(await headPrivateAudioObjectExists(key))) continue;
-    try {
-      const url = await presignPrivateAudioGetUrl({ key });
-      return NextResponse.json({ url });
-    } catch (e) {
-      console.error('[theme-audio/play] presign failed', e);
-      return NextResponse.json(
-        { error: 'Could not prepare theme audio URL' },
-        { status: 500 }
-      );
-    }
+  const key = await firstExistingPrivateThemeKey(slug, kind);
+  if (!key) {
+    return NextResponse.json({ error: 'Theme audio not found' }, { status: 404 });
   }
-
-  return NextResponse.json({ error: 'Theme audio not found' }, { status: 404 });
+  try {
+    const url = await presignPrivateAudioGetUrl({ key });
+    return NextResponse.json({ url });
+  } catch (e) {
+    console.error('[theme-audio/play] presign failed', e);
+    return NextResponse.json(
+      { error: 'Could not prepare theme audio URL' },
+      { status: 500 }
+    );
+  }
 }

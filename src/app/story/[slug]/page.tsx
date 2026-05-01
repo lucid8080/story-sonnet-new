@@ -3,7 +3,11 @@ import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 import { userHasPremiumPlayback } from '@/lib/billing/premiumAccess';
 import { attachThemeAudioToPlayerStory } from '@/lib/attachThemeAudioToPlayerStory';
-import { probeThemeAudioAvailability } from '@/lib/themeAudioUrls';
+import {
+  probeThemeAudioAvailability,
+  resolvePrivateThemeUrlsForViewer,
+} from '@/lib/themeAudioUrls';
+import { canPlayEpisode } from '@/lib/audioEntitlement';
 import { fetchStories, fetchStoryBySlug, storyToPlayerPayload } from '@/lib/stories';
 import {
   resolveStorySpotlightBadge,
@@ -40,9 +44,23 @@ export default async function StoryPage({
 
   const playerStory = storyToPlayerPayload(story, isSubscribed);
   const themeProbe = await probeThemeAudioAvailability(slug);
+  const firstEp = playerStory.episodes[0];
+  const canPlayTheme =
+    !!firstEp &&
+    canPlayEpisode(
+      playerStory.isPremium,
+      firstEp.isPremium,
+      firstEp.isFreePreview,
+      isSubscribed
+    );
+  const themeProbeForViewer = await resolvePrivateThemeUrlsForViewer(
+    slug,
+    themeProbe,
+    canPlayTheme
+  );
   const playerWithTheme = attachThemeAudioToPlayerStory(
     playerStory,
-    themeProbe
+    themeProbeForViewer
   );
   const storyId = BigInt(story.id);
   const [spotlightBadge, spotlightInfoBar] = await Promise.all([
