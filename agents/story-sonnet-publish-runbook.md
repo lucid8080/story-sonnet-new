@@ -158,7 +158,7 @@ More detail: [Prisma — production troubleshooting / resolve](https://www.prism
 - **`mergeCatalogPublicAudioIntoDbApp`** (`src/lib/stories.ts`): if `audioStorageKey` is empty, catalog audio from `src/data.js` can fill `audioSrc` for matching slugs — can mask missing private uploads.
 - **Visibility**: default **`fetchStories` / `fetchStoryBySlug` = `public`** — drafts hidden from site; admin page passes **`visibility: 'all'`**.
 - **Auth**: upload and admin story routes require **`session.user.role === 'admin'`** (not only layout).
-- **Cache**: no `revalidatePath`/`revalidateTag` in repo; **`router.refresh()`** on admin after save only.
+- **Cache**: no `revalidatePath`/`revalidateTag` in repo; **`router.refresh()`** on admin after save only. **`fetchStoryBySlug`** uses **`unstable_cache`** (~120s) for **anonymous + `visibility: 'public'`** requests to cut crawler load; signed-in/admin paths bypass it.
 - **New story not in `src/data.js`**: `POST /api/admin/stories` for draft; first saves use numeric **`patchKey`** from response; **`upsertStoryFromAdmin`** rejects unknown non-catalog keys until a valid draft/catalog key exists.
 - **`next/image`**: remote cover hosts must be allowed in `next.config.ts` (`remotePatterns`).
 - **Upload keys**: object paths use the **sanitized upload filename** only (no timestamp). Same bucket key + filename → **overwrite**. **Bucket override** field must be the bucket **name** only (no `/`). Optional **`storySlug`** / **`audioSubPath`** form fields shape keys under `covers/…` and `audio/…`.

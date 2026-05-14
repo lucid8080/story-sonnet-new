@@ -32,6 +32,11 @@ export function middleware(request: NextRequest) {
   });
 }
 
+/** Most `/api/*` traffic skips middleware (no `x-pathname` needed there; lower Edge CPU on bots/scanners). Rate-limited routes are listed explicitly. */
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)'],
+  matcher: [
+    '/api/register',
+    '/api/auth/callback/credentials',
+    '/((?!api/|_next/static|_next/image|favicon.ico|.*\\..*).*)',
+  ],
 };

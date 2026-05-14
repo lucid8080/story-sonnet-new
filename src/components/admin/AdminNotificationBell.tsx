@@ -55,14 +55,14 @@ export function AdminNotificationBell() {
 
   useEffect(() => {
     void load();
-    const id = window.setInterval(() => void load(), 60_000);
-    const onFocus = () => void load();
-    window.addEventListener('focus', onFocus);
-    return () => {
-      window.clearInterval(id);
-      window.removeEventListener('focus', onFocus);
-    };
   }, [load]);
+
+  useEffect(() => {
+    if (!open) return;
+    void load();
+    const id = window.setInterval(() => void load(), 60_000);
+    return () => window.clearInterval(id);
+  }, [open, load]);
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
