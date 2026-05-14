@@ -518,6 +518,13 @@ export function CampaignEditor({
               </label>
             ))}
           </div>
+          <p className="mt-2 text-xs text-slate-500">
+            <span className="font-semibold text-slate-600">global_top_bar</span> drives the strip above the
+            site header everywhere. <span className="font-semibold text-slate-600">pricing_banner</span> drives
+            the in-page strip on <code className="rounded bg-slate-100 px-0.5">/pricing</code> only. Other
+            placements are reserved for future surfaces; if you only enable those, the campaign will not
+            appear on the live site yet.
+          </p>
         </section>
 
         {type === 'notification_bar' ? (

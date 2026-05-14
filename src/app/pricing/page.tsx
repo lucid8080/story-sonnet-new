@@ -3,6 +3,7 @@ import PricingActions from './PricingActions';
 import { BRAND } from '@/lib/brand';
 import prisma from '@/lib/prisma';
 import { getPricingPromoBannerEnabled } from '@/lib/campaigns/settings';
+import { PricingCampaignSlot } from '@/components/campaigns/PricingCampaignSlot';
 
 export default async function PricingPage() {
   const showPromoCodeOnPricing = await getPricingPromoBannerEnabled(prisma);
@@ -22,6 +23,7 @@ export default async function PricingPage() {
             ready. You can cancel anytime.
           </p>
         </div>
+        <PricingCampaignSlot />
         <Suspense fallback={null}>
           <PricingActions showPromoBanner={showPromoCodeOnPricing} />
         </Suspense>

@@ -54,7 +54,18 @@ export default function PricingActions({ showPromoBanner = true }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: promoCode }),
       });
-      const j = await res.json();
+      const raw = await res.text();
+      let j: { error?: string; promo?: { publicTitle?: string } };
+      try {
+        j = raw ? (JSON.parse(raw) as typeof j) : {};
+      } catch {
+        setPromoErr(
+          raw.trim()
+            ? 'Server returned invalid data (not JSON). Check the Network tab for this request.'
+            : 'Empty response from server. The promo API may be failing; check server logs.'
+        );
+        return;
+      }
       if (!res.ok) {
         setPromoErr(j.error || 'Invalid code');
         return;

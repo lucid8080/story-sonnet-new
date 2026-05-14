@@ -19,6 +19,7 @@ export default async function CampaignsOverviewPage() {
   let scheduled = 0;
   let expired = 0;
   let liveBar: Awaited<ReturnType<typeof resolveFirstCampaignPayload>> = null;
+  let livePricingBar: Awaited<ReturnType<typeof resolveFirstCampaignPayload>> = null;
 
   if (process.env.DATABASE_URL) {
     try {
@@ -38,15 +39,26 @@ export default async function CampaignsOverviewPage() {
       active = a;
       scheduled = s;
       expired = e;
-      liveBar = await resolveFirstCampaignPayload(prisma, {
-        now: new Date(),
-        placement: 'global_top_bar',
-        pathname: '/',
-        user: visitorAll,
-        settings,
-        previewMode: false,
-        types: ['notification_bar', 'trial_offer'],
-      });
+      [liveBar, livePricingBar] = await Promise.all([
+        resolveFirstCampaignPayload(prisma, {
+          now: new Date(),
+          placement: 'global_top_bar',
+          pathname: '/',
+          user: visitorAll,
+          settings,
+          previewMode: false,
+          types: ['notification_bar', 'trial_offer'],
+        }),
+        resolveFirstCampaignPayload(prisma, {
+          now: new Date(),
+          placement: 'pricing_banner',
+          pathname: '/pricing',
+          user: visitorAll,
+          settings,
+          previewMode: false,
+          types: ['notification_bar', 'trial_offer'],
+        }),
+      ]);
     } catch (err) {
       console.warn('[admin/campaigns overview]', err);
     }
@@ -60,31 +72,16 @@ export default async function CampaignsOverviewPage() {
         <Stat label="Expired" value={expired} />
       </div>
 
-      <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">
-          What is live? (global top bar, visitor view)
-        </h2>
-        {liveBar && liveBar.kind === 'notification_bar' ? (
-          <div className="mt-3 rounded-xl bg-violet-600 px-4 py-3 text-sm text-white">
-            <div className="font-semibold">{liveBar.messagePrimary}</div>
-            {liveBar.messageSecondary ? (
-              <div className="mt-1 text-violet-100">{liveBar.messageSecondary}</div>
-            ) : null}
-          </div>
-        ) : liveBar && liveBar.kind === 'trial_offer' ? (
-          <div className="mt-3 rounded-xl bg-emerald-700 px-4 py-3 text-sm text-white">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-emerald-200">Free trial</div>
-            <div className="font-semibold">{liveBar.headline}</div>
-            {liveBar.subheadline ? (
-              <div className="mt-1 text-emerald-100">{liveBar.subheadline}</div>
-            ) : null}
-          </div>
-        ) : (
-          <p className="mt-2 text-sm text-slate-500">
-            No active global top bar (notification or trial) for anonymous visitors.
-          </p>
-        )}
-      </div>
+      <LiveBarPreview
+        title="What is live? (global top bar, anonymous visitor)"
+        emptyHint="No active global top bar (notification or trial) for anonymous visitors."
+        liveBar={liveBar}
+      />
+      <LiveBarPreview
+        title="What is live? (/pricing in-page banner, anonymous visitor)"
+        emptyHint="No active pricing-banner campaign for anonymous visitors. Add placement “pricing_banner” or use “global_top_bar” for the site-wide bar."
+        liveBar={livePricingBar}
+      />
 
       <div className="flex flex-wrap gap-2">
         <Quick href="/admin/campaigns/new?type=notification_bar" label="New notification bar" />
@@ -97,6 +94,40 @@ export default async function CampaignsOverviewPage() {
         Use tabs above for full lists, placement matrix, analytics, and global settings (kill switch, test
         mode).
       </div>
+    </div>
+  );
+}
+
+function LiveBarPreview({
+  title,
+  emptyHint,
+  liveBar,
+}: {
+  title: string;
+  emptyHint: string;
+  liveBar: Awaited<ReturnType<typeof resolveFirstCampaignPayload>>;
+}) {
+  return (
+    <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+      <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">{title}</h2>
+      {liveBar && liveBar.kind === 'notification_bar' ? (
+        <div className="mt-3 rounded-xl bg-violet-600 px-4 py-3 text-sm text-white">
+          <div className="font-semibold">{liveBar.messagePrimary}</div>
+          {liveBar.messageSecondary ? (
+            <div className="mt-1 text-violet-100">{liveBar.messageSecondary}</div>
+          ) : null}
+        </div>
+      ) : liveBar && liveBar.kind === 'trial_offer' ? (
+        <div className="mt-3 rounded-xl bg-emerald-700 px-4 py-3 text-sm text-white">
+          <div className="text-[10px] font-bold uppercase tracking-wide text-emerald-200">Free trial</div>
+          <div className="font-semibold">{liveBar.headline}</div>
+          {liveBar.subheadline ? (
+            <div className="mt-1 text-emerald-100">{liveBar.subheadline}</div>
+          ) : null}
+        </div>
+      ) : (
+        <p className="mt-2 text-sm text-slate-500">{emptyHint}</p>
+      )}
     </div>
   );
 }

@@ -100,7 +100,21 @@ function withPromoDefault(row: LegacyCampaignSettingsSelect): CampaignSettings {
   return { ...row, showPromoCodeOnPricing: true };
 }
 
-export async function getOrCreateCampaignSettings(prisma: PrismaClient) {
+/**
+ * Load or create the singleton `campaign_settings` row. When `show_promo_code_on_pricing` has not been
+ * migrated yet, uses raw SQL so Prisma `upsert`/`findUnique` never touch the missing column (same as
+ * admin pricing-banner compat).
+ */
+export async function getOrCreateCampaignSettings(prisma: PrismaClient): Promise<CampaignSettings> {
+  if (!(await campaignSettingsShowPromoColumnExists(prisma))) {
+    let legacy = await fetchCampaignSettingsLegacySql(prisma);
+    if (!legacy) {
+      await ensureDefaultCampaignSettingsRowLegacy(prisma);
+      legacy = await fetchCampaignSettingsLegacySql(prisma);
+    }
+    if (!legacy) throw new Error('campaign_settings row missing');
+    return withPromoDefault(legacy);
+  }
   return prisma.campaignSettings.upsert({
     where: { id: 'default' },
     create: { id: 'default' },
@@ -112,15 +126,6 @@ export async function getOrCreateCampaignSettings(prisma: PrismaClient) {
  * Admin API: full row including `showPromoCodeOnPricing` (compat `true` when column absent).
  */
 export async function getCampaignSettingsForAdminApi(prisma: PrismaClient): Promise<CampaignSettings> {
-  if (!(await campaignSettingsShowPromoColumnExists(prisma))) {
-    let legacy = await fetchCampaignSettingsLegacySql(prisma);
-    if (!legacy) {
-      await ensureDefaultCampaignSettingsRowLegacy(prisma);
-      legacy = await fetchCampaignSettingsLegacySql(prisma);
-    }
-    if (!legacy) throw new Error('campaign_settings row missing');
-    return withPromoDefault(legacy);
-  }
   return getOrCreateCampaignSettings(prisma);
 }
 

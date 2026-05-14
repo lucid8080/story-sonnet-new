@@ -1,5 +1,6 @@
 'use client';
 
+import type { CampaignPlacementKey } from '@prisma/client';
 import type {
   PublicNotificationBarPayload,
   PublicTrialPayload,
@@ -51,7 +52,8 @@ function useDismissState(
   barContentKey: string,
   dismissPolicy: string,
   dismissible: boolean,
-  campaignEndsAt?: string
+  campaignEndsAt: string | undefined,
+  analyticsPlacement: CampaignPlacementKey
 ) {
   const [hidden, setHidden] = useState(false);
   const storageId = barContentKey.trim() || campaignId;
@@ -99,10 +101,10 @@ function useDismissState(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        events: [{ campaignId, type: 'dismiss', placement: 'global_top_bar' }],
+        events: [{ campaignId, type: 'dismiss', placement: analyticsPlacement }],
       }),
     }).catch(() => {});
-  }, [campaignId, storageId, dismissPolicy, campaignEndsAt]);
+  }, [campaignId, storageId, dismissPolicy, campaignEndsAt, analyticsPlacement]);
 
   const dismissForClaim = useCallback(() => {
     if (typeof window === 'undefined') return;
@@ -115,10 +117,10 @@ function useDismissState(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        events: [{ campaignId, type: 'dismiss', placement: 'global_top_bar' }],
+        events: [{ campaignId, type: 'dismiss', placement: analyticsPlacement }],
       }),
     }).catch(() => {});
-  }, [campaignId, storageId]);
+  }, [campaignId, storageId, analyticsPlacement]);
 
   return { hidden, dismiss, dismissForClaim };
 }
@@ -137,6 +139,7 @@ function BarShell({
   subtitle,
   cta,
   ctaFactory,
+  analyticsPlacement,
 }: {
   campaignId: string;
   barContentKey: string;
@@ -151,13 +154,15 @@ function BarShell({
   subtitle: ReactNode;
   cta?: ReactNode;
   ctaFactory?: (ctx: { dismissForClaim: () => void }) => ReactNode;
+  analyticsPlacement: CampaignPlacementKey;
 }) {
   const { hidden, dismiss, dismissForClaim } = useDismissState(
     campaignId,
     barContentKey,
     dismissPolicy,
     dismissible,
-    campaignEndsAt
+    campaignEndsAt,
+    analyticsPlacement
   );
 
   useEffect(() => {
@@ -165,10 +170,10 @@ function BarShell({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        events: [{ campaignId, type: 'impression', placement: 'global_top_bar' }],
+        events: [{ campaignId, type: 'impression', placement: analyticsPlacement }],
       }),
     }).catch(() => {});
-  }, [campaignId]);
+  }, [campaignId, analyticsPlacement]);
 
   if (hidden) return null;
 
@@ -215,7 +220,13 @@ function notificationTailwindShell(payload: PublicNotificationBarPayload): {
   return { shellClassName: bg, textClasses };
 }
 
-function NotificationBarView({ payload }: { payload: PublicNotificationBarPayload }) {
+function NotificationBarView({
+  payload,
+  analyticsPlacement,
+}: {
+  payload: PublicNotificationBarPayload;
+  analyticsPlacement: CampaignPlacementKey;
+}) {
   const hex = payload.barBackgroundHex?.trim() || null;
   const custom = useMemo(() => {
     if (!hex || !parseHexRgb(hex)) return null;
@@ -257,7 +268,9 @@ function NotificationBarView({ payload }: { payload: PublicNotificationBarPayloa
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              events: [{ campaignId: payload.campaignId, type: 'cta_click', placement: 'global_top_bar' }],
+              events: [
+                { campaignId: payload.campaignId, type: 'cta_click', placement: analyticsPlacement },
+              ],
             }),
           }).catch(() => {})
         }
@@ -280,6 +293,7 @@ function NotificationBarView({ payload }: { payload: PublicNotificationBarPayloa
       title={payload.messagePrimary}
       subtitle={subtitle}
       cta={cta}
+      analyticsPlacement={analyticsPlacement}
     />
   );
 }
@@ -292,7 +306,13 @@ function trialCtaHref(landingSlug: string | null) {
   return '/pricing';
 }
 
-function TrialBarView({ payload }: { payload: PublicTrialPayload }) {
+function TrialBarView({
+  payload,
+  analyticsPlacement,
+}: {
+  payload: PublicTrialPayload;
+  analyticsPlacement: CampaignPlacementKey;
+}) {
   const dismissible = payload.dismissible ?? true;
   const dismissPolicy = payload.dismissPolicy ?? 'hours_24';
   const href = payload.ctaHref ?? trialCtaHref(payload.landingSlug);
@@ -359,7 +379,7 @@ function TrialBarView({ payload }: { payload: PublicTrialPayload }) {
                   {
                     campaignId: payload.campaignId,
                     type: 'cta_click',
-                    placement: 'global_top_bar',
+                    placement: analyticsPlacement,
                   },
                 ],
               }),
@@ -369,16 +389,23 @@ function TrialBarView({ payload }: { payload: PublicTrialPayload }) {
           {payload.ctaLabel}
         </Link>
       )}
+      analyticsPlacement={analyticsPlacement}
     />
   );
 }
 
-export function CampaignBarRenderer({ payload }: { payload: ResolvedCampaignPayload }) {
+export function CampaignBarRenderer({
+  payload,
+  analyticsPlacement = 'global_top_bar',
+}: {
+  payload: ResolvedCampaignPayload;
+  analyticsPlacement?: CampaignPlacementKey;
+}) {
   if (payload.kind === 'notification_bar') {
-    return <NotificationBarView payload={payload} />;
+    return <NotificationBarView payload={payload} analyticsPlacement={analyticsPlacement} />;
   }
   if (payload.kind === 'trial_offer') {
-    return <TrialBarView payload={payload} />;
+    return <TrialBarView payload={payload} analyticsPlacement={analyticsPlacement} />;
   }
   return null;
 }

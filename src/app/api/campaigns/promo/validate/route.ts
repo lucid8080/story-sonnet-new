@@ -37,70 +37,84 @@ export async function POST(req: Request) {
     );
   }
 
-  const session = await auth();
-  const settings = await getOrCreateCampaignSettings(prisma);
-  const previewHeaderValue = req.headers.get(settings.previewHeaderName) ?? '';
-  const previewMode = Boolean(
-    settings.previewHeaderSecret && previewHeaderValue === settings.previewHeaderSecret
-  );
+  try {
+    const session = await auth();
+    const settings = await getOrCreateCampaignSettings(prisma);
+    const previewHeaderValue = req.headers.get(settings.previewHeaderName) ?? '';
+    const previewMode = Boolean(
+      settings.previewHeaderSecret && previewHeaderValue === settings.previewHeaderSecret
+    );
 
-  let profile = null;
-  let hadPaidPurchase = false;
-  const userId = session?.user?.id;
-  if (userId) {
-    const [p, paidCount] = await Promise.all([
-      prisma.profile.findUnique({
-        where: { userId },
-        select: {
-          subscriptionStatus: true,
-          subscriptionPlan: true,
-          createdAt: true,
-          lifetimeSpendCents: true,
+    let profile = null;
+    let hadPaidPurchase = false;
+    const userId = session?.user?.id;
+    if (userId) {
+      const [p, paidCount] = await Promise.all([
+        prisma.profile.findUnique({
+          where: { userId },
+          select: {
+            subscriptionStatus: true,
+            subscriptionPlan: true,
+            createdAt: true,
+            lifetimeSpendCents: true,
+          },
+        }),
+        prisma.customerPurchase.count({
+          where: { userId, status: 'paid', amountCents: { gt: 0 } },
+        }),
+      ]);
+      profile = p;
+      hadPaidPurchase = paidCount > 0 || (p?.lifetimeSpendCents ?? 0) > 0;
+    }
+
+    const user = buildCampaignUserContext({ session, profile, hadPaidPurchase });
+
+    const result = await validatePromoCode(prisma, {
+      code: parsed.data.code,
+      user,
+      planKey: parsed.data.planKey,
+      previewMode,
+    });
+
+    if (result.ok) {
+      await prisma.campaignAnalyticsEvent.create({
+        data: {
+          campaignId: result.campaignId,
+          type: 'promo_validate_ok',
+          userId: userId ?? undefined,
+          metadata: {},
         },
-      }),
-      prisma.customerPurchase.count({
-        where: { userId, status: 'paid', amountCents: { gt: 0 } },
-      }),
-    ]);
-    profile = p;
-    hadPaidPurchase = paidCount > 0 || (p?.lifetimeSpendCents ?? 0) > 0;
-  }
+      });
+      return NextResponse.json({ ok: true, promo: result });
+    }
 
-  const user = buildCampaignUserContext({ session, profile, hadPaidPurchase });
-
-  const result = await validatePromoCode(prisma, {
-    code: parsed.data.code,
-    user,
-    planKey: parsed.data.planKey,
-    previewMode,
-  });
-
-  if (result.ok) {
-    await prisma.campaignAnalyticsEvent.create({
-      data: {
-        campaignId: result.campaignId,
-        type: 'promo_validate_ok',
-        userId: userId ?? undefined,
-        metadata: {},
-      },
+    const failedDetail = await prisma.promoCodeDetail.findUnique({
+      where: { codeNormalized: normalizePromoCodeInput(parsed.data.code) },
+      select: { campaignId: true },
     });
-    return NextResponse.json({ ok: true, promo: result });
-  }
+    if (failedDetail) {
+      await prisma.campaignAnalyticsEvent.create({
+        data: {
+          campaignId: failedDetail.campaignId,
+          type: 'promo_validate_fail',
+          userId: userId ?? undefined,
+          metadata: { error: result.code },
+        },
+      });
+    }
 
-  const failedDetail = await prisma.promoCodeDetail.findUnique({
-    where: { codeNormalized: normalizePromoCodeInput(parsed.data.code) },
-    select: { campaignId: true },
-  });
-  if (failedDetail) {
-    await prisma.campaignAnalyticsEvent.create({
-      data: {
-        campaignId: failedDetail.campaignId,
-        type: 'promo_validate_fail',
-        userId: userId ?? undefined,
-        metadata: { error: result.code },
+    return NextResponse.json({ ok: false, error: result.message, code: result.code }, { status: 400 });
+  } catch (e) {
+    console.error('[campaigns/promo/validate]', e);
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          e instanceof Error
+            ? e.message
+            : 'Promo validation failed. If this persists, check database connectivity and server logs.',
       },
-    });
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json({ ok: false, error: result.message, code: result.code }, { status: 400 });
 }

@@ -171,7 +171,10 @@ export async function resolveCampaignPayloads(
     }
   }
 
-  if (opts.placement === 'global_top_bar' && !settings.allowMultipleTopBars) {
+  if (
+    (opts.placement === 'global_top_bar' || opts.placement === 'pricing_banner') &&
+    !settings.allowMultipleTopBars
+  ) {
     return payloads.slice(0, 1);
   }
 
