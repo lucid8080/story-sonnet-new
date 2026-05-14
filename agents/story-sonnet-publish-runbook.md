@@ -153,7 +153,7 @@ More detail: [Prisma — production troubleshooting / resolve](https://www.prism
 
 ## 5. GOTCHAS
 
-- **`syncEpisodesForStory`**: final `episodeNumber` is **1-based index in the `episodes` array**, not the client’s `episodeNumber` field — reorder array = reorder DB episodes.
+- **`syncEpisodesForStory`**: final `episodeNumber` is **1-based index in the `episodes` array**, not the client’s `episodeNumber` field — reorder array = reorder DB episodes. Before applying those numbers, surviving rows get **temporary negative** `episodeNumber` values so reorders cannot hit `@@unique([storyId, episodeNumber])`.
 - **Cover vs audio**: cover = **public URL** on `Story.coverUrl`; private MP3 = **`audioStorageKey`** only (plus optional public `audioUrl`).
 - **`mergeCatalogPublicAudioIntoDbApp`** (`src/lib/stories.ts`): if `audioStorageKey` is empty, catalog audio from `src/data.js` can fill `audioSrc` for matching slugs — can mask missing private uploads.
 - **Visibility**: default **`fetchStories` / `fetchStoryBySlug` = `public`** — drafts hidden from site; admin page passes **`visibility: 'all'`**.

@@ -752,6 +752,20 @@ async function syncEpisodesForStory(
     });
   }
 
+  // `@@unique([storyId, episodeNumber])` would fail if we wrote final 1..n in a
+  // single pass while two rows still "own" each other's target numbers (reorder).
+  const survivorsAfterDelete = await tx.episode.findMany({
+    where: { storyId },
+    select: { id: true },
+    orderBy: { id: 'asc' },
+  });
+  for (let j = 0; j < survivorsAfterDelete.length; j++) {
+    await tx.episode.update({
+      where: { id: survivorsAfterDelete[j].id },
+      data: { episodeNumber: -(j + 1) },
+    });
+  }
+
   const durationByAudioKey = new Map<string, number | null>();
   const durationByAudioUrl = new Map<string, number | null>();
 
