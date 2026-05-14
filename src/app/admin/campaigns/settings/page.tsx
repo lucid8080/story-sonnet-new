@@ -195,7 +195,7 @@ export default function CampaignSettingsPage() {
           checked={s.showPromoCodeOnPricing}
           onChange={(e) => setS({ ...s, showPromoCodeOnPricing: e.target.checked })}
         />
-        Show promo code entry on pricing page
+        Show promo code entry on pricing page (only if at least one active promo campaign exists)
       </label>
       <button
         type="button"

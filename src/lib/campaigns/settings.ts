@@ -129,20 +129,50 @@ export async function getCampaignSettingsForAdminApi(prisma: PrismaClient): Prom
   return getOrCreateCampaignSettings(prisma);
 }
 
-/** Public pricing: whether to show the promo code box (default true if column missing). */
+/** Non-archived promo campaigns in their start/end window (same shape as public validation candidates). */
+export async function hasSchedulablePromoCodeCampaign(prisma: PrismaClient): Promise<boolean> {
+  const now = new Date();
+  const n = await prisma.campaign.count({
+    where: {
+      type: 'promo_code',
+      archivedAt: null,
+      status: { in: ['active', 'scheduled'] },
+      startsAt: { lte: now },
+      endsAt: { gte: now },
+      promoDetail: { isNot: null },
+    },
+  });
+  return n > 0;
+}
+
+/**
+ * Whether the public pricing page should render the promo-code field. Requires both the admin toggle
+ * (`show_promo_code_on_pricing`) and at least one schedulable promo campaign; deleting all promos hides
+ * the box even if the toggle stays on.
+ */
 export async function getPricingPromoBannerEnabled(prisma: PrismaClient): Promise<boolean> {
-  if (!(await campaignSettingsShowPromoColumnExists(prisma))) {
-    return true;
+  let settingOn = true;
+  if (await campaignSettingsShowPromoColumnExists(prisma)) {
+    try {
+      const row = await prisma.campaignSettings.findUnique({ where: { id: 'default' } });
+      if (row) {
+        settingOn = row.showPromoCodeOnPricing;
+      } else {
+        const created = await getOrCreateCampaignSettings(prisma);
+        settingOn = created.showPromoCodeOnPricing;
+      }
+    } catch (e) {
+      if (isMissingShowPromoCodeOnPricingColumnError(e)) {
+        settingOn = true;
+      } else {
+        throw e;
+      }
+    }
   }
-  try {
-    const row = await prisma.campaignSettings.findUnique({ where: { id: 'default' } });
-    if (row) return row.showPromoCodeOnPricing;
-    const created = await getOrCreateCampaignSettings(prisma);
-    return created.showPromoCodeOnPricing;
-  } catch (e) {
-    if (isMissingShowPromoCodeOnPricingColumnError(e)) return true;
-    throw e;
-  }
+
+  if (!settingOn) return false;
+  if (!process.env.DATABASE_URL) return false;
+  return hasSchedulablePromoCodeCampaign(prisma);
 }
 
 export type CampaignSettingsParsedPatch = z.infer<typeof campaignSettingsPatchSchema>;
