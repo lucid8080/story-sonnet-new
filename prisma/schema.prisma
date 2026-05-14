@@ -1049,6 +1049,7 @@ model CampaignSettings {
   previewHeaderSecret      String?                   @map("preview_header_secret")
   defaultBarDismissPolicy  NotificationDismissPolicy @default(session) @map("default_bar_dismiss_policy")
   promosCanStackWithTrials Boolean                   @default(false) @map("promos_can_stack_with_trials")
+  showPromoCodeOnPricing   Boolean                   @default(true) @map("show_promo_code_on_pricing")
 
   @@map("campaign_settings")
 }

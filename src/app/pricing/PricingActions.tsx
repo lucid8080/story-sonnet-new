@@ -16,7 +16,9 @@ function safeStoryReturnPath(raw: string | null): string | null {
   return t;
 }
 
-export default function PricingActions() {
+type Props = { showPromoBanner?: boolean };
+
+export default function PricingActions({ showPromoBanner = true }: Props) {
   const { data: session } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -93,37 +95,39 @@ export default function PricingActions() {
           </Link>
         </div>
       ) : null}
-      <div className="mb-4 rounded-2xl bg-white/90 p-4 shadow-sm ring-1 ring-slate-100">
-        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Promo code
+      {showPromoBanner ? (
+        <div className="mb-4 rounded-2xl bg-white/90 p-4 shadow-sm ring-1 ring-slate-100">
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+            Promo code
+          </div>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <input
+              value={promoCode}
+              onChange={(e) => setPromoCode(e.target.value)}
+              placeholder="Enter code"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none ring-rose-100 focus:ring-2 sm:max-w-xs"
+            />
+            <button
+              type="button"
+              disabled={promoBusy || !promoCode.trim()}
+              onClick={() => void validatePromo()}
+              className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              {promoBusy ? 'Checking…' : 'Validate'}
+            </button>
+          </div>
+          {promoOk ? (
+            <p className="mt-2 text-sm font-medium text-emerald-700">{promoOk}</p>
+          ) : null}
+          {promoErr ? (
+            <p className="mt-2 text-sm font-medium text-rose-600">{promoErr}</p>
+          ) : null}
+          <p className="mt-1 text-xs text-slate-500">
+            Checkout does not yet apply discounts automatically; this confirms your code is valid for your
+            account.
+          </p>
         </div>
-        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-          <input
-            value={promoCode}
-            onChange={(e) => setPromoCode(e.target.value)}
-            placeholder="Enter code"
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none ring-rose-100 focus:ring-2 sm:max-w-xs"
-          />
-          <button
-            type="button"
-            disabled={promoBusy || !promoCode.trim()}
-            onClick={() => void validatePromo()}
-            className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
-          >
-            {promoBusy ? 'Checking…' : 'Validate'}
-          </button>
-        </div>
-        {promoOk ? (
-          <p className="mt-2 text-sm font-medium text-emerald-700">{promoOk}</p>
-        ) : null}
-        {promoErr ? (
-          <p className="mt-2 text-sm font-medium text-rose-600">{promoErr}</p>
-        ) : null}
-        <p className="mt-1 text-xs text-slate-500">
-          Checkout does not yet apply discounts automatically; this confirms your code is valid for your
-          account.
-        </p>
-      </div>
+      ) : null}
       <div className="grid gap-6 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <PricingCard
           onSubscribe={handleSubscribeClick}

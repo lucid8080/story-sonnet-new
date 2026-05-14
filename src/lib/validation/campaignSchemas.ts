@@ -195,6 +195,7 @@ export const campaignSettingsPatchSchema = z
     previewHeaderSecret: z.string().max(200).nullable().optional(),
     defaultBarDismissPolicy: dismissPolicySchema.optional(),
     promosCanStackWithTrials: z.boolean().optional(),
+    showPromoCodeOnPricing: z.boolean().optional(),
   })
   .strict();
 

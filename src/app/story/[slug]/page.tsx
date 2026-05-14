@@ -22,6 +22,33 @@ type RecommendedStory = {
   accent: string | null;
 };
 
+function extractAudioSlugFromPathLike(input: string | null | undefined): string | null {
+  const v = input?.trim();
+  if (!v) return null;
+  try {
+    const p = new URL(v).pathname;
+    const m = p.match(/^\/audio\/([^/]+)\//i);
+    return m?.[1] ?? null;
+  } catch {
+    const normalized = v.split('?')[0]?.split('#')[0] ?? '';
+    const m = normalized.match(/^\/?audio\/([^/]+)\//i);
+    return m?.[1] ?? null;
+  }
+}
+
+function collectThemeSlugAliases(storySlug: string, story: Awaited<ReturnType<typeof fetchStoryBySlug>>): string[] {
+  if (!story) return [];
+  const aliases = new Set<string>();
+  for (const ep of story.episodes) {
+    const fromKey = extractAudioSlugFromPathLike(ep.audioStorageKey ?? null);
+    const fromUrl = extractAudioSlugFromPathLike(ep.audioSrc ?? null);
+    for (const candidate of [fromKey, fromUrl]) {
+      if (candidate && candidate !== storySlug) aliases.add(candidate);
+    }
+  }
+  return Array.from(aliases);
+}
+
 export default async function StoryPage({
   params,
 }: {
@@ -43,7 +70,8 @@ export default async function StoryPage({
       : false;
 
   const playerStory = storyToPlayerPayload(story, isSubscribed);
-  const themeProbe = await probeThemeAudioAvailability(slug);
+  const themeSlugAliases = collectThemeSlugAliases(slug, story);
+  const themeProbe = await probeThemeAudioAvailability(slug, themeSlugAliases);
   const firstEp = playerStory.episodes[0];
   const canPlayTheme =
     !!firstEp &&
@@ -56,7 +84,8 @@ export default async function StoryPage({
   const themeProbeForViewer = await resolvePrivateThemeUrlsForViewer(
     slug,
     themeProbe,
-    canPlayTheme
+    canPlayTheme,
+    themeSlugAliases
   );
   const playerWithTheme = attachThemeAudioToPlayerStory(
     playerStory,

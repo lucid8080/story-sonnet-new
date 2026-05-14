@@ -14,7 +14,32 @@ type Settings = {
   previewHeaderSecret: string | null;
   defaultBarDismissPolicy: string;
   promosCanStackWithTrials: boolean;
+  showPromoCodeOnPricing: boolean;
 };
+
+function normalizeSettings(raw: unknown): Settings | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  return {
+    defaultTimezone:
+      typeof o.defaultTimezone === 'string' ? o.defaultTimezone : 'America/New_York',
+    defaultCampaignPriority:
+      typeof o.defaultCampaignPriority === 'number' ? o.defaultCampaignPriority : 0,
+    allowMultipleTopBars: Boolean(o.allowMultipleTopBars),
+    globalKillSwitch: Boolean(o.globalKillSwitch),
+    testModeEnabled: Boolean(o.testModeEnabled),
+    testModeUserIdsJson: o.testModeUserIdsJson,
+    previewHeaderName: typeof o.previewHeaderName === 'string' ? o.previewHeaderName : '',
+    previewHeaderSecret:
+      o.previewHeaderSecret === null || typeof o.previewHeaderSecret === 'string'
+        ? (o.previewHeaderSecret as string | null)
+        : null,
+    defaultBarDismissPolicy:
+      typeof o.defaultBarDismissPolicy === 'string' ? o.defaultBarDismissPolicy : 'session',
+    promosCanStackWithTrials: Boolean(o.promosCanStackWithTrials),
+    showPromoCodeOnPricing: typeof o.showPromoCodeOnPricing === 'boolean' ? o.showPromoCodeOnPricing : true,
+  };
+}
 
 export default function CampaignSettingsPage() {
   const [s, setS] = useState<Settings | null>(null);
@@ -26,7 +51,9 @@ export default function CampaignSettingsPage() {
         const res = await fetch('/api/admin/campaign-settings');
         const j = await res.json();
         if (!res.ok) throw new Error(j.error || 'Failed');
-        setS(j.settings);
+        const normalized = normalizeSettings(j.settings);
+        if (!normalized) throw new Error('Invalid settings payload');
+        setS(normalized);
         const arr = Array.isArray(j.settings.testModeUserIdsJson)
           ? j.settings.testModeUserIdsJson
           : [];
@@ -58,12 +85,14 @@ export default function CampaignSettingsPage() {
           previewHeaderSecret: s.previewHeaderSecret,
           defaultBarDismissPolicy: s.defaultBarDismissPolicy,
           promosCanStackWithTrials: s.promosCanStackWithTrials,
+          showPromoCodeOnPricing: s.showPromoCodeOnPricing,
         }),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || 'Save failed');
       toast.success('Settings saved');
-      setS(j.settings);
+      const saved = normalizeSettings(j.settings);
+      if (saved) setS(saved);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Save failed');
     }
@@ -159,6 +188,14 @@ export default function CampaignSettingsPage() {
           onChange={(e) => setS({ ...s, promosCanStackWithTrials: e.target.checked })}
         />
         Promos can stack with trials (resolver hint; enforce in checkout later)
+      </label>
+      <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+        <input
+          type="checkbox"
+          checked={s.showPromoCodeOnPricing}
+          onChange={(e) => setS({ ...s, showPromoCodeOnPricing: e.target.checked })}
+        />
+        Show promo code entry on pricing page
       </label>
       <button
         type="button"

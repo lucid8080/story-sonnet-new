@@ -1,8 +1,12 @@
 import { Suspense } from 'react';
 import PricingActions from './PricingActions';
 import { BRAND } from '@/lib/brand';
+import prisma from '@/lib/prisma';
+import { getPricingPromoBannerEnabled } from '@/lib/campaigns/settings';
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  const showPromoCodeOnPricing = await getPricingPromoBannerEnabled(prisma);
+
   return (
     <div className="min-h-[70vh] bg-gradient-to-b from-amber-50 via-rose-50/40 to-sky-50">
       <div className="mx-auto max-w-4xl px-5 py-10 sm:px-0">
@@ -19,7 +23,7 @@ export default function PricingPage() {
           </p>
         </div>
         <Suspense fallback={null}>
-          <PricingActions />
+          <PricingActions showPromoBanner={showPromoCodeOnPricing} />
         </Suspense>
       </div>
     </div>

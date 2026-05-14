@@ -2,12 +2,27 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { resolvePublicAssetUrl } from '@/lib/resolvePublicAssetUrl';
 import {
+  firstPublicAudioKeyByPrefixes,
+  firstPrivateAudioKeyByPrefixes,
   headPrivateAudioObjectExists,
+  publicUrlForObjectKey,
   presignPrivateAudioGetUrl,
 } from '@/lib/s3';
 
 const INTRO_REL = 'Intro_song/theme.mp3';
 const FULL_REL = 'full_song/theme.mp3';
+
+function uniqueSlugs(primarySlug: string, slugAliases: string[] = []): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of [primarySlug, ...slugAliases]) {
+    const s = raw.trim();
+    if (!s || seen.has(s)) continue;
+    seen.add(s);
+    out.push(s);
+  }
+  return out;
+}
 
 /** Prefer `music/` subfolder (matches common R2 layouts), then flat layout. */
 function introPathCandidates(slug: string): string[] {
@@ -27,11 +42,14 @@ function fullPathCandidates(slug: string): string[] {
 /** Object keys for private bucket (no leading slash). */
 export function themeAudioKeyCandidates(
   slug: string,
-  kind: 'intro' | 'full'
+  kind: 'intro' | 'full',
+  slugAliases: string[] = []
 ): string[] {
-  const paths =
-    kind === 'intro' ? introPathCandidates(slug) : fullPathCandidates(slug);
-  return paths.map((p) => p.replace(/^\/+/, ''));
+  const slugs = uniqueSlugs(slug, slugAliases);
+  const paths = slugs.flatMap((s) =>
+    kind === 'intro' ? introPathCandidates(s) : fullPathCandidates(s)
+  );
+  return Array.from(new Set(paths.map((p) => p.replace(/^\/+/, ''))));
 }
 
 function resolveClientPath(webPath: string): string {
@@ -119,6 +137,17 @@ async function probeAudioExists(absoluteUrl: string): Promise<boolean> {
 
 type ThemeResolve = { mode: 'public'; clientSrc: string } | { mode: 'private' };
 
+function folderPrefixesFromPathCandidates(pathCandidates: string[]): string[] {
+  const seen = new Set<string>();
+  for (const p of pathCandidates) {
+    const normalized = p.replace(/^\/+/, '');
+    const slash = normalized.lastIndexOf('/');
+    if (slash <= 0) continue;
+    seen.add(`${normalized.slice(0, slash + 1)}`);
+  }
+  return Array.from(seen);
+}
+
 async function firstReachableThemeUrl(
   pathCandidates: string[]
 ): Promise<ThemeResolve | null> {
@@ -128,13 +157,30 @@ async function firstReachableThemeUrl(
     }
     const clientSrc = resolveClientPath(webPath);
     const abs = absoluteUrlForServerProbe(clientSrc);
-    if (await probeAudioExists(abs)) {
+    const publicProbeOk = await probeAudioExists(abs);
+    if (publicProbeOk) {
       return { mode: 'public', clientSrc };
     }
     const key = webPath.replace(/^\/+/, '');
-    if (await headPrivateAudioObjectExists(key)) {
+    const privateHeadOk = await headPrivateAudioObjectExists(key);
+    if (privateHeadOk) {
       return { mode: 'private' };
     }
+  }
+  const privateFolderPrefixes = folderPrefixesFromPathCandidates(pathCandidates);
+  const discoveredPrivateKey =
+    await firstPrivateAudioKeyByPrefixes(privateFolderPrefixes);
+  if (discoveredPrivateKey) {
+    return { mode: 'private' };
+  }
+  const discoveredPublicKey =
+    await firstPublicAudioKeyByPrefixes(privateFolderPrefixes);
+  if (discoveredPublicKey) {
+    const webPath = `/${discoveredPublicKey.replace(/^\/+/, '')}`;
+    const clientSrc =
+      resolvePublicAssetUrl(publicUrlForObjectKey(discoveredPublicKey)) ??
+      resolveClientPath(webPath);
+    return { mode: 'public', clientSrc };
   }
   return null;
 }
@@ -151,14 +197,22 @@ export type ThemeAudioProbeResult = {
 /** First private-bucket key that exists, or null (checks run in parallel). */
 export async function firstExistingPrivateThemeKey(
   slug: string,
-  kind: 'intro' | 'full'
+  kind: 'intro' | 'full',
+  slugAliases: string[] = []
 ): Promise<string | null> {
-  const keys = themeAudioKeyCandidates(slug, kind);
+  const slugs = uniqueSlugs(slug, slugAliases);
+  const keys = themeAudioKeyCandidates(slug, kind, slugAliases);
   const exists = await Promise.all(
     keys.map((k) => headPrivateAudioObjectExists(k))
   );
   const i = exists.findIndex(Boolean);
-  return i === -1 ? null : keys[i]!;
+  if (i !== -1) return keys[i]!;
+
+  const pathCandidates = slugs.flatMap((s) =>
+    kind === 'intro' ? introPathCandidates(s) : fullPathCandidates(s)
+  );
+  const prefixes = folderPrefixesFromPathCandidates(pathCandidates);
+  return firstPrivateAudioKeyByPrefixes(prefixes);
 }
 
 /**
@@ -168,7 +222,8 @@ export async function firstExistingPrivateThemeKey(
 export async function resolvePrivateThemeUrlsForViewer(
   slug: string,
   probe: ThemeAudioProbeResult,
-  canPlayTheme: boolean
+  canPlayTheme: boolean,
+  slugAliases: string[] = []
 ): Promise<ThemeAudioProbeResult> {
   if (!canPlayTheme) return probe;
 
@@ -179,7 +234,7 @@ export async function resolvePrivateThemeUrlsForViewer(
 
   if (probe.themeIntroUseSignedPlayback && probe.hasIntroTheme) {
     try {
-      const key = await firstExistingPrivateThemeKey(slug, 'intro');
+      const key = await firstExistingPrivateThemeKey(slug, 'intro', slugAliases);
       if (key) {
         themeIntroSrc = await presignPrivateAudioGetUrl({ key });
         themeIntroUseSignedPlayback = false;
@@ -191,7 +246,7 @@ export async function resolvePrivateThemeUrlsForViewer(
 
   if (probe.themeFullUseSignedPlayback && probe.hasFullTheme) {
     try {
-      const key = await firstExistingPrivateThemeKey(slug, 'full');
+      const key = await firstExistingPrivateThemeKey(slug, 'full', slugAliases);
       if (key) {
         themeFullSrc = await presignPrivateAudioGetUrl({ key });
         themeFullUseSignedPlayback = false;
@@ -211,10 +266,12 @@ export async function resolvePrivateThemeUrlsForViewer(
 }
 
 export async function probeThemeAudioAvailability(
-  slug: string
+  slug: string,
+  slugAliases: string[] = []
 ): Promise<ThemeAudioProbeResult> {
-  const introPaths = introPathCandidates(slug);
-  const fullPaths = fullPathCandidates(slug);
+  const slugs = uniqueSlugs(slug, slugAliases);
+  const introPaths = slugs.flatMap((s) => introPathCandidates(s));
+  const fullPaths = slugs.flatMap((s) => fullPathCandidates(s));
 
   const [introRes, fullRes] = await Promise.all([
     firstReachableThemeUrl(introPaths),

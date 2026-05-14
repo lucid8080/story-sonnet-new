@@ -1,4 +1,3 @@
-import { unstable_cache } from 'next/cache';
 import { canPlayEpisode } from '@/lib/audioEntitlement';
 import {
   parseAudioDurationSecondsFromBuffer,
@@ -569,57 +568,15 @@ export async function fetchStories(
   }
 }
 
-const PUBLIC_STORY_CACHE_REVALIDATE_SEC = 120;
-
 export async function fetchStoryBySlug(
   slug: string,
   options?: FetchStoryBySlugOptions
 ): Promise<AppStory | null> {
   const visibility = options?.visibility ?? 'public';
-  const viewerUserId = options?.viewerUserId ?? null;
-  const viewerRole = options?.viewerRole ?? null;
-  const cacheablePublicAnon =
-    visibility === 'public' && viewerUserId == null && viewerRole == null;
 
   if (!process.env.DATABASE_URL) {
     const found = mapStaticToApp().find((s) => s.slug === slug) ?? null;
     return finalizeStoryForVisibility(found, visibility, options);
-  }
-
-  if (cacheablePublicAnon) {
-    const anonOptions: FetchStoryBySlugOptions = {
-      visibility: 'public',
-      viewerUserId: null,
-      viewerRole: null,
-    };
-    return unstable_cache(
-      async () => {
-        try {
-          const story = await prisma.story.findUnique({ where: { slug } });
-          if (!story) {
-            const fallback =
-              mapStaticToApp().find((s) => s.slug === slug) ?? null;
-            return finalizeStoryForVisibility(fallback, 'public', anonOptions);
-          }
-
-          const episodes = await prisma.episode.findMany({
-            where: { storyId: story.id },
-            orderBy: { episodeNumber: 'asc' },
-          });
-
-          const app = overlayCatalogCoverIfSuperseded(
-            mergeCatalogPublicAudioIntoDbApp(mapDbStoryToApp(story, episodes))
-          );
-          return finalizeStoryForVisibility(app, 'public', anonOptions);
-        } catch (e) {
-          console.warn('[stories] fetchStoryBySlug DB failed, using static.', e);
-          const fallback = mapStaticToApp().find((s) => s.slug === slug) ?? null;
-          return finalizeStoryForVisibility(fallback, 'public', anonOptions);
-        }
-      },
-      ['fetchStoryBySlug', slug],
-      { revalidate: PUBLIC_STORY_CACHE_REVALIDATE_SEC }
-    )();
   }
 
   try {
