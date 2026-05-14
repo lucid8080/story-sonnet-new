@@ -264,6 +264,83 @@ export async function headPrivateAudioObjectExists(
   }
 }
 
+/**
+ * Returns the first private audio object key under any provided folder prefixes.
+ * Prefixes should be normalized keys like `audio/slug/music/Intro_song/`.
+ */
+export async function firstPrivateAudioKeyByPrefixes(
+  prefixes: string[]
+): Promise<string | null> {
+  const bucket = getPrivateAudioBucket();
+  if (!bucket) return null;
+  const accessKeyId = getAccessKeyId();
+  const secretAccessKey = getSecretAccessKey();
+  if (!accessKeyId || !secretAccessKey) return null;
+
+  const client = getClient();
+  for (const rawPrefix of prefixes) {
+    const prefix = rawPrefix.replace(/^\/+/, '');
+    if (!prefix) continue;
+    try {
+      const out = await client.send(
+        new ListObjectsV2Command({
+          Bucket: bucket,
+          Prefix: prefix,
+          MaxKeys: 200,
+        })
+      );
+      const keys =
+        out.Contents?.map((c) => c.Key)
+          .filter((k): k is string => !!k)
+          .filter((k) => k.toLowerCase().endsWith('.mp3'))
+          .sort() ?? [];
+      if (keys.length > 0) return keys[0]!;
+    } catch {
+      /* ignore and continue to next prefix */
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Returns the first public-bucket MP3 key under any provided folder prefixes.
+ */
+export async function firstPublicAudioKeyByPrefixes(
+  prefixes: string[]
+): Promise<string | null> {
+  const bucket = getDefaultStorageBucket();
+  if (!bucket) return null;
+  const accessKeyId = getAccessKeyId();
+  const secretAccessKey = getSecretAccessKey();
+  if (!accessKeyId || !secretAccessKey) return null;
+
+  const client = getClient();
+  for (const rawPrefix of prefixes) {
+    const prefix = rawPrefix.replace(/^\/+/, '');
+    if (!prefix) continue;
+    try {
+      const out = await client.send(
+        new ListObjectsV2Command({
+          Bucket: bucket,
+          Prefix: prefix,
+          MaxKeys: 200,
+        })
+      );
+      const keys =
+        out.Contents?.map((c) => c.Key)
+          .filter((k): k is string => !!k)
+          .filter((k) => k.toLowerCase().endsWith('.mp3'))
+          .sort() ?? [];
+      if (keys.length > 0) return keys[0]!;
+    } catch {
+      /* ignore and continue to next prefix */
+    }
+  }
+
+  return null;
+}
+
 export async function presignPrivateAudioGetUrl(params: {
   key: string;
   expiresIn?: number;
