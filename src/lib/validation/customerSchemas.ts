@@ -67,6 +67,12 @@ export const customerNoteBodySchema = z.object({
   visibility: z.enum(['internal', 'support']).default('internal'),
 });
 
+export const customerGrantAppTrialBodySchema = z.object({
+  campaignId: z.string().cuid(),
+  durationDays: z.number().int().min(1).max(3650).optional(),
+  reason: z.string().min(3).max(2000),
+});
+
 export const bulkActionSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('add_tag'),

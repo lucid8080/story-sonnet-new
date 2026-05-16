@@ -12,6 +12,7 @@ export const CUSTOMER_AUDIT_ACTIONS = {
   FLAG: 'account.flag',
   VERIFY_EMAIL: 'account.verify_email_placeholder',
   VERIFY_EMAIL_MANUAL: 'account.verify_email_manual',
+  APP_TRIAL_GRANT: 'app_trial.grant',
 } as const;
 
 export async function recordCustomerAudit(

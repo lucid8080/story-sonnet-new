@@ -22,6 +22,28 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]['id'];
 
+type AppTrialClaimRow = {
+  id: string;
+  campaignId: string;
+  campaignName: string;
+  campaignStatus: string;
+  expiresAt: string | null;
+  createdAt: string;
+};
+
+type AppTrialSummary = {
+  effectiveExpiresAt: string | null;
+  state: 'none' | 'active' | 'ended';
+  claims: AppTrialClaimRow[];
+};
+
+type TrialCampaignOption = {
+  id: string;
+  internalName: string;
+  status: string;
+  durationDays: number;
+};
+
 export function CustomerDetailClient({ customerId }: { customerId: string }) {
   const [tab, setTab] = useState<TabId>('overview');
   const [loading, setLoading] = useState(true);
@@ -37,6 +59,13 @@ export function CustomerDetailClient({ customerId }: { customerId: string }) {
   const [creditReason, setCreditReason] = useState('');
   const [statusReason, setStatusReason] = useState('');
   const [newNote, setNewNote] = useState('');
+  const [appTrial, setAppTrial] = useState<AppTrialSummary | null>(null);
+  const [appTrialLoading, setAppTrialLoading] = useState(false);
+  const [trialCampaigns, setTrialCampaigns] = useState<TrialCampaignOption[]>([]);
+  const [grantTrialCampaignId, setGrantTrialCampaignId] = useState('');
+  const [grantTrialDays, setGrantTrialDays] = useState('');
+  const [grantTrialReason, setGrantTrialReason] = useState('');
+  const [grantTrialBusy, setGrantTrialBusy] = useState(false);
 
   const loadCore = useCallback(async () => {
     const res = await fetch(`/api/admin/customers/${customerId}`, {
@@ -72,13 +101,116 @@ export function CustomerDetailClient({ customerId }: { customerId: string }) {
     if (s.ok) setSaved(s.data);
   }, [customerId]);
 
+  const loadAppTrial = useCallback(async () => {
+    setAppTrialLoading(true);
+    try {
+      const res = await fetch(`/api/admin/customers/${customerId}/app-trial`, {
+        credentials: 'include',
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error ?? 'Failed to load app trial');
+      setAppTrial(json.data as AppTrialSummary);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to load app trial');
+    } finally {
+      setAppTrialLoading(false);
+    }
+  }, [customerId]);
+
+  const loadTrialCampaigns = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/campaigns?type=trial_offer&take=100', {
+        credentials: 'include',
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) return;
+      const items = (json.items as Array<{
+        id: string;
+        internalName: string;
+        status: string;
+        trialDetail?: { durationDays?: number } | null;
+      }>) ?? [];
+      const options: TrialCampaignOption[] = items.map((c) => ({
+        id: c.id,
+        internalName: c.internalName,
+        status: c.status,
+        durationDays: c.trialDetail?.durationDays ?? 7,
+      }));
+      setTrialCampaigns(options);
+      setGrantTrialCampaignId((prev) => {
+        if (prev && options.some((o) => o.id === prev)) return prev;
+        const live = options.find((o) => o.status === 'live');
+        return live?.id ?? options[0]?.id ?? '';
+      });
+    } catch {
+      /* non-fatal */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tab !== 'billing') return;
+    void loadAppTrial();
+    void loadTrialCampaigns();
+  }, [tab, loadAppTrial, loadTrialCampaigns]);
+
+  useEffect(() => {
+    const selected = trialCampaigns.find((c) => c.id === grantTrialCampaignId);
+    if (selected && !grantTrialDays) {
+      setGrantTrialDays(String(selected.durationDays));
+    }
+  }, [grantTrialCampaignId, trialCampaigns, grantTrialDays]);
+
+  async function grantAppTrial() {
+    if (!grantTrialCampaignId) {
+      toast.error('Select a trial campaign');
+      return;
+    }
+    if (grantTrialReason.trim().length < 3) {
+      toast.error('Reason required (min 3 characters)');
+      return;
+    }
+    const durationDays = grantTrialDays.trim() ? Number(grantTrialDays) : undefined;
+    if (durationDays !== undefined && (!Number.isInteger(durationDays) || durationDays < 1)) {
+      toast.error('Duration must be a whole number of days (1 or more)');
+      return;
+    }
+    setGrantTrialBusy(true);
+    try {
+      const res = await fetch(`/api/admin/customers/${customerId}/app-trial`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          campaignId: grantTrialCampaignId,
+          durationDays,
+          reason: grantTrialReason.trim(),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error ?? 'Grant failed');
+      const grant = json.data?.grant as { extended?: boolean } | undefined;
+      toast.success(
+        grant?.extended ? 'App trial extended' : 'App trial granted'
+      );
+      setGrantTrialReason('');
+      setAppTrial(json.data.summary as AppTrialSummary);
+      await loadSecondary();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Grant failed');
+    } finally {
+      setGrantTrialBusy(false);
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       try {
         await loadCore();
-        if (!cancelled) await loadSecondary();
+        if (!cancelled) {
+          await Promise.all([loadSecondary(), loadAppTrial()]);
+        }
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'Load failed');
       } finally {
@@ -88,7 +220,7 @@ export function CustomerDetailClient({ customerId }: { customerId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [loadCore, loadSecondary]);
+  }, [loadCore, loadSecondary, loadAppTrial]);
 
   async function patchProfile(payload: Record<string, unknown>) {
     try {
@@ -318,6 +450,20 @@ export function CustomerDetailClient({ customerId }: { customerId: string }) {
                     : '—'}
                 </dd>
               </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500">App trial</dt>
+                <dd className="font-semibold text-right">
+                  {appTrialLoading && !appTrial
+                    ? '…'
+                    : appTrial?.state === 'active' && appTrial.effectiveExpiresAt
+                      ? `Active until ${new Date(appTrial.effectiveExpiresAt).toLocaleString()}`
+                      : appTrial?.state === 'ended'
+                        ? 'Ended'
+                        : appTrial?.state === 'none'
+                          ? 'None'
+                          : '—'}
+                </dd>
+              </div>
             </dl>
           </div>
           <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
@@ -508,28 +654,161 @@ export function CustomerDetailClient({ customerId }: { customerId: string }) {
       )}
 
       {tab === 'billing' && (
-        <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
-          <p className="text-sm text-slate-600">
-            Stripe customer id:{' '}
-            <span className="font-mono text-xs">
-              {(profile.stripeCustomerId as string) ?? '—'}
-            </span>
-          </p>
-          <p className="mt-2 text-sm text-slate-600">
-            Subscription status (webhook-synced):{' '}
-            <strong>{String(profile.subscriptionStatus)}</strong>
-          </p>
-          <p className="mt-2 text-sm text-slate-600">
-            Lifetime spend (profile field): ${(Number(profile.lifetimeSpendCents) / 100).toFixed(2)}
-          </p>
-          <p className="mt-2 text-sm text-slate-600">
-            Purchases recorded: {billing?.purchaseCount ?? 0} · Sum from purchase rows: $
-            {((billing?.lifetimeSpendFromPurchasesCents ?? 0) / 100).toFixed(2)}
-          </p>
-          <p className="mt-4 text-xs text-slate-400">
-            TODO: Sync invoices into `CustomerPurchase` from Stripe webhooks; portal link for payment
-            method updates lives on the public account page.
-          </p>
+        <div className="space-y-6">
+          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">
+              Stripe & purchases
+            </h2>
+            <p className="mt-3 text-sm text-slate-600">
+              Stripe customer id:{' '}
+              <span className="font-mono text-xs">
+                {(profile.stripeCustomerId as string) ?? '—'}
+              </span>
+            </p>
+            <p className="mt-2 text-sm text-slate-600">
+              Subscription status (webhook-synced):{' '}
+              <strong>{String(profile.subscriptionStatus)}</strong>
+            </p>
+            <p className="mt-2 text-sm text-slate-600">
+              Lifetime spend (profile field): $
+              {(Number(profile.lifetimeSpendCents) / 100).toFixed(2)}
+            </p>
+            <p className="mt-2 text-sm text-slate-600">
+              Purchases recorded: {billing?.purchaseCount ?? 0} · Sum from purchase rows: $
+              {((billing?.lifetimeSpendFromPurchasesCents ?? 0) / 100).toFixed(2)}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-6 shadow-sm ring-1 ring-emerald-100">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-emerald-900">
+              App trial (story access)
+            </h2>
+            <p className="mt-1 text-xs text-emerald-800/80">
+              Cardless library access from trial claims — same window as the trial bar offer. Bypasses
+              campaign eligibility rules.
+            </p>
+
+            {appTrialLoading && !appTrial ? (
+              <p className="mt-4 text-sm text-slate-500">Loading trial status…</p>
+            ) : (
+              <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+                <div>
+                  <dt className="text-slate-500">Status</dt>
+                  <dd className="font-semibold capitalize text-slate-900">
+                    {appTrial?.state ?? '—'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Effective access until</dt>
+                  <dd className="font-semibold text-slate-900">
+                    {appTrial?.effectiveExpiresAt
+                      ? new Date(appTrial.effectiveExpiresAt).toLocaleString()
+                      : '—'}
+                  </dd>
+                </div>
+              </dl>
+            )}
+
+            {appTrial && appTrial.claims.length > 0 ? (
+              <div className="mt-4 overflow-x-auto rounded-xl bg-white ring-1 ring-emerald-100">
+                <table className="min-w-full text-left text-xs">
+                  <thead className="bg-slate-50 text-slate-500">
+                    <tr>
+                      <th className="p-2">Campaign</th>
+                      <th className="p-2">Claimed</th>
+                      <th className="p-2">Expires</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {appTrial.claims.map((c) => (
+                      <tr key={c.id} className="border-t border-slate-100">
+                        <td className="p-2">
+                          {c.campaignName}{' '}
+                          <span className="text-slate-400">({c.campaignStatus})</span>
+                        </td>
+                        <td className="p-2 whitespace-nowrap">
+                          {new Date(c.createdAt).toLocaleString()}
+                        </td>
+                        <td className="p-2 whitespace-nowrap">
+                          {c.expiresAt ? new Date(c.expiresAt).toLocaleString() : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+
+            <div className="mt-6 border-t border-emerald-200/80 pt-6">
+              <h3 className="text-sm font-bold text-emerald-950">Grant app trial</h3>
+              {trialCampaigns.length === 0 ? (
+                <p className="mt-2 text-sm text-amber-800">
+                  No trial_offer campaigns found. Create one under Admin → Campaigns → Free trial
+                  offers.
+                </p>
+              ) : (
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <label className="text-sm md:col-span-2">
+                    <span className="text-xs font-semibold text-slate-600">Trial campaign</span>
+                    <select
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                      value={grantTrialCampaignId}
+                      onChange={(e) => {
+                        const id = e.target.value;
+                        setGrantTrialCampaignId(id);
+                        const camp = trialCampaigns.find((c) => c.id === id);
+                        if (camp) setGrantTrialDays(String(camp.durationDays));
+                      }}
+                    >
+                      {trialCampaigns.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.internalName} ({c.status}) · default {c.durationDays}d
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-sm">
+                    <span className="text-xs font-semibold text-slate-600">Days to grant</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={3650}
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                      value={grantTrialDays}
+                      onChange={(e) => setGrantTrialDays(e.target.value)}
+                    />
+                  </label>
+                  <label className="text-sm md:col-span-2">
+                    <span className="text-xs font-semibold text-slate-600">
+                      Reason (audit log, min 3 chars)
+                    </span>
+                    <textarea
+                      className="mt-1 min-h-[72px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                      placeholder="e.g. Missed trial bar before signup — support grant"
+                      value={grantTrialReason}
+                      onChange={(e) => setGrantTrialReason(e.target.value)}
+                    />
+                  </label>
+                </div>
+              )}
+              {grantTrialCampaignId ? (
+                <p className="mt-2 text-xs text-slate-500">
+                  Self-serve link for this customer:{' '}
+                  <code className="rounded bg-white px-1 py-0.5 text-[11px]">
+                    /pricing?trialCampaignId={grantTrialCampaignId}
+                  </code>
+                </p>
+              ) : null}
+              <button
+                type="button"
+                disabled={grantTrialBusy || trialCampaigns.length === 0}
+                className="mt-4 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+                onClick={() => void grantAppTrial()}
+              >
+                {grantTrialBusy ? 'Granting…' : 'Grant app trial'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
