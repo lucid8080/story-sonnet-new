@@ -113,6 +113,7 @@ export function draftToAdminUpsertInput(draft: DraftForMapping): AdminStoryUpser
         durationSeconds: ep.estimatedDurationSeconds ?? null,
         audioUrl: null,
         audioStorageKey: audioKey,
+        transcriptStorageKey: null,
         isPublished: req.autoPublish,
         isPremium: false,
         isFreePreview: index === 0,

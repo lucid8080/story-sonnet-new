@@ -722,6 +722,7 @@ async function syncEpisodesForStory(
         durationSeconds: sec,
         audioUrl: ep.audioSrc ?? null,
         audioStorageKey: null,
+        transcriptStorageKey: null,
         isPublished: true,
         isPremium: !!ep.isPremium,
         isFreePreview: false,
