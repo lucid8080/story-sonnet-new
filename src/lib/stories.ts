@@ -12,6 +12,7 @@ import {
 } from '@/lib/s3';
 import type { AdminStoryUpsertInput } from '@/lib/validation/storySchema';
 import type { TranscriptLineJson } from '@/lib/transcripts/from-script';
+import { transcriptLinesFromPrivateStorageKey } from '@/lib/transcripts/resolve-from-storage';
 import type { Episode, Prisma, Story } from '@prisma/client';
 import { stories as staticStories } from '../data.js';
 import { getBrowseSeedForSlug } from '@/data/storyBrowseSeed';
@@ -825,6 +826,15 @@ async function syncEpisodesForStory(
     const durationSeconds = await resolveDurationSeconds(ep, episodeNumber);
     const durationLabel = formatDurationLabelFromSeconds(durationSeconds);
 
+    let transcriptLines: TranscriptLineJson[] | undefined;
+    if (ep.transcriptLines !== undefined) {
+      transcriptLines = ep.transcriptLines;
+    } else if (ep.transcriptStorageKey) {
+      transcriptLines = await transcriptLinesFromPrivateStorageKey(
+        ep.transcriptStorageKey
+      );
+    }
+
     const data = {
       episodeNumber,
       title: ep.title,
@@ -838,9 +848,9 @@ async function syncEpisodesForStory(
       isPublished: ep.isPublished,
       isPremium: ep.isPremium,
       isFreePreview: ep.isFreePreview ?? false,
-      ...(ep.transcriptLines !== undefined
+      ...(transcriptLines !== undefined
         ? {
-            transcriptLines: ep.transcriptLines as Prisma.InputJsonValue,
+            transcriptLines: transcriptLines as Prisma.InputJsonValue,
           }
         : {}),
     };

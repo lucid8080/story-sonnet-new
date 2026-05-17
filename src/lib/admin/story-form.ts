@@ -12,6 +12,10 @@ export type EpisodeFormState = {
   audioUrl: string;
   /** Private R2 object key (e.g. audio/slug/episode-1.mp3); optional if using public audio URL only */
   audioStorageKey: string;
+  /** Private R2 transcript file key (.srt, .txt, .md); imported on save when set */
+  transcriptStorageKey: string;
+  /** Loaded from DB for display only (not sent on save) */
+  savedTranscriptLineCount: number;
   isPublished: boolean;
   isPremium: boolean;
   isFreePreview: boolean;
@@ -64,6 +68,8 @@ export function emptyEpisodeForm(id: string, episodeNumber: number): EpisodeForm
     durationSeconds: '',
     audioUrl: '',
     audioStorageKey: '',
+    transcriptStorageKey: '',
+    savedTranscriptLineCount: 0,
     isPublished: false,
     isPremium: false,
     isFreePreview: false,

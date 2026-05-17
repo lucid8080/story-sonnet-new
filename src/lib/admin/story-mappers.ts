@@ -58,6 +58,8 @@ export function appStoryToForm(story: AppStory): StoryFormState {
             durationSeconds: sec != null ? String(sec) : '',
             audioUrl: ep.audioSrc ?? '',
             audioStorageKey: ep.audioStorageKey ?? '',
+            transcriptStorageKey: '',
+            savedTranscriptLineCount: ep.transcriptLines?.length ?? 0,
             isPublished: ep.isPublished,
             isPremium: ep.isPremium,
             isFreePreview: ep.isFreePreview ?? false,
@@ -144,6 +146,10 @@ export function formToAdminUpsertPayload(form: StoryFormState): AdminStoryUpsert
       audioUrl: ep.audioUrl.trim() === '' ? null : ep.audioUrl.trim(),
       audioStorageKey:
         ep.audioStorageKey.trim() === '' ? null : ep.audioStorageKey.trim(),
+      transcriptStorageKey:
+        ep.transcriptStorageKey.trim() === ''
+          ? null
+          : ep.transcriptStorageKey.trim(),
       isPublished: ep.isPublished,
       isPremium: ep.isPremium,
       isFreePreview: ep.isFreePreview,

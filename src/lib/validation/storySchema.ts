@@ -63,6 +63,15 @@ export const adminEpisodeSchema = z.object({
     (v) => (v === null ? undefined : v),
     z.array(transcriptLineSchema).optional()
   ),
+  /** Private R2 transcript file key (.srt, .txt, .md); on save, imported to transcriptLines. */
+  transcriptStorageKey: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((s) => {
+      if (s == null || s === '') return null;
+      return s.trim().replace(/^\/+/, '');
+    }),
 });
 
 export const adminStoryUpsertSchema = z.object({

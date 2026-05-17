@@ -86,7 +86,11 @@ export default function StoryEditor({
           body: JSON.stringify(payload),
         }
       );
-      const data = (await res.json()) as { error?: string; id?: string };
+      const data = (await res.json()) as {
+        error?: string;
+        id?: string;
+        episodeTranscriptCounts?: Record<string, number>;
+      };
       if (!res.ok) {
         setSaveError(data.error || `Save failed (${res.status})`);
         return;
@@ -94,7 +98,25 @@ export default function StoryEditor({
       if (data.id) {
         onSaved?.(data.id);
       }
-      const nextBaseline = cloneStoryFormState(form);
+      const counts = data.episodeTranscriptCounts;
+      const savedForm =
+        counts != null
+          ? {
+              ...form,
+              episodes: form.episodes.map((ep) => {
+                const n = counts[ep.id];
+                return {
+                  ...ep,
+                  transcriptStorageKey: '',
+                  ...(n !== undefined
+                    ? { savedTranscriptLineCount: n }
+                    : {}),
+                };
+              }),
+            }
+          : form;
+      setForm(savedForm);
+      const nextBaseline = cloneStoryFormState(savedForm);
       setBaseline(nextBaseline);
       setSaveSuccess(true);
       if (successTimer.current) clearTimeout(successTimer.current);

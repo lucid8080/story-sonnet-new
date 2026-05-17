@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
+import prisma from '@/lib/prisma';
 import { adminStoryUpsertSchema } from '@/lib/validation/storySchema';
 import { deleteStoryAdmin, upsertStoryFromAdmin } from '@/lib/stories';
 
@@ -41,10 +42,31 @@ export async function PATCH(
 
   try {
     const story = await upsertStoryFromAdmin(decodeURIComponent(id), input);
+    const episodes = await prisma.episode.findMany({
+      where: { storyId: story.id },
+      select: { id: true, transcriptLines: true },
+      orderBy: { episodeNumber: 'asc' },
+    });
+    const episodeTranscriptCounts: Record<string, number> = {};
+    for (const ep of episodes) {
+      const raw = ep.transcriptLines;
+      const count =
+        raw != null && Array.isArray(raw)
+          ? raw.filter(
+              (row) =>
+                row &&
+                typeof row === 'object' &&
+                !Array.isArray(row) &&
+                typeof (row as { text?: unknown }).text === 'string'
+            ).length
+          : 0;
+      episodeTranscriptCounts[ep.id.toString()] = count;
+    }
     return NextResponse.json({
       ok: true,
       id: story.id.toString(),
       slug: story.slug,
+      episodeTranscriptCounts,
     });
   } catch (e) {
     console.error('[admin/stories PATCH]', e);
