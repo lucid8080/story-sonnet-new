@@ -3,6 +3,10 @@ import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 import { upsertStoryFromAdmin } from '@/lib/stories';
 import {
+  importLibraryEpisodesIntoDraft,
+  reconcileDraftEpisodeLibraryLinks,
+} from '@/lib/story-studio/import-library-episodes';
+import {
   buildValidatedLibraryPayloadFromDraft,
   storyStudioDraftIncludeForLibrary,
 } from '@/lib/story-studio/sync-linked-library-from-draft';
@@ -52,7 +56,16 @@ export async function POST(req: Request) {
     );
   }
 
-  const built = buildValidatedLibraryPayloadFromDraft(draft);
+  if (draft.linkedStoryId != null) {
+    await importLibraryEpisodesIntoDraft(draft.id, draft.linkedStoryId);
+  }
+
+  const draftForPush = await prisma.storyStudioDraft.findUniqueOrThrow({
+    where: { id: draft.id },
+    include: storyStudioDraftIncludeForLibrary,
+  });
+
+  const built = await buildValidatedLibraryPayloadFromDraft(draftForPush);
   if (!built.ok) {
     return NextResponse.json({ error: built.message }, { status: 400 });
   }
@@ -84,6 +97,7 @@ export async function POST(req: Request) {
     }
 
     const story = await upsertStoryFromAdmin(storyKey, payload);
+    await reconcileDraftEpisodeLibraryLinks(draftForPush.id, story.id);
 
     return NextResponse.json({
       ok: true,

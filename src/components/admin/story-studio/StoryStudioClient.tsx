@@ -290,7 +290,12 @@ export function StoryStudioClient() {
   }, []);
 
   const saveDraftPatch = useCallback(
-    async (body: Record<string, unknown>): Promise<SerializedDraft | undefined> => {
+    async (
+      body: Record<string, unknown>
+    ): Promise<
+      | { draft: SerializedDraft; librarySync?: { ok: boolean; skipped?: boolean } }
+      | undefined
+    > => {
       const id = draftIdRef.current;
       if (!id) return undefined;
       const res = await fetch(`/api/admin/story-studio/drafts/${id}`, {
@@ -311,7 +316,12 @@ export function StoryStudioClient() {
       if (shouldRefreshMeta) {
         applyMetaFromDraft(d);
       }
-      return d;
+      return {
+        draft: d,
+        librarySync: json.librarySync as
+          | { ok: boolean; skipped?: boolean }
+          | undefined,
+      };
     },
     [applyMetaFromDraft]
   );
@@ -1560,11 +1570,14 @@ export function StoryStudioClient() {
               {draft.episodes.length === 0 && (
                 <li className="text-slate-500">No episodes — generate script.</li>
               )}
-              {draft.episodes.map((ep) => (
+              {draft.episodes.map((ep, i) => (
                 <li
                   key={ep.id}
                   className="rounded-xl border border-slate-100 bg-slate-50 p-3"
                 >
+                  <div className="text-xs font-bold uppercase text-slate-500">
+                    Track {i + 1}
+                  </div>
                   <div className="font-semibold">{ep.title}</div>
                   <p className="mt-1 line-clamp-4 text-slate-600">
                     {ep.summary?.trim() || 'No episode summary yet.'}

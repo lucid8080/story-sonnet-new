@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { STORY_STUDIO_MAX_SCRIPT_CHARS_PER_EPISODE } from '@/lib/story-studio/constants';
+import {
+  STORY_STUDIO_LLM_MAX_SCRIPT_CHARS_PER_EPISODE,
+  STORY_STUDIO_MAX_SCRIPT_CHARS_PER_EPISODE,
+} from '@/lib/story-studio/constants';
 import {
   AGE_FILTER_OPTIONS,
   GENRE_FILTER_OPTIONS,
@@ -124,18 +127,10 @@ export const briefPayloadSchema = z.object({
   safetyNotes: z.string(),
 });
 
-export const scriptEpisodePayloadSchema = z.object({
-  title: z.string().min(1),
-  summary: z.preprocess(nullToEmptyString, z.string().trim().min(1).max(280)),
-  scriptText: z
-    .string()
-    .min(1)
-    .max(STORY_STUDIO_MAX_SCRIPT_CHARS_PER_EPISODE),
-  hookEnding: z.preprocess(
-    nullToUndefined,
-    z.string().optional()
-  ),
-}).superRefine((episode, ctx) => {
+function scriptEpisodeSummaryRefine(
+  episode: { summary: string; scriptText: string },
+  ctx: z.RefinementCtx
+) {
   const summary = normalizeForComparison(episode.summary);
   const script = normalizeForComparison(episode.scriptText);
   if (!summary || !script) return;
@@ -147,15 +142,35 @@ export const scriptEpisodePayloadSchema = z.object({
         'Episode summary must be a short unique blurb, not copied from script text.',
     });
   }
-});
+}
+
+function scriptEpisodeSchema(scriptMaxChars: number) {
+  return z
+    .object({
+      title: z.string().min(1),
+      summary: z.preprocess(nullToEmptyString, z.string().trim().min(1).max(280)),
+      scriptText: z.string().min(1).max(scriptMaxChars),
+      hookEnding: z.preprocess(nullToUndefined, z.string().optional()),
+    })
+    .superRefine(scriptEpisodeSummaryRefine);
+}
+
+/** LLM-generated script episodes (shorter cap). */
+export const scriptEpisodePayloadSchema = scriptEpisodeSchema(
+  STORY_STUDIO_LLM_MAX_SCRIPT_CHARS_PER_EPISODE
+);
+
+/** Saved / hand-edited script episodes (higher cap for imports and edits). */
+export const scriptEpisodeStorageSchema = scriptEpisodeSchema(
+  STORY_STUDIO_MAX_SCRIPT_CHARS_PER_EPISODE
+);
 
 const tagDensitySchema = z.enum(['light', 'medium', 'expressive']);
 
-export const scriptPackagePayloadSchema = z.object({
+const scriptPackageFields = {
   seriesTitle: z.string().min(1),
   summary: z.string().min(1),
   fullScript: z.preprocess(nullToUndefined, z.string().optional()),
-  episodes: z.array(scriptEpisodePayloadSchema),
   coverArtPrompt: z.preprocess(nullToEmptyString, z.string()),
   musicPrompt: z.preprocess(nullToEmptyString, z.string()),
   narrationNotes: z.preprocess(nullToEmptyString, z.string()),
@@ -163,6 +178,17 @@ export const scriptPackagePayloadSchema = z.object({
   ageRange: ageRangeSchema,
   tags: z.preprocess(nullToStringArray, z.array(z.string())),
   expressionTagDensity: tagDensitySchema,
+} as const;
+
+export const scriptPackagePayloadSchema = z.object({
+  ...scriptPackageFields,
+  episodes: z.array(scriptEpisodePayloadSchema),
+});
+
+/** Validates merged script packages on manual save (allows longer `scriptText`). */
+export const scriptPackageStorageSchema = z.object({
+  ...scriptPackageFields,
+  episodes: z.array(scriptEpisodeStorageSchema),
 });
 
 export type BriefPayloadParsed = z.infer<typeof briefPayloadSchema>;

@@ -1,4 +1,8 @@
-import type { StoryStudioDraftEpisode, StoryStudioGeneratedAsset } from '@prisma/client';
+import type {
+  Episode,
+  StoryStudioDraftEpisode,
+  StoryStudioGeneratedAsset,
+} from '@prisma/client';
 import { getDurationBucket } from '@/utils/durationBucket';
 import type { AdminStoryUpsertInput } from '@/lib/validation/storySchema';
 import type { BriefPayloadParsed, ScriptPackagePayloadParsed } from '@/lib/story-studio/schemas/llm-output';
@@ -6,6 +10,7 @@ import {
   resolveDraftGenerationRequest,
   targetLengthRangeToApproxMinutes,
 } from '@/lib/story-studio/normalize-request';
+import { readLibraryEpisodeIdFromNotes } from '@/lib/story-studio/library-episode-link';
 import { scriptToTranscriptLines } from '@/lib/transcripts/from-script';
 
 type DraftForMapping = {
@@ -18,6 +23,22 @@ type DraftForMapping = {
   preset: { defaults: unknown } | null;
   episodes: StoryStudioDraftEpisode[];
   assets: StoryStudioGeneratedAsset[];
+  /** Library episodes when `linkedStoryId` is set (track order + manual rows). */
+  libraryEpisodes?: Pick<
+    Episode,
+    | 'id'
+    | 'episodeNumber'
+    | 'title'
+    | 'description'
+    | 'audioStorageKey'
+    | 'audioUrl'
+    | 'durationSeconds'
+    | 'isPublished'
+    | 'isPremium'
+    | 'isFreePreview'
+    | 'label'
+    | 'slug'
+  >[];
 };
 
 function latestAssetByKind(
@@ -96,28 +117,46 @@ export function draftToAdminUpsertInput(draft: DraftForMapping): AdminStoryUpser
     req.format === 'series-episode' ||
     episodesSorted.length > 1;
 
+  const libraryById = new Map(
+    (draft.libraryEpisodes ?? []).map((le) => [le.id.toString(), le])
+  );
+
   const episodes: AdminStoryUpsertInput['episodes'] = episodesSorted.map(
     (ep, index) => {
-      const audioKey = latestEpisodeAudio(draft.assets, ep.id);
+      const libraryEpisodeId = readLibraryEpisodeIdFromNotes(ep.notes);
+      const lib = libraryEpisodeId
+        ? libraryById.get(libraryEpisodeId)
+        : undefined;
+      const studioAudioKey = latestEpisodeAudio(draft.assets, ep.id);
+      const audioKey =
+        studioAudioKey ?? lib?.audioStorageKey?.trim() ?? null;
       const scriptEpisode = script?.episodes?.[index];
-      const rawScript = scriptEpisode?.scriptText?.trim() ?? '';
+      const rawScript =
+        ep.scriptText.trim() ||
+        scriptEpisode?.scriptText?.trim() ||
+        '';
       const transcriptLines =
         rawScript.length > 0 ? scriptToTranscriptLines(rawScript) : undefined;
       return {
-        id: ep.id,
+        id: libraryEpisodeId ?? ep.id,
         episodeNumber: index + 1,
-        title: ep.title,
-        slug: null,
-        summary: ep.summary?.trim() ? ep.summary : null,
+        title: ep.title.trim() ? ep.title : (lib?.title ?? ep.title),
+        slug: lib?.slug ?? null,
+        summary: ep.summary?.trim()
+          ? ep.summary
+          : (lib?.description?.trim() ? lib.description : null),
         durationMinutes: null,
-        durationSeconds: ep.estimatedDurationSeconds ?? null,
-        audioUrl: null,
+        durationSeconds:
+          ep.estimatedDurationSeconds ?? lib?.durationSeconds ?? null,
+        audioUrl: lib?.audioUrl ?? null,
         audioStorageKey: audioKey,
         transcriptStorageKey: null,
-        isPublished: req.autoPublish,
-        isPremium: false,
-        isFreePreview: index === 0,
-        label: episodesSorted.length > 1 ? `Part ${index + 1}` : null,
+        isPublished: lib?.isPublished ?? req.autoPublish,
+        isPremium: lib?.isPremium ?? false,
+        isFreePreview: lib?.isFreePreview ?? index === 0,
+        label:
+          lib?.label ??
+          (episodesSorted.length > 1 ? `Part ${index + 1}` : null),
         ...(transcriptLines !== undefined ? { transcriptLines } : {}),
       };
     }

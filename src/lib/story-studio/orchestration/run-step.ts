@@ -32,7 +32,7 @@ import {
   sanitizeUploadFileName,
 } from '@/lib/media-upload-keys';
 import { trimAudioToBuffer } from '@/lib/story-studio/audio/trim-intro';
-import { STORY_STUDIO_MAX_SCRIPT_CHARS_PER_EPISODE } from '@/lib/story-studio/constants';
+import { STORY_STUDIO_LLM_MAX_SCRIPT_CHARS_PER_EPISODE } from '@/lib/story-studio/constants';
 import { draftSlugFromTitle } from '@/lib/story-studio/draft-slug-from-title';
 import type { GenerationJobStep } from '@/lib/story-studio/types';
 import {
@@ -150,7 +150,7 @@ function normalizeScriptPackage(
 }
 
 function assertEpisodeScriptCharLimits(pkg: ScriptPackagePayloadParsed) {
-  const max = STORY_STUDIO_MAX_SCRIPT_CHARS_PER_EPISODE;
+  const max = STORY_STUDIO_LLM_MAX_SCRIPT_CHARS_PER_EPISODE;
   pkg.episodes.forEach((ep, i) => {
     const n = ep.scriptText.length;
     if (n > max) {

@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { resolvePublicAssetUrl } from '@/lib/resolvePublicAssetUrl';
+import { readLibraryEpisodeIdFromNotes } from '@/lib/story-studio/library-episode-link';
 import { resolveDraftGenerationRequest } from '@/lib/story-studio/normalize-request';
 
 export const draftInclude = {
@@ -51,6 +52,7 @@ export function serializeDraft(draft: DraftWithRelations) {
       scriptText: e.scriptText,
       summary: e.summary,
       estimatedDurationSeconds: e.estimatedDurationSeconds,
+      libraryEpisodeId: readLibraryEpisodeIdFromNotes(e.notes),
     })),
     assets: draft.assets.map((a) => ({
       id: a.id,

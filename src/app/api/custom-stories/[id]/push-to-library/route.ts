@@ -47,7 +47,7 @@ export async function POST(
     return NextResponse.json({ error: 'No episodes yet' }, { status: 400 });
   }
 
-  const built = buildValidatedLibraryPayloadFromDraft(draft);
+  const built = await buildValidatedLibraryPayloadFromDraft(draft);
   if (!built.ok) {
     return NextResponse.json({ error: built.message }, { status: 400 });
   }

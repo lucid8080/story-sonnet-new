@@ -39,3 +39,13 @@ export function scriptToTranscriptLines(script: string): TranscriptLineJson[] {
     text,
   }));
 }
+
+/** Flatten stored transcript lines into editable script text for Story Studio. */
+export function transcriptLinesToScriptText(
+  lines: TranscriptLineJson[]
+): string {
+  return lines
+    .map((line) => line.text.trim())
+    .filter((text) => text.length > 0)
+    .join('\n\n');
+}

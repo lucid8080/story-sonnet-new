@@ -1,6 +1,7 @@
 import type { GenerationRequest } from '@/lib/story-studio/types';
 import {
   scriptPackagePayloadSchema,
+  scriptPackageStorageSchema,
   type ScriptPackagePayloadParsed,
 } from '@/lib/story-studio/schemas/llm-output';
 
@@ -141,7 +142,7 @@ export function mergeScriptPackageWithEpisodes(
         : undefined,
   };
 
-  const parsed = scriptPackagePayloadSchema.safeParse(next);
+  const parsed = scriptPackageStorageSchema.safeParse(next);
   if (!parsed.success) {
     const flat = parsed.error.flatten();
     const form = Object.entries(flat.fieldErrors)

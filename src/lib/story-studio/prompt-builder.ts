@@ -6,7 +6,7 @@ import {
   expressionTagDensityGuidance,
   storyCoreSystemPreamble,
 } from '@/lib/story-studio/story-core';
-import { STORY_STUDIO_MAX_SCRIPT_CHARS_PER_EPISODE } from '@/lib/story-studio/constants';
+import { STORY_STUDIO_LLM_MAX_SCRIPT_CHARS_PER_EPISODE } from '@/lib/story-studio/constants';
 import {
   formatArtStylePromptBlock,
   type ArtStylePromptOverrides,
@@ -215,7 +215,7 @@ SCRIPT RULES:
 - Primary content lives in episodes[].scriptText (and fullScript optional duplicate for single episode).
 - Each episodes[].summary must be a unique, short episode blurb (1-2 sentences).
 - Do not copy any sentence/paragraph from episodes[].scriptText into episodes[].summary, including the first paragraph.
-- Each episodes[].scriptText must be at most ${STORY_STUDIO_MAX_SCRIPT_CHARS_PER_EPISODE} characters (narration only; JSON titles/summaries do not count toward this cap).
+- Each episodes[].scriptText must be at most ${STORY_STUDIO_LLM_MAX_SCRIPT_CHARS_PER_EPISODE} characters (narration only; JSON titles/summaries do not count toward this cap).
 - Use expression tags per TAG DENSITY tier.
 - Include light sound cues only as bracket tags, not SFX stage directions outside brackets.
 - Keep vocabulary aligned with age band ${req.studioAgeBand}.`;
@@ -272,7 +272,7 @@ function singleEpisodeJsonInstructions(density: string): string {
   return `Return a single JSON object with ONLY these keys (no wrapper, no markdown):
 - title (string)
 - summary (unique short episode blurb, 1–2 sentences; must NOT copy wording from scriptText)
-- scriptText (string: full narration for THIS episode only; at most ${STORY_STUDIO_MAX_SCRIPT_CHARS_PER_EPISODE} characters)
+- scriptText (string: full narration for THIS episode only; at most ${STORY_STUDIO_LLM_MAX_SCRIPT_CHARS_PER_EPISODE} characters)
 - hookEnding (optional string: soft “next time” line only if the series format calls for it)
 
 Expression tag density for bracket tags must match: "${density}".`;

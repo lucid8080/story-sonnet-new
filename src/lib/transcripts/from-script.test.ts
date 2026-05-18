@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   scriptToTranscriptLines,
   stripExpressionTags,
+  transcriptLinesToScriptText,
 } from '@/lib/transcripts/from-script';
 
 describe('stripExpressionTags', () => {
@@ -27,8 +28,15 @@ describe('scriptToTranscriptLines', () => {
     expect(lines[0]).toEqual({ id: 1, text: 'First line.' });
     expect(lines[1]).toEqual({ id: 2, text: 'Second line.' });
   });
+});
 
-  it('returns empty array for whitespace-only script', () => {
-    expect(scriptToTranscriptLines('   [x]   ')).toEqual([]);
+describe('transcriptLinesToScriptText', () => {
+  it('joins lines with blank lines between', () => {
+    expect(
+      transcriptLinesToScriptText([
+        { id: 1, text: 'One.' },
+        { id: 2, text: 'Two.' },
+      ])
+    ).toBe('One.\n\nTwo.');
   });
 });

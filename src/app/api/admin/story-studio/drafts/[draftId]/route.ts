@@ -7,11 +7,14 @@ import {
   mergeGenerationRequest,
   parseStoredGenerationRequest,
 } from '@/lib/story-studio/normalize-request';
+import { STORY_STUDIO_MAX_SCRIPT_CHARS_PER_EPISODE } from '@/lib/story-studio/constants';
 import { generationRequestPatchSchema } from '@/lib/story-studio/schemas/request-schema';
+import { importLibraryEpisodesIntoDraft } from '@/lib/story-studio/import-library-episodes';
 import {
   draftInclude,
   serializeDraft,
 } from '@/lib/story-studio/serialize-draft';
+import { syncLinkedLibraryFromDraft } from '@/lib/story-studio/sync-linked-library-from-draft';
 import { deleteStoryAdmin } from '@/lib/stories';
 
 const deleteDraftBodySchema = z
@@ -39,7 +42,9 @@ const patchBodySchema = z
         z.object({
           id: z.string(),
           title: z.string().min(1),
-          scriptText: z.string(),
+          scriptText: z
+            .string()
+            .max(STORY_STUDIO_MAX_SCRIPT_CHARS_PER_EPISODE),
           summary: z.string().nullable().optional(),
           sortOrder: z.number().int().min(0).optional(),
         })
@@ -65,6 +70,15 @@ export async function GET(
 
   if (!draft) {
     return NextResponse.json({ error: 'Draft not found' }, { status: 404 });
+  }
+
+  if (draft.linkedStoryId != null) {
+    await importLibraryEpisodesIntoDraft(draftId, draft.linkedStoryId);
+    const refreshed = await prisma.storyStudioDraft.findUniqueOrThrow({
+      where: { id: draftId },
+      include: draftInclude,
+    });
+    return NextResponse.json({ draft: serializeDraft(refreshed) });
   }
 
   return NextResponse.json({ draft: serializeDraft(draft) });
@@ -137,29 +151,75 @@ export async function PATCH(
       data,
     });
 
-    if (parsed.data.episodes?.length) {
-      await tx.storyStudioDraftEpisode.deleteMany({ where: { draftId } });
+    if (parsed.data.episodes !== undefined) {
+      const existing = await tx.storyStudioDraftEpisode.findMany({
+        where: { draftId },
+        select: { id: true, notes: true },
+      });
+      const existingIds = new Set(existing.map((e) => e.id));
+      const keptIds = new Set<string>();
+
       for (let i = 0; i < parsed.data.episodes.length; i++) {
         const ep = parsed.data.episodes[i];
-        await tx.storyStudioDraftEpisode.create({
-          data: {
-            draftId,
-            sortOrder: ep.sortOrder ?? i,
-            title: ep.title,
-            scriptText: ep.scriptText,
-            summary: ep.summary ?? null,
-          },
-        });
+        const sortOrder = ep.sortOrder ?? i;
+        if (existingIds.has(ep.id)) {
+          await tx.storyStudioDraftEpisode.update({
+            where: { id: ep.id },
+            data: {
+              sortOrder,
+              title: ep.title,
+              scriptText: ep.scriptText,
+              summary: ep.summary ?? null,
+            },
+          });
+          keptIds.add(ep.id);
+        } else {
+          const created = await tx.storyStudioDraftEpisode.create({
+            data: {
+              id: ep.id,
+              draftId,
+              sortOrder,
+              title: ep.title,
+              scriptText: ep.scriptText,
+              summary: ep.summary ?? null,
+            },
+          });
+          keptIds.add(created.id);
+        }
       }
+
+      await tx.storyStudioDraftEpisode.deleteMany({
+        where: {
+          draftId,
+          ...(keptIds.size > 0 ? { id: { notIn: [...keptIds] } } : {}),
+        },
+      });
     }
   });
+
+  const shouldSyncLibrary =
+    existing.linkedStoryId != null &&
+    (parsed.data.episodes !== undefined ||
+      parsed.data.scriptPackage !== undefined);
+
+  let librarySync:
+    | Awaited<ReturnType<typeof syncLinkedLibraryFromDraft>>
+    | undefined;
+  if (shouldSyncLibrary) {
+    await importLibraryEpisodesIntoDraft(draftId, existing.linkedStoryId!);
+    librarySync = await syncLinkedLibraryFromDraft(draftId);
+  }
 
   const draft = await prisma.storyStudioDraft.findUniqueOrThrow({
     where: { id: draftId },
     include: draftInclude,
   });
 
-  return NextResponse.json({ ok: true, draft: serializeDraft(draft) });
+  return NextResponse.json({
+    ok: true,
+    draft: serializeDraft(draft),
+    ...(librarySync ? { librarySync } : {}),
+  });
 }
 
 export async function DELETE(

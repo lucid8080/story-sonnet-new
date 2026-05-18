@@ -38,7 +38,13 @@ export function StoryScriptPanel({
   hasBrief: boolean;
   seriesSummaryHint?: string | null;
   busy: boolean;
-  saveDraftPatch: (body: Record<string, unknown>) => Promise<unknown>;
+  saveDraftPatch: (body: Record<string, unknown>) => Promise<
+    | {
+        draft?: unknown;
+        librarySync?: { ok: boolean; skipped?: boolean };
+      }
+    | undefined
+  >;
   runTtsForEpisode: (draftEpisodeId: string) => Promise<void>;
   onSaveNotice: (msg: string) => void;
 }) {
@@ -97,7 +103,7 @@ export function StoryScriptPanel({
       return;
     }
     try {
-      await saveDraftPatch({
+      const saved = await saveDraftPatch({
         scriptPackage: merged.data,
         episodes: rows.map((r, i) => ({
           id: r.id,
@@ -107,7 +113,13 @@ export function StoryScriptPanel({
           sortOrder: i,
         })),
       });
-      onSaveNotice('Script saved');
+      const synced =
+        saved?.librarySync?.ok && saved.librarySync.skipped !== true;
+      onSaveNotice(
+        synced
+          ? 'Script saved — story library and transcripts updated'
+          : 'Script saved'
+      );
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : 'Save failed');
     }
