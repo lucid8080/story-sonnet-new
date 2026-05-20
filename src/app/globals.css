@@ -58,6 +58,10 @@
     display: block;
     margin-bottom: 0.65rem;
   }
+  .blog-html-body .video-embed {
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+  }
 }
 
 @layer utilities {

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useRef, useState } from 'react';
+import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
@@ -20,6 +20,11 @@ import {
 } from 'lucide-react';
 import { StoryEmbed } from '@/components/admin/blog/storyEmbedExtension';
 import { StoryEmbedPicker } from '@/components/admin/blog/StoryEmbedPicker';
+import { VideoEmbed } from '@/components/admin/blog/videoEmbedExtension';
+import {
+  embedVideoLinksInBlogHtml,
+  parseVideoUrl,
+} from '@/lib/blog/video-embed';
 
 export function BlogTipTapEditor({
   content,
@@ -34,6 +39,7 @@ export function BlogTipTapEditor({
   blogSlug: string;
 }) {
   const [storyEmbedOpen, setStoryEmbedOpen] = useState(false);
+  const editorRef = useRef<Editor | null>(null);
 
   const editor = useEditor({
     /** Next.js: avoid SSR/hydration mismatch (TipTap renders after mount). */
@@ -45,13 +51,28 @@ export function BlogTipTapEditor({
       Link.configure({ openOnClick: false, autolink: true }),
       Image.configure({ allowBase64: false }),
       StoryEmbed,
+      VideoEmbed,
       Placeholder.configure({ placeholder }),
     ],
-    content,
+    content: embedVideoLinksInBlogHtml(content),
+    onCreate: ({ editor: ed }) => {
+      editorRef.current = ed;
+    },
+    onDestroy: () => {
+      editorRef.current = null;
+    },
     editorProps: {
       attributes: {
         class:
           'blog-html-body prose prose-slate max-w-none min-h-[320px] focus:outline-none px-3 py-2',
+      },
+      handlePaste: (_view, event) => {
+        const text = event.clipboardData?.getData('text/plain')?.trim();
+        if (!text || text.includes('\n')) return false;
+        const video = parseVideoUrl(text);
+        if (!video) return false;
+        editorRef.current?.chain().focus().setVideoEmbed(video).run();
+        return true;
       },
     },
     onUpdate: ({ editor: ed }) => {
@@ -93,6 +114,11 @@ export function BlogTipTapEditor({
     if (url === null) return;
     if (url === '') {
       editor.chain().focus().extendMarkRange('link').unsetLink().run();
+      return;
+    }
+    const video = parseVideoUrl(url);
+    if (video) {
+      editor.chain().focus().setVideoEmbed(video).run();
       return;
     }
     editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
