@@ -18,6 +18,7 @@ import {
   ListOrdered,
   Quote,
   Sparkles,
+  Link2,
 } from 'lucide-react';
 import { StoryEmbed } from '@/components/admin/blog/storyEmbedExtension';
 import { StoryEmbedCarousel } from '@/components/admin/blog/storyEmbedCarouselExtension';
@@ -26,6 +27,10 @@ import {
   StoryEmbedSuggestDialog,
   type BlogPostEmbedContext,
 } from '@/components/admin/blog/StoryEmbedSuggestDialog';
+import {
+  AutoKeywordLinksDialog,
+  type AppliedAutoLink,
+} from '@/components/admin/blog/AutoKeywordLinksDialog';
 import { VideoEmbed } from '@/components/admin/blog/videoEmbedExtension';
 import {
   embedVideoLinksInBlogHtml,
@@ -49,6 +54,7 @@ export function BlogTipTapEditor({
 }) {
   const [storyEmbedOpen, setStoryEmbedOpen] = useState(false);
   const [storySuggestOpen, setStorySuggestOpen] = useState(false);
+  const [autoLinksOpen, setAutoLinksOpen] = useState(false);
   const editorRef = useRef<Editor | null>(null);
 
   const editor = useEditor({
@@ -148,14 +154,33 @@ export function BlogTipTapEditor({
         }}
       />
       {postContext ? (
-        <StoryEmbedSuggestDialog
-          open={storySuggestOpen}
-          onClose={() => setStorySuggestOpen(false)}
-          postContext={postContext}
-          onInsertMany={(attrsList) => {
-            editor.chain().focus().insertStoryEmbeds(attrsList).run();
-          }}
-        />
+        <>
+          <StoryEmbedSuggestDialog
+            open={storySuggestOpen}
+            onClose={() => setStorySuggestOpen(false)}
+            postContext={postContext}
+            onInsertMany={(attrsList) => {
+              editor.chain().focus().insertStoryEmbeds(attrsList).run();
+            }}
+          />
+          <AutoKeywordLinksDialog
+            open={autoLinksOpen}
+            onClose={() => setAutoLinksOpen(false)}
+            postContext={postContext}
+            currentPostSlug={blogSlug}
+            onApplyHtml={(html, applied: AppliedAutoLink[]) => {
+              const next = embedVideoLinksInBlogHtml(html);
+              editor.commands.setContent(next);
+              onChange(next);
+              if (applied.length > 0) {
+                console.info(
+                  '[blog] auto-linked keywords',
+                  applied.map((a) => `${a.phrase}→${a.href} (${a.count})`)
+                );
+              }
+            }}
+          />
+        </>
       ) : null}
       <div className="flex flex-wrap gap-1 border-b border-slate-100 bg-slate-50/80 px-2 py-2">
         <button
@@ -227,14 +252,24 @@ export function BlogTipTapEditor({
           <BookOpen className="h-4 w-4" />
         </button>
         {postContext ? (
-          <button
-            type="button"
-            className={btn}
-            onClick={() => setStorySuggestOpen(true)}
-            title="Suggest relevant stories"
-          >
-            <Sparkles className="h-4 w-4" />
-          </button>
+          <>
+            <button
+              type="button"
+              className={btn}
+              onClick={() => setStorySuggestOpen(true)}
+              title="Suggest relevant stories"
+            >
+              <Sparkles className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              className={btn}
+              onClick={() => setAutoLinksOpen(true)}
+              title="Auto-link keywords (blog, stories, external)"
+            >
+              <Link2 className="h-4 w-4" />
+            </button>
+          </>
         ) : null}
       </div>
       <EditorContent editor={editor} />

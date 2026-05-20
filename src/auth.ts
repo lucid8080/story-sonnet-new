@@ -7,15 +7,10 @@ import prisma from '@/lib/prisma';
 import { resolvePublicAssetUrl } from '@/lib/resolvePublicAssetUrl';
 import { touchProfileLastActiveAt } from '@/lib/admin/customers/aggregates';
 import { normalizeFeatureTags } from '@/lib/features/customStoriesAccessCore';
-import { getOrCreateGenerationSettings } from '@/lib/generation/settings';
+import { getGenerationSettingsForSession } from '@/lib/generation/settings';
 
 async function resolveCustomStoriesGlobalEnabled() {
-  try {
-    const row = await getOrCreateGenerationSettings(prisma);
-    return row?.customStoriesGlobalEnabled ?? false;
-  } catch {
-    return false;
-  }
+  return getGenerationSettingsForSession(prisma);
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({

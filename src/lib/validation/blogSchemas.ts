@@ -157,11 +157,24 @@ export const blogFeatureImageStyleCustomPresetSchema = z.object({
   text: z.string().min(1).max(4000),
 });
 
+export const blogAutoKeywordLinkRuleSchema = z.object({
+  id: z.string().min(1).max(100),
+  phrase: z.string().min(2).max(120),
+  href: z.string().url().max(500),
+  label: z.string().max(120).optional(),
+  enabled: z.boolean().optional(),
+});
+
 export const blogAdminSettingsPatchSchema = z
   .object({
     featureImageStyleCustomPresets: z
       .array(blogFeatureImageStyleCustomPresetSchema)
-      .max(30),
+      .max(30)
+      .optional(),
+    autoKeywordLinkRules: z
+      .array(blogAutoKeywordLinkRuleSchema)
+      .max(80)
+      .optional(),
   })
   .strict();
 

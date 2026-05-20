@@ -1,9 +1,18 @@
+import {
+  parseExternalKeywordLinkRules,
+  type ExternalKeywordLinkRule,
+} from '@/lib/blog/auto-keyword-links';
+
+export type { ExternalKeywordLinkRule };
+
 /** Same shape as blog feature image presets (id, label, text). */
 export type BlogFeatureImageStyleCustomPreset = {
   id: string;
   label: string;
   text: string;
 };
+
+export { parseExternalKeywordLinkRules };
 
 /** Parse JSON from DB into validated preset list (drops invalid entries). */
 export function parseFeatureImageCustomPresets(

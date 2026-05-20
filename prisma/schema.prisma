@@ -366,6 +366,8 @@ model BlogKeyword {
 model BlogAdminSettings {
   id                                 String   @id @default("global")
   featureImageStyleCustomPresetsJson Json     @default("[]") @map("feature_image_style_custom_presets_json")
+  /// Manual phrase → URL rules for blog auto-linking (external sites).
+  autoKeywordLinkRulesJson           Json     @default("[]") @map("auto_keyword_link_rules_json")
   updatedAt                          DateTime @updatedAt @map("updated_at")
 
   @@map("blog_admin_settings")

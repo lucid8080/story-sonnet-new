@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
-import { parseFeatureImageCustomPresets } from '@/lib/blog/blog-admin-settings';
+import {
+  parseExternalKeywordLinkRules,
+  parseFeatureImageCustomPresets,
+} from '@/lib/blog/blog-admin-settings';
 import { blogAdminSettingsPatchSchema } from '@/lib/validation/blogSchemas';
 
 export const runtime = 'nodejs';
@@ -15,6 +18,7 @@ async function getOrCreateBlogAdminSettings() {
       data: {
         id: 'global',
         featureImageStyleCustomPresetsJson: [],
+        autoKeywordLinkRulesJson: [],
       },
     });
   }
@@ -32,9 +36,13 @@ export async function GET() {
     const featureImageStyleCustomPresets = parseFeatureImageCustomPresets(
       row.featureImageStyleCustomPresetsJson
     );
+    const autoKeywordLinkRules = parseExternalKeywordLinkRules(
+      row.autoKeywordLinkRulesJson
+    );
     return NextResponse.json({
       ok: true,
       featureImageStyleCustomPresets,
+      autoKeywordLinkRules,
     });
   } catch (e) {
     console.error('[admin/blog/admin-settings GET]', e);
@@ -70,25 +78,41 @@ export async function PATCH(req: Request) {
     );
   }
 
-  const list = parsed.data.featureImageStyleCustomPresets;
+  const existing = await getOrCreateBlogAdminSettings();
+  const featurePresets =
+    parsed.data.featureImageStyleCustomPresets !== undefined
+      ? parsed.data.featureImageStyleCustomPresets
+      : parseFeatureImageCustomPresets(
+          existing.featureImageStyleCustomPresetsJson
+        );
+  const linkRules =
+    parsed.data.autoKeywordLinkRules !== undefined
+      ? parsed.data.autoKeywordLinkRules
+      : parseExternalKeywordLinkRules(existing.autoKeywordLinkRulesJson);
 
   try {
     const row = await prisma.blogAdminSettings.upsert({
       where: { id: 'global' },
       create: {
         id: 'global',
-        featureImageStyleCustomPresetsJson: list,
+        featureImageStyleCustomPresetsJson: featurePresets,
+        autoKeywordLinkRulesJson: linkRules,
       },
       update: {
-        featureImageStyleCustomPresetsJson: list,
+        featureImageStyleCustomPresetsJson: featurePresets,
+        autoKeywordLinkRulesJson: linkRules,
       },
     });
     const featureImageStyleCustomPresets = parseFeatureImageCustomPresets(
       row.featureImageStyleCustomPresetsJson
     );
+    const autoKeywordLinkRules = parseExternalKeywordLinkRules(
+      row.autoKeywordLinkRulesJson
+    );
     return NextResponse.json({
       ok: true,
       featureImageStyleCustomPresets,
+      autoKeywordLinkRules,
     });
   } catch (e) {
     console.error('[admin/blog/admin-settings PATCH]', e);

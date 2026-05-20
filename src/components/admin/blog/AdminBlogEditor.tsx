@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { BlogTipTapEditor } from '@/components/admin/blog/BlogTipTapEditor';
 import { AiBlogGenerator } from '@/components/admin/blog/AiBlogGenerator';
+import { AutoKeywordLinkRulesEditor } from '@/components/admin/blog/AutoKeywordLinkRulesEditor';
 import { slugifyBlogTitle, normalizeBlogSlug } from '@/lib/blog/slug';
 
 type PostRow = {
@@ -558,6 +559,8 @@ export function AdminBlogEditor({ postId }: { postId: string }) {
             </Link>
           </div>
         )}
+
+        <AutoKeywordLinkRulesEditor />
 
         <Link
           href={`/blog/${post.slug}`}
