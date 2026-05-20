@@ -10,6 +10,8 @@ const storyEmbedDivAttributes = [
   'data-show-cover',
   'data-audio-mode',
   'data-episode-number',
+  'data-story-embed-carousel',
+  'data-stories',
 ] as const;
 
 const videoEmbedDivAttributes = [

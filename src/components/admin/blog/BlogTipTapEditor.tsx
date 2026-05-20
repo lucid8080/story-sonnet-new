@@ -17,9 +17,15 @@ import {
   List,
   ListOrdered,
   Quote,
+  Sparkles,
 } from 'lucide-react';
 import { StoryEmbed } from '@/components/admin/blog/storyEmbedExtension';
+import { StoryEmbedCarousel } from '@/components/admin/blog/storyEmbedCarouselExtension';
 import { StoryEmbedPicker } from '@/components/admin/blog/StoryEmbedPicker';
+import {
+  StoryEmbedSuggestDialog,
+  type BlogPostEmbedContext,
+} from '@/components/admin/blog/StoryEmbedSuggestDialog';
 import { VideoEmbed } from '@/components/admin/blog/videoEmbedExtension';
 import {
   embedVideoLinksInBlogHtml,
@@ -31,14 +37,18 @@ export function BlogTipTapEditor({
   onChange,
   placeholder = 'Write your post…',
   blogSlug,
+  postContext,
 }: {
   content: string;
   onChange: (html: string) => void;
   placeholder?: string;
   /** Used when inserting images via upload */
   blogSlug: string;
+  /** Title, tags, etc. for “suggest relevant stories” */
+  postContext?: BlogPostEmbedContext;
 }) {
   const [storyEmbedOpen, setStoryEmbedOpen] = useState(false);
+  const [storySuggestOpen, setStorySuggestOpen] = useState(false);
   const editorRef = useRef<Editor | null>(null);
 
   const editor = useEditor({
@@ -51,6 +61,7 @@ export function BlogTipTapEditor({
       Link.configure({ openOnClick: false, autolink: true }),
       Image.configure({ allowBase64: false }),
       StoryEmbed,
+      StoryEmbedCarousel,
       VideoEmbed,
       Placeholder.configure({ placeholder }),
     ],
@@ -136,6 +147,16 @@ export function BlogTipTapEditor({
           editor.chain().focus().setStoryEmbed(attrs).run();
         }}
       />
+      {postContext ? (
+        <StoryEmbedSuggestDialog
+          open={storySuggestOpen}
+          onClose={() => setStorySuggestOpen(false)}
+          postContext={postContext}
+          onInsertMany={(attrsList) => {
+            editor.chain().focus().insertStoryEmbeds(attrsList).run();
+          }}
+        />
+      ) : null}
       <div className="flex flex-wrap gap-1 border-b border-slate-100 bg-slate-50/80 px-2 py-2">
         <button
           type="button"
@@ -201,10 +222,20 @@ export function BlogTipTapEditor({
           type="button"
           className={btn}
           onClick={() => setStoryEmbedOpen(true)}
-          title="Embed story"
+          title="Embed story (pick manually)"
         >
           <BookOpen className="h-4 w-4" />
         </button>
+        {postContext ? (
+          <button
+            type="button"
+            className={btn}
+            onClick={() => setStorySuggestOpen(true)}
+            title="Suggest relevant stories"
+          >
+            <Sparkles className="h-4 w-4" />
+          </button>
+        ) : null}
       </div>
       <EditorContent editor={editor} />
     </div>

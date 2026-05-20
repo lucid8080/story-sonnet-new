@@ -1,4 +1,6 @@
 import { Node, mergeAttributes } from '@tiptap/core';
+import { ReactNodeViewRenderer } from '@tiptap/react';
+import { StoryEmbedNodeView } from '@/components/admin/blog/StoryEmbedEditorPreview';
 
 export type StoryEmbedAudioMode = 'none' | 'preview' | 'full' | 'episode';
 
@@ -16,6 +18,7 @@ declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     storyEmbed: {
       setStoryEmbed: (attrs: StoryEmbedAttrs) => ReturnType;
+      insertStoryEmbeds: (attrsList: StoryEmbedAttrs[]) => ReturnType;
     };
   }
 }
@@ -101,6 +104,10 @@ export const StoryEmbed = Node.create({
     ];
   },
 
+  addNodeView() {
+    return ReactNodeViewRenderer(StoryEmbedNodeView);
+  },
+
   renderHTML({ node }) {
     const a = node.attrs as StoryEmbedAttrs;
     return [
@@ -136,6 +143,18 @@ export const StoryEmbed = Node.create({
               episodeNumber: attrs.episodeNumber ?? null,
             },
           });
+        },
+      insertStoryEmbeds:
+        (attrsList: StoryEmbedAttrs[]) =>
+        ({ chain, commands }) => {
+          if (attrsList.length === 0) return false;
+          if (attrsList.length === 1) {
+            return commands.setStoryEmbed(attrsList[0]!);
+          }
+          return chain()
+            .focus()
+            .insertStoryEmbedCarousel(attrsList)
+            .run();
         },
     };
   },

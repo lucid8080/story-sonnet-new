@@ -2,19 +2,96 @@
 
 import { useEffect, useRef } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { BlogStoryEmbed } from '@/components/blog/BlogStoryEmbed';
-import type { StoryEmbedAudioMode } from '@/components/admin/blog/storyEmbedExtension';
+import { BlogStoryEmbedsGroup } from '@/components/blog/BlogStoryEmbed';
+import { parseStoryEmbedElement } from '@/lib/blog/parse-story-embed-dom';
+import type { StoryEmbedAttrs } from '@/components/admin/blog/storyEmbedExtension';
 
-function parseAudioMode(s: string | null): StoryEmbedAudioMode {
-  if (
-    s === 'preview' ||
-    s === 'full' ||
-    s === 'episode' ||
-    s === 'none'
-  ) {
-    return s;
+function isStoryEmbedEl(el: Element): el is HTMLElement {
+  return (
+    el instanceof HTMLElement &&
+    el.classList.contains('story-embed') &&
+    el.hasAttribute('data-story-slug') &&
+    !el.closest('.story-embed-carousel')
+  );
+}
+
+function parseCarouselElement(carousel: HTMLElement): StoryEmbedAttrs[] {
+  const json = carousel.getAttribute('data-stories');
+  if (json) {
+    try {
+      const parsed: unknown = JSON.parse(json);
+      if (Array.isArray(parsed)) {
+        return parsed.filter(
+          (item): item is StoryEmbedAttrs =>
+            item != null &&
+            typeof item === 'object' &&
+            typeof (item as StoryEmbedAttrs).storySlug === 'string'
+        );
+      }
+    } catch {
+      // fall through to child divs
+    }
   }
-  return 'none';
+  const items: StoryEmbedAttrs[] = [];
+  carousel.querySelectorAll<HTMLElement>(':scope > .story-embed').forEach((child) => {
+    const parsed = parseStoryEmbedElement(child);
+    if (parsed) items.push(parsed);
+  });
+  return items;
+}
+
+/** Group consecutive top-level `.story-embed` blocks into carousel mounts. */
+function hydrateStoryEmbeds(container: HTMLElement, roots: Root[]) {
+  const nodes = Array.from(container.childNodes);
+
+  let i = 0;
+  while (i < nodes.length) {
+    const node = nodes[i];
+    if (!(node instanceof HTMLElement)) {
+      i += 1;
+      continue;
+    }
+
+    if (node.classList.contains('story-embed-carousel')) {
+      const stories = parseCarouselElement(node);
+      node.innerHTML = '';
+      node.className = 'story-embed-carousel-mount not-prose';
+      const root = createRoot(node);
+      root.render(<BlogStoryEmbedsGroup stories={stories} />);
+      roots.push(root);
+      i += 1;
+      continue;
+    }
+
+    if (isStoryEmbedEl(node)) {
+      const run: HTMLElement[] = [node];
+      let j = i + 1;
+      while (j < nodes.length) {
+        const next = nodes[j];
+        if (next instanceof HTMLElement && isStoryEmbedEl(next)) {
+          run.push(next);
+          j += 1;
+        } else break;
+      }
+
+      const stories = run
+        .map(parseStoryEmbedElement)
+        .filter((s): s is StoryEmbedAttrs => s != null);
+
+      const mount = document.createElement('div');
+      mount.className = 'story-embed-group-mount';
+      run[0]!.replaceWith(mount);
+      for (let k = 1; k < run.length; k += 1) run[k]!.remove();
+
+      const root = createRoot(mount);
+      root.render(<BlogStoryEmbedsGroup stories={stories} />);
+      roots.push(root);
+      i = j;
+      continue;
+    }
+
+    i += 1;
+  }
 }
 
 export function BlogContentWithEmbeds({
@@ -40,32 +117,7 @@ export function BlogContentWithEmbeds({
     }
     rootsRef.current = [];
 
-    const embeds = container.querySelectorAll<HTMLElement>('.story-embed');
-    embeds.forEach((node) => {
-      const slug = node.getAttribute('data-story-slug');
-      if (!slug) return;
-
-      const epRaw = node.getAttribute('data-episode-number');
-      const episodeNumber =
-        epRaw != null && epRaw !== '' ? Number(epRaw) : null;
-
-      const root = createRoot(node);
-      root.render(
-        <BlogStoryEmbed
-          storySlug={slug}
-          storyTitle={node.getAttribute('data-story-title') ?? ''}
-          coverUrl={node.getAttribute('data-cover-url') ?? ''}
-          showCover={node.getAttribute('data-show-cover') !== 'false'}
-          audioMode={parseAudioMode(node.getAttribute('data-audio-mode'))}
-          episodeNumber={
-            episodeNumber != null && Number.isFinite(episodeNumber)
-              ? episodeNumber
-              : null
-          }
-        />
-      );
-      rootsRef.current.push(root);
-    });
+    hydrateStoryEmbeds(container, rootsRef.current);
 
     return () => {
       for (const r of rootsRef.current) {

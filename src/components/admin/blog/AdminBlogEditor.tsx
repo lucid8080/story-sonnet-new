@@ -263,6 +263,13 @@ export function AdminBlogEditor({ postId }: { postId: string }) {
               key={editorRev}
               blogSlug={post.slug}
               content={post.contentHtml}
+              postContext={{
+                title: post.title,
+                excerpt: post.excerpt ?? '',
+                tagNames: post.tags.map((t) => t.tag.name),
+                metaKeywords: post.metaKeywords,
+                getContentHtml: () => contentHtmlRef.current,
+              }}
               onChange={(html) => {
                 contentHtmlRef.current = html;
                 setPost((p) => (p ? { ...p, contentHtml: html } : p));
