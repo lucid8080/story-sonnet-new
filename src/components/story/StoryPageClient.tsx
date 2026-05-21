@@ -74,14 +74,12 @@ function skipIntroStorageKey(slug: string): string {
 
 export function StoryPageClient({
   story: initialStory,
-  isSignedIn,
   isSubscribed,
   recommendedStories,
   spotlightBadge,
   spotlightInfoBar,
 }: {
   story: StoryForPlayer;
-  isSignedIn: boolean;
   isSubscribed: boolean;
   recommendedStories: RecommendedStory[];
   spotlightBadge?: StorySpotlightBadgeDTO | null;

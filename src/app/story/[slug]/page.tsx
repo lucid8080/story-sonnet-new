@@ -8,11 +8,8 @@ import {
   getCachedStorySpotlightBadge,
   getCachedStorySpotlightInfoBar,
   loadStoryForStoryPage,
-  STORY_PAGE_REVALIDATE_SEC,
 } from '@/lib/storyPageCache';
 import { StoryPageClient } from '@/components/story/StoryPageClient';
-
-export const revalidate = STORY_PAGE_REVALIDATE_SEC;
 
 export default async function StoryPage({
   params,
@@ -21,7 +18,6 @@ export default async function StoryPage({
 }) {
   const { slug } = await params;
   const session = await auth();
-  const isSignedIn = Boolean(session?.user);
   const userId = session?.user?.id;
   const story = await loadStoryForStoryPage(
     slug,
@@ -58,7 +54,6 @@ export default async function StoryPage({
   return (
     <StoryPageClient
       story={playerStory}
-      isSignedIn={isSignedIn}
       isSubscribed={isSubscribed}
       recommendedStories={recommendedStories}
       spotlightBadge={spotlightBadge}

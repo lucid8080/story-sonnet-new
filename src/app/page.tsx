@@ -6,12 +6,11 @@ import {
   getCachedCatalogSpotlightBadges,
   getCachedHomepageSpotlightRails,
   getCachedPublicStories,
-  STORY_PAGE_REVALIDATE_SEC,
 } from '@/lib/storyPageCache';
 import { SpotlightCollectionRail } from '@/components/spotlight/SpotlightCollectionRail';
 import { HomepageCampaignHeroClient } from '@/components/campaigns/HomepageCampaignHeroClient';
 
-export const revalidate = STORY_PAGE_REVALIDATE_SEC;
+export const revalidate = 600;
 
 export default async function HomePage() {
   const sorted = sortAppStoriesForLibraryGrid(

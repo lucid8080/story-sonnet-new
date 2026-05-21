@@ -7,7 +7,6 @@ import {
   getCachedCatalogSpotlightBadges,
   getCachedLibrarySpotlightRails,
   getCachedPublicStories,
-  STORY_PAGE_REVALIDATE_SEC,
 } from '@/lib/storyPageCache';
 import LibraryBrowseClient from '@/components/library/LibraryBrowseClient';
 import StoryGridSkeleton from '@/components/library/StoryGridSkeleton';
@@ -58,8 +57,6 @@ async function LibraryStories({
     />
   );
 }
-
-export const revalidate = STORY_PAGE_REVALIDATE_SEC;
 
 export default async function LibraryPage({
   searchParams,
