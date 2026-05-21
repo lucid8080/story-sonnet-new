@@ -123,6 +123,7 @@ export const adminStoryUpsertSchema = z.object({
   metaDescription: z.string().nullable().optional(),
   ageGroup: z.string().nullable().optional(),
   episodes: z.array(adminEpisodeSchema).optional().default([]),
+  narratorIds: z.array(z.string().min(1)).optional().default([]),
 });
 
 export type AdminStoryUpsertInput = z.infer<typeof adminStoryUpsertSchema>;

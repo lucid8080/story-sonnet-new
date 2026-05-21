@@ -17,6 +17,7 @@ import StorySeriesSection from './StorySeriesSection';
 import StoryDisplaySection from './StoryDisplaySection';
 import StoryEpisodesSection from './StoryEpisodesSection';
 import StorySeoSection from './StorySeoSection';
+import StoryNarratorsSection from './StoryNarratorsSection';
 
 export default function StoryEditor({
   story,
@@ -235,6 +236,7 @@ export default function StoryEditor({
         <StoryBasicsSection form={form} onChange={setForm} />
         <StoryDiscoverySection form={form} onChange={setForm} />
         <StorySeriesSection form={form} onChange={setForm} />
+        <StoryNarratorsSection form={form} setForm={setForm} />
         <StoryDisplaySection form={form} onChange={setForm} />
         <StoryEpisodesSection form={form} onChange={setForm} />
         <StorySeoSection form={form} onChange={setForm} />

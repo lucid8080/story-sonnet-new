@@ -37,6 +37,7 @@ import type {
 } from '@/lib/content-spotlight/types';
 import { SpotlightBadgeOverlay } from '@/components/spotlight/SpotlightBadgeOverlay';
 import { SpotlightInfoBar } from '@/components/spotlight/SpotlightInfoBar';
+import { StoryNarratorLine } from '@/components/narrators/StoryNarratorLine';
 
 const EPISODE_WINDOW_SIZE = 3;
 
@@ -314,7 +315,6 @@ export function StoryPageClient({
   const coverIsPlaying = inSessionWithPage && isPlaying;
   /** Avoid showing another story's playback on this page's scrubber when session is deferred. */
   const coverScrubberProgress = inSessionWithPage ? progress : 0;
-
   const onSelectEpisodeFromTracklist = (index: number) => {
     playAfterClaimRef.current = true;
     if (inSessionWithPage) {
@@ -691,9 +691,7 @@ export function StoryPageClient({
                   </div>
                   <div>
                     <h2 className="text-xl font-black text-slate-900">Episodes</h2>
-                    <p className="text-sm text-slate-500">
-                      Choose an episode and play it from the cover.
-                    </p>
+                    <StoryNarratorLine narrators={story.narrators} />
                   </div>
                 </div>
                 {useEpisodeWindow ? (

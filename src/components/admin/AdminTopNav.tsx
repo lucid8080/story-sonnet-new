@@ -15,6 +15,9 @@ export function AdminTopNav() {
       <Link href="/admin/stories" className="hover:text-violet-600">
         Stories
       </Link>
+      <Link href="/admin/narrators" className="hover:text-violet-600">
+        Narrators
+      </Link>
       <Link href="/admin/uploads" className="hover:text-violet-600">
         Uploads
       </Link>

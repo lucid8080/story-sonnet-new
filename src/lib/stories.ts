@@ -14,6 +14,11 @@ import type { AdminStoryUpsertInput } from '@/lib/validation/storySchema';
 import type { TranscriptLineJson } from '@/lib/transcripts/from-script';
 import { transcriptLinesFromPrivateStorageKey } from '@/lib/transcripts/resolve-from-storage';
 import type { Episode, Prisma, Story } from '@prisma/client';
+import {
+  loadNarratorsByStoryIds,
+  syncStoryNarrators,
+  type StoryNarratorRef,
+} from '@/lib/narrators';
 import { stories as staticStories } from '../data.js';
 import { getBrowseSeedForSlug } from '@/data/storyBrowseSeed';
 import type { AgeRangeId, DurationBucketId, GenreId, MoodId } from '@/constants/storyFilters';
@@ -96,6 +101,7 @@ export type AppStory = {
   episodes: AppEpisode[];
   /** Present when the row is not backed by a database record (slug id, static catalog). */
   isStaticOnly?: boolean;
+  narrators: StoryNarratorRef[];
 };
 
 /** Safe for client components: no raw R2 keys or permanent private URLs for DB episodes. */
@@ -273,7 +279,11 @@ function computeAverageDuration(episodes: AppEpisode[]): string | null {
   return avgMinutes === 1 ? '~1 min' : `~${avgMinutes} min`;
 }
 
-function mapDbStoryToApp(story: Story, episodes: Episode[]): AppStory {
+function mapDbStoryToApp(
+  story: Story,
+  episodes: Episode[],
+  narrators: StoryNarratorRef[] = []
+): AppStory {
   const appEpisodes: AppEpisode[] = (episodes || []).map((ep) => ({
     id: ep.id.toString(),
     episodeNumber: ep.episodeNumber,
@@ -337,6 +347,7 @@ function mapDbStoryToApp(story: Story, episodes: Episode[]): AppStory {
     metaDescription: story.metaDescription ?? null,
     episodes: appEpisodes,
     isStaticOnly: false,
+    narrators,
   };
 }
 
@@ -437,6 +448,7 @@ function mapStaticToApp(): AppStory[] {
       metaDescription: null,
       episodes: eps,
       isStaticOnly: true,
+      narrators: [],
     };
   });
 }
@@ -514,10 +526,13 @@ export async function fetchStories(
     }
 
     const storyIds = dbStories.map((s) => s.id);
-    const dbEpisodes = await prisma.episode.findMany({
-      where: { storyId: { in: storyIds } },
-      orderBy: { episodeNumber: 'asc' },
-    });
+    const [dbEpisodes, narratorsByStoryId] = await Promise.all([
+      prisma.episode.findMany({
+        where: { storyId: { in: storyIds } },
+        orderBy: { episodeNumber: 'asc' },
+      }),
+      loadNarratorsByStoryIds(storyIds),
+    ]);
 
     const episodesByStoryId = dbEpisodes.reduce<Record<string, Episode[]>>(
       (acc, ep) => {
@@ -539,7 +554,8 @@ export async function fetchStories(
         const app = mergeCatalogPublicAudioIntoDbApp(
           mapDbStoryToApp(
             dbRow,
-            episodesByStoryId[dbRow.id.toString()] || []
+            episodesByStoryId[dbRow.id.toString()] || [],
+            narratorsByStoryId.get(dbRow.id.toString()) ?? []
           )
         );
         merged.push(overlayCatalogCoverIfSuperseded(app));
@@ -555,7 +571,8 @@ export async function fetchStories(
         const app = mergeCatalogPublicAudioIntoDbApp(
           mapDbStoryToApp(
             dbRow,
-            episodesByStoryId[dbRow.id.toString()] || []
+            episodesByStoryId[dbRow.id.toString()] || [],
+            narratorsByStoryId.get(dbRow.id.toString()) ?? []
           )
         );
         merged.push(overlayCatalogCoverIfSuperseded(app));
@@ -588,13 +605,22 @@ export async function fetchStoryBySlug(
       return finalizeStoryForVisibility(fallback, visibility, options);
     }
 
-    const episodes = await prisma.episode.findMany({
-      where: { storyId: story.id },
-      orderBy: { episodeNumber: 'asc' },
-    });
+    const [episodes, narratorsByStoryId] = await Promise.all([
+      prisma.episode.findMany({
+        where: { storyId: story.id },
+        orderBy: { episodeNumber: 'asc' },
+      }),
+      loadNarratorsByStoryIds([story.id]),
+    ]);
 
     const app = overlayCatalogCoverIfSuperseded(
-      mergeCatalogPublicAudioIntoDbApp(mapDbStoryToApp(story, episodes))
+      mergeCatalogPublicAudioIntoDbApp(
+        mapDbStoryToApp(
+          story,
+          episodes,
+          narratorsByStoryId.get(story.id.toString()) ?? []
+        )
+      )
     );
     return finalizeStoryForVisibility(app, visibility, options);
   } catch (e) {
@@ -892,6 +918,7 @@ async function seedStoryFromStaticFull(
       data: storyCreateDataFromAdmin(merged),
     });
     await syncEpisodesForStory(tx, created.id, merged, staticStory);
+    await syncStoryNarrators(tx, created.id, merged.narratorIds ?? []);
     return created;
   });
 }
@@ -949,6 +976,7 @@ export async function upsertStoryFromAdmin(
         data: storyUpdateDataFromAdmin(input),
       });
       await syncEpisodesForStory(tx, id, input, null);
+      await syncStoryNarrators(tx, id, input.narratorIds ?? []);
       const updated = await tx.story.findUniqueOrThrow({ where: { id } });
       return updated;
     });
@@ -963,6 +991,7 @@ export async function upsertStoryFromAdmin(
         data: storyUpdateDataFromAdmin(input),
       });
       await syncEpisodesForStory(tx, existing.id, input, null);
+      await syncStoryNarrators(tx, existing.id, input.narratorIds ?? []);
       return tx.story.findUniqueOrThrow({ where: { id: existing.id } });
     });
   }
@@ -1187,6 +1216,7 @@ export async function updateStoryMeta(input: {
         ? input.duration_label
         : staticStory.durationLabel ?? null,
     episodes: [],
+    narratorIds: [],
   };
   return seedStoryFromStaticFull(staticStory, minimal);
 }

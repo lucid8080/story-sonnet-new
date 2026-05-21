@@ -102,6 +102,7 @@ export function appStoryToForm(story: AppStory): StoryFormState {
     metaTitle: story.metaTitle ?? '',
     metaDescription: story.metaDescription ?? '',
     ageGroup: story.ageGroup ?? '',
+    narratorIds: story.narrators.map((n) => n.id),
     episodes,
   };
 }
@@ -208,6 +209,7 @@ export function formToAdminUpsertPayload(form: StoryFormState): AdminStoryUpsert
     metaDescription:
       form.metaDescription.trim() === '' ? null : form.metaDescription,
     ageGroup: form.ageGroup.trim() === '' ? null : form.ageGroup,
+    narratorIds: form.narratorIds,
     episodes,
   };
 }

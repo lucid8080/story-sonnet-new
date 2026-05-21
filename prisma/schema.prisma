@@ -630,11 +630,40 @@ model Story {
   studioDrafts StoryStudioDraft[]
   contentSpotlightStories ContentSpotlightStory[]
   customStoryOrders CustomStoryOrder[]
+  storyNarrators StoryNarrator[]
   owner User? @relation("CustomStoryOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
 
   @@index([ownerUserId])
   @@index([isUserGenerated, access])
   @@map("stories")
+}
+
+model Narrator {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  bio       String?  @db.Text
+  avatarUrl String?  @map("avatar_url")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  stories StoryNarrator[]
+
+  @@index([sortOrder, name])
+  @@map("narrators")
+}
+
+model StoryNarrator {
+  storyId    BigInt @map("story_id")
+  narratorId String @map("narrator_id")
+
+  story    Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  narrator Narrator @relation(fields: [narratorId], references: [id], onDelete: Cascade)
+
+  @@id([storyId, narratorId])
+  @@index([narratorId])
+  @@map("story_narrators")
 }
 
 model BadgeAsset {

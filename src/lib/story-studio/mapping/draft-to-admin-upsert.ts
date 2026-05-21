@@ -196,6 +196,7 @@ export function draftToAdminUpsertInput(draft: DraftForMapping): AdminStoryUpser
     metaTitle: null,
     metaDescription: null,
     ageGroup: null,
+    narratorIds: [],
     episodes,
   };
 }

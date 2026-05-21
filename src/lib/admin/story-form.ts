@@ -55,6 +55,7 @@ export type StoryFormState = {
   metaTitle: string;
   metaDescription: string;
   ageGroup: string;
+  narratorIds: string[];
   episodes: EpisodeFormState[];
 };
 
@@ -111,6 +112,7 @@ export function defaultStoryFormState(): StoryFormState {
     metaTitle: '',
     metaDescription: '',
     ageGroup: '',
+    narratorIds: [],
     episodes: [emptyEpisodeForm(`new-${crypto.randomUUID()}`, 1)],
   };
 }
@@ -118,6 +120,7 @@ export function defaultStoryFormState(): StoryFormState {
 export function cloneStoryFormState(s: StoryFormState): StoryFormState {
   return {
     ...s,
+    narratorIds: [...s.narratorIds],
     episodes: s.episodes.map((e) => ({ ...e })),
   };
 }
