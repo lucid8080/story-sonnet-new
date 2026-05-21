@@ -156,6 +156,7 @@ export function HomeStoryRotatingGrid({ pool }: Props) {
           <Link
             key={`slot-${i}-${cf ? cf.incoming.slug : story.slug}`}
             href={`/story/${activeStory.slug}`}
+            prefetch={false}
             className={`group flex h-full flex-col overflow-hidden rounded-2xl bg-white shadow-lg shadow-slate-200/70 ring-1 ring-slate-100 transition duration-300 hover:shadow-2xl ${
               isCrossfading ? 'pointer-events-none' : ''
             }`}

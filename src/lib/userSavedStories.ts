@@ -1,5 +1,5 @@
 import prisma from '@/lib/prisma';
-import { fetchStories } from '@/lib/stories';
+import { getCachedPublicStories } from '@/lib/storyPageCache';
 import { mapAppStoriesToBrowseStories } from '@/lib/browseStory';
 import type { BrowseStory } from '@/types/story';
 
@@ -23,7 +23,7 @@ export async function browseStoriesForSavedSlugs(
   slugs: string[]
 ): Promise<BrowseStory[]> {
   if (!slugs.length) return [];
-  const browse = mapAppStoriesToBrowseStories(await fetchStories());
+  const browse = mapAppStoriesToBrowseStories(await getCachedPublicStories());
   const bySlug = new Map(browse.map((s) => [s.slug, s]));
   const out: BrowseStory[] = [];
   for (const slug of slugs) {

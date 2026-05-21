@@ -18,9 +18,10 @@ import {
   Play,
   Pause,
   ListMusic,
+  Loader2,
   Music,
 } from 'lucide-react';
-import { canPlayEpisode } from '@/lib/audioEntitlement';
+import { canPlayEpisode, episodeRequiresAccount } from '@/lib/audioEntitlement';
 import type { StoryForPlayer } from '@/lib/stories';
 import type { PlaybackSelection } from '@/components/story/StorySeriesPlayerProvider';
 import { getTranscriptLines } from '@/lib/transcripts';
@@ -38,6 +39,14 @@ import type {
 import { SpotlightBadgeOverlay } from '@/components/spotlight/SpotlightBadgeOverlay';
 import { SpotlightInfoBar } from '@/components/spotlight/SpotlightInfoBar';
 import { StoryNarratorLine } from '@/components/narrators/StoryNarratorLine';
+import type { ThemeAudioProbeResult } from '@/lib/themeAudioUrls';
+import {
+  storyShowsIntroTheme,
+  storyShowsSeriesTheme,
+  storyWithThemeForViewer,
+} from '@/lib/storyThemeClient';
+
+type SeriesThemeLoadState = 'loading' | 'ready' | 'none';
 
 const EPISODE_WINDOW_SIZE = 3;
 
@@ -64,7 +73,7 @@ function skipIntroStorageKey(slug: string): string {
 }
 
 export function StoryPageClient({
-  story,
+  story: initialStory,
   isSignedIn,
   isSubscribed,
   recommendedStories,
@@ -80,8 +89,52 @@ export function StoryPageClient({
 }) {
   const router = useRouter();
   const player = useStorySeriesPlayer()!;
+  const [story, setStory] = useState(initialStory);
+  const [seriesThemeLoad, setSeriesThemeLoad] =
+    useState<SeriesThemeLoadState>('loading');
   const storyRef = useRef(story);
   storyRef.current = story;
+
+  useEffect(() => {
+    setStory(initialStory);
+    setSeriesThemeLoad('loading');
+  }, [initialStory]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSeriesThemeLoad('loading');
+    fetch(`/api/theme-audio/probe?slug=${encodeURIComponent(initialStory.slug)}`, {
+      credentials: 'same-origin',
+    })
+      .then(async (res) => {
+        if (!res.ok) return null;
+        return (await res.json()) as ThemeAudioProbeResult;
+      })
+      .then(async (probe) => {
+        if (cancelled) return;
+        if (!probe?.hasFullTheme && !probe?.hasIntroTheme) {
+          setSeriesThemeLoad('none');
+          return;
+        }
+        const merged = await storyWithThemeForViewer(
+          initialStory,
+          probe,
+          isSubscribed
+        );
+        if (cancelled) return;
+        setStory(merged);
+        storyRef.current = merged;
+        player.syncStoryFromPage(merged, isSubscribed);
+        setSeriesThemeLoad(merged.hasFullTheme ? 'ready' : 'none');
+      })
+      .catch(() => {
+        if (!cancelled) setSeriesThemeLoad('none');
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- probe once per slug; initialStory carries episode payload
+  }, [initialStory.slug, isSubscribed, player.syncStoryFromPage]);
 
   useLayoutEffect(() => {
     player.syncStoryFromPage(storyRef.current, isSubscribed);
@@ -102,8 +155,6 @@ export function StoryPageClient({
     persistSkipIntro,
     usingPlaceholderAudio,
     entitled,
-    showIntroChrome,
-    showFullThemeBar,
     scrubberDisabled,
     mainPlayButtonDisabled,
     togglePlay,
@@ -295,17 +346,37 @@ export function StoryPageClient({
     ? playbackSelection
     : previewPlaybackSelection;
 
-  const showIntroChromeUi = inSessionWithPage
-    ? showIntroChrome
-    : coverEntitled &&
-      Boolean(story.hasIntroTheme) &&
-      Boolean(story.themeIntroSrc);
+  const showIntroChromeUi =
+    seriesThemeLoad === 'loading' || storyShowsIntroTheme(story);
 
-  const showFullThemeBarUi = inSessionWithPage
-    ? showFullThemeBar
-    : coverEntitled &&
-      Boolean(story.hasFullTheme) &&
-      Boolean(story.themeFullSrc);
+  const showSeriesThemeRow =
+    seriesThemeLoad === 'loading' || storyShowsSeriesTheme(story);
+
+  const seriesThemeRowReady =
+    seriesThemeLoad === 'ready' && storyShowsSeriesTheme(story);
+
+  const storyPath = `/story/${story.slug}`;
+
+  const redirectToCreateAccount = () => {
+    router.push(`/signup?callbackUrl=${encodeURIComponent(storyPath)}`);
+  };
+
+  const redirectIfCoverLocked = () => {
+    redirectToCreateAccount();
+  };
+
+  const episodeAtIndex = (index: number) => story.episodes[index];
+
+  const isEpisodeLockedAtIndex = (index: number) => {
+    const ep = episodeAtIndex(index);
+    if (!ep) return true;
+    return episodeRequiresAccount(
+      story.isPremium,
+      ep.isPremium,
+      ep.isFreePreview,
+      isSubscribed
+    );
+  };
 
   const coverScrubberDisabled =
     !inSessionWithPage || scrubberDisabled;
@@ -316,6 +387,10 @@ export function StoryPageClient({
   /** Avoid showing another story's playback on this page's scrubber when session is deferred. */
   const coverScrubberProgress = inSessionWithPage ? progress : 0;
   const onSelectEpisodeFromTracklist = (index: number) => {
+    if (isEpisodeLockedAtIndex(index)) {
+      redirectToCreateAccount();
+      return;
+    }
     playAfterClaimRef.current = true;
     if (inSessionWithPage) {
       selectEpisodeIndex(index);
@@ -330,6 +405,11 @@ export function StoryPageClient({
   };
 
   const onSelectFullThemeFromTracklist = () => {
+    if (!seriesThemeRowReady) return;
+    if (coverLocked) {
+      redirectIfCoverLocked();
+      return;
+    }
     playAfterClaimRef.current = true;
     if (inSessionWithPage) {
       selectFullTheme();
@@ -342,13 +422,8 @@ export function StoryPageClient({
   };
 
   const handleCoverPlayClick = () => {
-    if (coverLocked) {
-      const path = `/story/${story.slug}`;
-      if (isSignedIn) {
-        router.push(`/pricing?callbackUrl=${encodeURIComponent(path)}`);
-      } else {
-        router.push(`/signup?callbackUrl=${encodeURIComponent(path)}`);
-      }
+    if (isEpisodeLockedAtIndex(episodeIndexForUi)) {
+      redirectToCreateAccount();
       return;
     }
     if (!inSessionWithPage) {
@@ -735,13 +810,16 @@ export function StoryPageClient({
               </div>
 
               <ul className="divide-y divide-slate-200" aria-live="polite">
-                {showFullThemeBarUi ? (
+                {showSeriesThemeRow ? (
                   <li>
                     <div
                       className={`rounded-lg px-1 py-2 transition ${
+                        seriesThemeRowReady &&
                         coverPlaybackSelection === 'fullTheme'
                           ? ''
-                          : 'hover:bg-slate-50/80'
+                          : seriesThemeRowReady
+                            ? 'hover:bg-slate-50/80'
+                            : ''
                       }`}
                     >
                       <button
@@ -753,9 +831,18 @@ export function StoryPageClient({
                             onSelectFullThemeFromTracklist();
                           }
                         }}
-                        className="flex w-full items-center gap-3 rounded-md py-0 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
-                        aria-label="Select and play series theme music"
+                        disabled={seriesThemeLoad === 'loading'}
+                        aria-busy={seriesThemeLoad === 'loading'}
+                        className="flex w-full items-center gap-3 rounded-md py-0 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 disabled:cursor-default"
+                        aria-label={
+                          seriesThemeLoad === 'loading'
+                            ? 'Loading series theme music'
+                            : coverLocked
+                              ? 'Series theme music — sign in or subscribe to listen'
+                              : 'Select and play series theme music'
+                        }
                         aria-current={
+                          seriesThemeRowReady &&
                           coverPlaybackSelection === 'fullTheme'
                             ? 'true'
                             : undefined
@@ -775,8 +862,17 @@ export function StoryPageClient({
                             Full track
                           </span>
                         </span>
-                        <span className="shrink-0 tabular-nums text-sm font-semibold text-slate-500">
-                          {seriesThemeListDurationLabel}
+                        <span className="flex h-5 w-12 shrink-0 items-center justify-end">
+                          {seriesThemeLoad === 'loading' ? (
+                            <Loader2
+                              className="h-4 w-4 animate-spin text-violet-500"
+                              aria-hidden
+                            />
+                          ) : (
+                            <span className="tabular-nums text-sm font-semibold text-slate-500">
+                              {seriesThemeListDurationLabel}
+                            </span>
+                          )}
                         </span>
                       </button>
                     </div>
@@ -784,6 +880,7 @@ export function StoryPageClient({
                 ) : null}
                 {visibleEpisodeIndices.map((index) => {
                   const episode = story.episodes[index];
+                  const episodeLocked = isEpisodeLockedAtIndex(index);
                   const active =
                     coverPlaybackSelection === 'episode' &&
                     index === episodeIndexForUi;
@@ -793,45 +890,49 @@ export function StoryPageClient({
                   return (
                     <li key={episode.id}>
                       <div
-                        className={`flex w-full items-center gap-2 rounded-lg px-1 py-2 transition ${
-                          active
-                            ? ''
-                            : 'hover:bg-slate-50/80'
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => onSelectEpisodeFromTracklist(index)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            onSelectEpisodeFromTracklist(index);
+                          }
+                        }}
+                        aria-current={active ? 'true' : undefined}
+                        aria-label={
+                          episodeLocked
+                            ? `Episode ${episode.episodeNumber}: ${episode.title} — create your account to listen`
+                            : `Select episode ${episode.episodeNumber}: ${episode.title}`
+                        }
+                        className={`flex w-full cursor-pointer items-center gap-2 rounded-lg px-1 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 ${
+                          active ? '' : 'hover:bg-slate-50/80'
                         }`}
                       >
-                        <button
-                          type="button"
-                          onClick={() => onSelectEpisodeFromTracklist(index)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              onSelectEpisodeFromTracklist(index);
-                            }
-                          }}
-                          className="flex min-w-0 flex-1 items-center gap-3 rounded-md py-0 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
-                          aria-current={active ? 'true' : undefined}
-                          aria-label={`Select episode ${episode.episodeNumber}: ${episode.title}`}
-                        >
-                          <span className="w-7 shrink-0 text-right text-xs font-bold tabular-nums text-slate-400">
-                            {episode.episodeNumber}
+                        <span className="flex w-7 shrink-0 justify-end text-xs font-bold tabular-nums text-slate-400">
+                          {episode.episodeNumber}
+                        </span>
+                        <span className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-1">
+                          <span className="min-w-0 truncate text-base font-bold text-slate-900">
+                            {episode.title}
                           </span>
-                          <span className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-1">
-                            <span className="min-w-0 truncate text-base font-bold text-slate-900">
-                              {episode.title}
+                          {episode.isFreePreview ? (
+                            <span className={`${TRACKLIST_LABEL_CLASS} text-rose-600`}>
+                              Preview
                             </span>
-                            {episode.isFreePreview ? (
-                              <span className={`${TRACKLIST_LABEL_CLASS} text-rose-600`}>
-                                Preview
-                              </span>
-                            ) : null}
-                          </span>
-                        </button>
+                          ) : episodeLocked ? (
+                            <span className={`${TRACKLIST_LABEL_CLASS} text-violet-600`}>
+                              Premium
+                            </span>
+                          ) : null}
+                        </span>
                         {hasReadMore ? (
                           <button
                             type="button"
                             className={`${TRACKLIST_LABEL_CLASS} text-slate-500 hover:text-slate-700 focus-visible:rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400`}
                             aria-label={`Read full description: ${episode.title}`}
                             onClick={(e) => {
+                              e.stopPropagation();
                               episodeReadMoreReturnFocusRef.current =
                                 e.currentTarget;
                               setEpisodeDescriptionModal({
@@ -843,21 +944,9 @@ export function StoryPageClient({
                             Read more
                           </button>
                         ) : null}
-                        <button
-                          type="button"
-                          tabIndex={-1}
-                          aria-hidden="true"
-                          onClick={() => onSelectEpisodeFromTracklist(index)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              onSelectEpisodeFromTracklist(index);
-                            }
-                          }}
-                          className="shrink-0 rounded-md px-0.5 tabular-nums text-sm font-semibold text-slate-500 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
-                        >
+                        <span className="shrink-0 tabular-nums text-sm font-semibold text-slate-500">
                           {durationLabel}
-                        </button>
+                        </span>
                       </div>
                     </li>
                   );
@@ -894,6 +983,7 @@ export function StoryPageClient({
                   >
                     <Link
                       href={`/story/${recommended.slug}`}
+                      prefetch={false}
                       className="group block w-[42vw] max-w-[9.5rem] overflow-hidden rounded-xl ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 sm:max-w-[10.5rem]"
                       aria-label={`Open recommended story: ${recommended.title}`}
                     >

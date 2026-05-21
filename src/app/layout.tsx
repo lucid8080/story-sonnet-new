@@ -4,7 +4,7 @@ import './globals.css';
 import { Providers } from '@/components/providers';
 import SiteHeader from '@/components/layout/SiteHeader';
 import BottomStoryPlayerBar from '@/components/layout/BottomStoryPlayerBar';
-import { ActiveCampaignBarGate } from '@/components/campaigns/ActiveCampaignBarGate';
+import { ActiveCampaignBarClient } from '@/components/campaigns/ActiveCampaignBarClient';
 import Footer from '@/components/layout/Footer';
 import { BRAND } from '@/lib/brand';
 
@@ -76,7 +76,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-gradient-to-b from-amber-50 via-rose-50 to-sky-50 font-sans text-slate-800 antialiased">
         <Providers>
           <div className="flex min-h-screen flex-col">
-            <ActiveCampaignBarGate />
+            <ActiveCampaignBarClient />
             <SiteHeader />
             <div className="flex-1">{children}</div>
             <BottomStoryPlayerBar />

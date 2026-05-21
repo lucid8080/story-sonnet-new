@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
+import { revalidateStoryCatalog } from '@/lib/revalidateStoryCatalog';
 import { createDraftStory } from '@/lib/stories';
 
 export async function POST() {
@@ -10,6 +11,7 @@ export async function POST() {
 
   try {
     const story = await createDraftStory();
+    revalidateStoryCatalog(story.slug);
     return NextResponse.json({
       ok: true,
       id: story.id.toString(),

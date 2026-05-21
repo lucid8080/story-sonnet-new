@@ -21,6 +21,7 @@ export function SpotlightCollectionRail({
           <Link
             key={s.storyId}
             href={`/story/${s.slug}`}
+            prefetch={false}
             className="group w-36 shrink-0"
           >
             <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-slate-200 shadow-md ring-1 ring-slate-100 transition group-hover:shadow-lg">

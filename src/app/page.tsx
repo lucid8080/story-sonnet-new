@@ -1,28 +1,35 @@
 import { BookAudio } from 'lucide-react';
-import { fetchStories } from '@/lib/stories';
 import { homeRotatingStoryFromApp } from '@/lib/homeRotatingStory';
 import { HomeStoryRotatingGrid } from '@/components/home/HomeStoryRotatingGrid';
 import { sortAppStoriesForLibraryGrid } from '@/utils/libraryGridSort';
 import {
-  resolveHomepageSpotlightRails,
-  resolveSpotlightBadgesBySlug,
-} from '@/lib/content-spotlight/resolve';
+  getCachedCatalogSpotlightBadges,
+  getCachedHomepageSpotlightRails,
+  getCachedPublicStories,
+  STORY_PAGE_REVALIDATE_SEC,
+} from '@/lib/storyPageCache';
 import { SpotlightCollectionRail } from '@/components/spotlight/SpotlightCollectionRail';
+import { HomepageCampaignHeroClient } from '@/components/campaigns/HomepageCampaignHeroClient';
+
+export const revalidate = STORY_PAGE_REVALIDATE_SEC;
 
 export default async function HomePage() {
-  const sorted = sortAppStoriesForLibraryGrid(await fetchStories(), 'newest');
-  const slugs = sorted.map((s) => s.slug);
-  const [badgeMap, rails] = await Promise.all([
-    resolveSpotlightBadgesBySlug(slugs),
-    resolveHomepageSpotlightRails(),
+  const sorted = sortAppStoriesForLibraryGrid(
+    await getCachedPublicStories(),
+    'newest'
+  );
+  const [badgeRecord, rails] = await Promise.all([
+    getCachedCatalogSpotlightBadges(),
+    getCachedHomepageSpotlightRails(),
   ]);
   const pool = sorted.map((s) => ({
     ...homeRotatingStoryFromApp(s),
-    spotlightBadge: badgeMap.get(s.slug) ?? null,
+    spotlightBadge: badgeRecord[s.slug] ?? null,
   }));
 
   return (
     <main className="mx-auto max-w-6xl px-3 pb-16 pt-8 sm:px-4 lg:px-4">
+      <HomepageCampaignHeroClient />
       <div className="mb-8 grid gap-8 lg:grid-cols-1 lg:items-center">
         <div>
           <div className="mb-4 hidden items-center gap-2 rounded-full bg-white/80 px-4 py-2 text-sm font-semibold text-rose-500 shadow-sm ring-1 ring-rose-100 sm:inline-flex">

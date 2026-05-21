@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import { revalidateStoryCatalog } from '@/lib/revalidateStoryCatalog';
 import { upsertStoryFromAdmin } from '@/lib/stories';
 import {
   importLibraryEpisodesIntoDraft,
@@ -97,6 +98,7 @@ export async function POST(req: Request) {
     }
 
     const story = await upsertStoryFromAdmin(storyKey, payload);
+    revalidateStoryCatalog(story.slug);
     await reconcileDraftEpisodeLibraryLinks(draftForPush.id, story.id);
 
     return NextResponse.json({

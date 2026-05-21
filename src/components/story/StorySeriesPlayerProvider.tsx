@@ -162,11 +162,9 @@ export function StorySeriesPlayerProvider({
     story?.themeFullSrc ?? resolvedThemeFullSrc ?? null;
 
   const showIntroChrome =
-    entitled &&
     Boolean(story?.hasIntroTheme) &&
-    !!effectiveThemeIntroSrc;
-  const showFullThemeBar =
-    entitled && Boolean(story?.hasFullTheme) && !!effectiveThemeFullSrc;
+    (!!effectiveThemeIntroSrc || Boolean(story?.themeIntroUseSignedPlayback));
+  const showFullThemeBar = Boolean(story?.hasFullTheme);
 
   /** Stable identity for hook deps (avoid `story` object identity churn from sync). */
   const storyKey = story ? `${story.id}:${story.slug}` : '';

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import { revalidateStoryCatalog } from '@/lib/revalidateStoryCatalog';
 import { upsertStoryFromAdmin } from '@/lib/stories';
 import {
   buildValidatedLibraryPayloadFromDraft,
@@ -77,6 +78,7 @@ export async function POST(
   }
 
   const story = await upsertStoryFromAdmin(storyKey, built.payload);
+  revalidateStoryCatalog(story.slug);
   await prisma.story.update({
     where: { id: story.id },
     data: {

@@ -1,14 +1,14 @@
 import { Suspense } from 'react';
 import { auth } from '@/auth';
-import { fetchStories } from '@/lib/stories';
 import { mapAppStoriesToBrowseStories } from '@/lib/browseStory';
 import { fetchSavedStorySlugs } from '@/lib/userSavedStories';
 import { parseLibrarySearchParams } from '@/lib/librarySearchParams';
-import type { StorySpotlightBadgeDTO } from '@/lib/content-spotlight/types';
 import {
-  resolveLibrarySpotlightRails,
-  resolveSpotlightBadgesBySlug,
-} from '@/lib/content-spotlight/resolve';
+  getCachedCatalogSpotlightBadges,
+  getCachedLibrarySpotlightRails,
+  getCachedPublicStories,
+  STORY_PAGE_REVALIDATE_SEC,
+} from '@/lib/storyPageCache';
 import LibraryBrowseClient from '@/components/library/LibraryBrowseClient';
 import StoryGridSkeleton from '@/components/library/StoryGridSkeleton';
 
@@ -36,16 +36,12 @@ async function LibraryStories({
   const userId = session?.user?.id;
   const savedSlugs =
     userId != null ? await fetchSavedStorySlugs(userId) : [];
-  const appStories = await fetchStories();
+  const appStories = await getCachedPublicStories();
   const browseStories = mapAppStoriesToBrowseStories(appStories);
-  const slugs = browseStories.map((s) => s.slug);
-  const [spotlightRails, spotlightBadgeBySlug] = await Promise.all([
-    resolveLibrarySpotlightRails(),
-    resolveSpotlightBadgesBySlug(slugs),
+  const [spotlightRails, badgeRecord] = await Promise.all([
+    getCachedLibrarySpotlightRails(),
+    getCachedCatalogSpotlightBadges(),
   ]);
-  const badgeRecord = Object.fromEntries(
-    spotlightBadgeBySlug
-  ) as Record<string, StorySpotlightBadgeDTO>;
   const { sort: initialSort, filters: initialFilters } =
     parseLibrarySearchParams(searchParams);
 
@@ -62,6 +58,8 @@ async function LibraryStories({
     />
   );
 }
+
+export const revalidate = STORY_PAGE_REVALIDATE_SEC;
 
 export default async function LibraryPage({
   searchParams,

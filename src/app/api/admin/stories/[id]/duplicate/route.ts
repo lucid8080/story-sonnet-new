@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
+import { revalidateStoryCatalog } from '@/lib/revalidateStoryCatalog';
 import { duplicateStoryAdmin } from '@/lib/stories';
 
 export async function POST(
@@ -14,6 +15,7 @@ export async function POST(
   const { id } = await context.params;
   try {
     const story = await duplicateStoryAdmin(decodeURIComponent(id));
+    revalidateStoryCatalog(story.slug);
     return NextResponse.json({
       ok: true,
       id: story.id.toString(),

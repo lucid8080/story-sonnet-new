@@ -5,7 +5,7 @@ import { StorySeriesPlayerProvider } from '@/components/story/StorySeriesPlayerP
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <SessionProvider>
+    <SessionProvider refetchOnWindowFocus={false} refetchInterval={0}>
       <StorySeriesPlayerProvider>{children}</StorySeriesPlayerProvider>
     </SessionProvider>
   );

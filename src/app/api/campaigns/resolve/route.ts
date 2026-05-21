@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { unstable_cache } from 'next/cache';
 import type { CampaignPlacementKey } from '@prisma/client';
 import { auth } from '@/auth';
 import { buildCampaignUserContext } from '@/lib/campaigns/context';
@@ -6,6 +7,10 @@ import { resolveCampaignPayloads } from '@/lib/campaigns/resolve';
 import { getOrCreateCampaignSettings } from '@/lib/campaigns/settings';
 import prisma from '@/lib/prisma';
 import { CAMPAIGN_PLACEMENT_KEYS } from '@/lib/validation/campaignSchemas';
+
+export const runtime = 'nodejs';
+
+const CAMPAIGN_ANON_CACHE_SEC = 120;
 
 function isPlacement(s: string | null): s is CampaignPlacementKey {
   return Boolean(s && (CAMPAIGN_PLACEMENT_KEYS as readonly string[]).includes(s));
@@ -15,12 +20,19 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const placementParam = url.searchParams.get('placement');
   if (!isPlacement(placementParam)) {
-    return NextResponse.json({ ok: false, error: 'Invalid or missing placement' }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: 'Invalid or missing placement' },
+      { status: 400 }
+    );
   }
   const pathname = url.searchParams.get('pathname')?.trim() || '/';
   const typesParam = url.searchParams.get('types');
   const types = typesParam
-    ? (typesParam.split(',').filter(Boolean) as ('notification_bar' | 'trial_offer' | 'promo_code')[])
+    ? (typesParam.split(',').filter(Boolean) as (
+        | 'notification_bar'
+        | 'trial_offer'
+        | 'promo_code'
+      )[])
     : undefined;
 
   const session = await auth();
@@ -28,7 +40,8 @@ export async function GET(req: Request) {
 
   const previewHeaderValue = req.headers.get(settings.previewHeaderName) ?? '';
   const previewMode = Boolean(
-    settings.previewHeaderSecret && previewHeaderValue === settings.previewHeaderSecret
+    settings.previewHeaderSecret &&
+      previewHeaderValue === settings.previewHeaderSecret
   );
 
   let profile = null;
@@ -56,15 +69,40 @@ export async function GET(req: Request) {
   const user = buildCampaignUserContext({ session, profile, hadPaidPurchase });
 
   try {
-    const items = await resolveCampaignPayloads(prisma, {
-      now: new Date(),
-      placement: placementParam,
-      pathname,
-      user,
-      settings,
-      previewMode,
-      types: types?.length ? types : undefined,
-    });
+    let items;
+    if (!userId && !previewMode) {
+      const typesKey = types?.join(',') ?? 'all';
+      items = await unstable_cache(
+        async () => {
+          const anonUser = buildCampaignUserContext({
+            session: null,
+            profile: null,
+            hadPaidPurchase: false,
+          });
+          return resolveCampaignPayloads(prisma, {
+            now: new Date(),
+            placement: placementParam,
+            pathname,
+            user: anonUser,
+            settings,
+            previewMode: false,
+            types: types?.length ? types : undefined,
+          });
+        },
+        ['campaign-anon-v1', placementParam, pathname, typesKey],
+        { revalidate: CAMPAIGN_ANON_CACHE_SEC, tags: ['campaigns'] }
+      )();
+    } else {
+      items = await resolveCampaignPayloads(prisma, {
+        now: new Date(),
+        placement: placementParam,
+        pathname,
+        user,
+        settings,
+        previewMode,
+        types: types?.length ? types : undefined,
+      });
+    }
     return NextResponse.json({ ok: true, items });
   } catch (e) {
     console.error('[campaigns/resolve]', e);

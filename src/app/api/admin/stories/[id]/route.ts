@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 import { adminStoryUpsertSchema } from '@/lib/validation/storySchema';
+import { revalidateStoryCatalog } from '@/lib/revalidateStoryCatalog';
 import { deleteStoryAdmin, upsertStoryFromAdmin } from '@/lib/stories';
 
 export async function PATCH(
@@ -42,6 +43,7 @@ export async function PATCH(
 
   try {
     const story = await upsertStoryFromAdmin(decodeURIComponent(id), input);
+    revalidateStoryCatalog(story.slug);
     const episodes = await prisma.episode.findMany({
       where: { storyId: story.id },
       select: { id: true, transcriptLines: true },
@@ -88,7 +90,9 @@ export async function DELETE(
 
   const { id } = await context.params;
   try {
-    await deleteStoryAdmin(decodeURIComponent(id));
+    const slug = decodeURIComponent(id);
+    await deleteStoryAdmin(slug);
+    revalidateStoryCatalog(slug);
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error('[admin/stories DELETE]', e);

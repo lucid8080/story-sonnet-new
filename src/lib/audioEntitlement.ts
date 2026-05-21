@@ -24,3 +24,15 @@ export function canPlayEpisode(
     )
   );
 }
+
+/** Logged-out / non-subscriber must create an account (or subscribe) before playback. */
+export function episodeRequiresAccount(
+  storyIsPremium: boolean,
+  episodeIsPremium: boolean,
+  episodeIsFreePreview: boolean,
+  isSubscribed: boolean
+): boolean {
+  if (isSubscribed) return false;
+  if (episodeIsFreePreview) return false;
+  return storyIsPremium || episodeIsPremium;
+}
