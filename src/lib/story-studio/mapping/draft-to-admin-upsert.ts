@@ -191,6 +191,7 @@ export function draftToAdminUpsertInput(draft: DraftForMapping): AdminStoryUpser
     sortPriority: 0,
     publishedAt: null,
     isFeatured: false,
+    hideFromCatalog: false,
     isPremium: false,
     isPublished: req.autoPublish,
     metaTitle: null,
