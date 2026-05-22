@@ -50,6 +50,7 @@ export type StoryFormState = {
   sortPriority: string;
   publishedAt: string;
   isFeatured: boolean;
+  hideFromCatalog: boolean;
   isPremium: boolean;
   isPublished: boolean;
   metaTitle: string;
@@ -107,6 +108,7 @@ export function defaultStoryFormState(): StoryFormState {
     sortPriority: '0',
     publishedAt: '',
     isFeatured: false,
+    hideFromCatalog: false,
     isPremium: false,
     isPublished: false,
     metaTitle: '',

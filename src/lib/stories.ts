@@ -91,6 +91,8 @@ export type AppStory = {
   /** DB row creation time (ISO); null for static catalog-only stories. */
   createdAt: string | null;
   isFeatured: boolean;
+  /** Omit from homepage + library browse when true; direct story URL still works if published. */
+  hideFromCatalog: boolean;
   isPremium: boolean;
   isPublished: boolean;
   isUserGenerated: boolean;
@@ -338,6 +340,7 @@ function mapDbStoryToApp(
     publishedAt: story.publishedAt ? story.publishedAt.toISOString() : null,
     createdAt: story.createdAt.toISOString(),
     isFeatured: story.isFeatured,
+    hideFromCatalog: story.hideFromCatalog,
     isPremium: story.isPremium,
     isPublished: story.isPublished,
     isUserGenerated: story.isUserGenerated,
@@ -439,6 +442,7 @@ function mapStaticToApp(): AppStory[] {
       publishedAt: seed.publishedAt,
       createdAt: null,
       isFeatured: !!seed.isFeatured,
+      hideFromCatalog: false,
       isPremium: !!s.isPremium,
       isPublished: true,
       isUserGenerated: false,
@@ -481,6 +485,7 @@ function applyStoryVisibility(
   return stories
     .filter((s) => !s.isUserGenerated)
     .filter((s) => s.isPublished)
+    .filter((s) => !s.hideFromCatalog)
     .map(storyVisibleToPublic);
 }
 
@@ -681,6 +686,7 @@ function storyCreateDataFromAdmin(
     sortPriority: input.sortPriority,
     publishedAt: input.publishedAt ? new Date(input.publishedAt) : undefined,
     isFeatured: input.isFeatured,
+    hideFromCatalog: input.hideFromCatalog,
     isPublished: input.isPublished,
     isPremium: input.isPremium,
     metaTitle: input.metaTitle ?? undefined,
@@ -719,6 +725,7 @@ function storyUpdateDataFromAdmin(
     sortPriority: input.sortPriority,
     publishedAt: input.publishedAt ? new Date(input.publishedAt) : null,
     isFeatured: input.isFeatured,
+    hideFromCatalog: input.hideFromCatalog,
     isPublished: input.isPublished,
     isPremium: input.isPremium,
     metaTitle: input.metaTitle,
@@ -1107,6 +1114,7 @@ export async function duplicateStoryAdmin(id: string): Promise<Story> {
       sortPriority: src.sortPriority,
       publishedAt: null,
       isFeatured: false,
+      hideFromCatalog: src.hideFromCatalog,
       isPublished: false,
       isPremium: src.isPremium,
       metaTitle: src.metaTitle,
@@ -1207,6 +1215,7 @@ export async function updateStoryMeta(input: {
         ? input.is_premium
         : !!staticStory.isPremium,
     isFeatured: false,
+    hideFromCatalog: false,
     popularityScore: getBrowseSeedForSlug(staticStory.slug).popularityScore,
     sortPriority: 0,
     topics: [],

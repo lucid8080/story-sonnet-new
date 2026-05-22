@@ -616,6 +616,8 @@ model Story {
   sortPriority  Int      @default(0) @map("sort_priority")
   publishedAt   DateTime? @map("published_at")
   isFeatured    Boolean  @default(false) @map("is_featured")
+  /** When true, story stays published but is omitted from homepage + library browse grids. */
+  hideFromCatalog Boolean @default(false) @map("hide_from_catalog")
   isPublished   Boolean  @default(false) @map("is_published")
   isPremium     Boolean  @default(false) @map("is_premium")
   metaTitle     String?  @map("meta_title")

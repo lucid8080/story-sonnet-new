@@ -197,6 +197,17 @@ export default function StoryDiscoverySection({
             <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-800">
               <input
                 type="checkbox"
+                checked={form.hideFromCatalog}
+                onChange={(e) =>
+                  onChange({ ...form, hideFromCatalog: e.target.checked })
+                }
+                className="h-4 w-4 rounded border-slate-300 text-rose-500 focus:ring-rose-400"
+              />
+              Hide from library &amp; homepage
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-800">
+              <input
+                type="checkbox"
                 checked={form.isSeries}
                 onChange={(e) =>
                   onChange({ ...form, isSeries: e.target.checked })
@@ -206,6 +217,11 @@ export default function StoryDiscoverySection({
               Series (multi-episode)
             </label>
           </div>
+          <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+            Hidden stories stay published and open at their story URL, but they
+            are omitted from the homepage grid, library browse, spotlight rails,
+            and recommendation rows.
+          </p>
         </div>
       </div>
     </section>

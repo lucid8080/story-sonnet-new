@@ -17,6 +17,7 @@ export default function StoryStatusBadges({
     | 'isPublished'
     | 'isPremium'
     | 'isFeatured'
+    | 'hideFromCatalog'
     | 'isSeries'
     | 'ageRange'
   >;
@@ -45,6 +46,11 @@ export default function StoryStatusBadges({
       {story.isFeatured ? (
         <span className="rounded-full bg-amber-200/90 px-2 py-0.5 text-[10px] font-bold text-amber-950">
           Featured
+        </span>
+      ) : null}
+      {story.hideFromCatalog ? (
+        <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-800">
+          Hidden from browse
         </span>
       ) : null}
       <span

@@ -21,6 +21,7 @@ const spotlightInclude = {
           cardTitleOverride: true,
           seriesTitle: true,
           isPublished: true,
+          hideFromCatalog: true,
         },
       },
     },
@@ -141,7 +142,7 @@ function toRailDTO(s: SpotlightWithRelations): SpotlightRailDTO {
     type: s.type,
     priority: s.priority,
     stories: s.stories
-      .filter((row) => row.story.isPublished)
+      .filter((row) => row.story.isPublished && !row.story.hideFromCatalog)
       .map((row) => ({
         storyId: row.story.id.toString(),
         slug: row.story.slug,

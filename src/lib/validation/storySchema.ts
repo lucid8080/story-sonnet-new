@@ -117,6 +117,7 @@ export const adminStoryUpsertSchema = z.object({
       )
   ),
   isFeatured: z.boolean().optional().default(false),
+  hideFromCatalog: z.boolean().optional().default(false),
   isPremium: z.boolean().optional().default(false),
   isPublished: z.boolean().optional().default(false),
   metaTitle: z.string().nullable().optional(),

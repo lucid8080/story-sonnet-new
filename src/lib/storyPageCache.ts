@@ -18,7 +18,7 @@ export const THEME_PROBE_CACHE_REVALIDATE_SEC = 86_400;
 export function getCachedPublicStories() {
   return unstable_cache(
     async () => fetchStories(),
-    ['public-stories-catalog-v1'],
+    ['public-stories-catalog-v2'],
     { revalidate: STORY_PAGE_REVALIDATE_SEC, tags: ['story-catalog'] }
   )();
 }
