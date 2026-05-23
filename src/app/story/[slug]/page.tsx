@@ -54,6 +54,7 @@ export default async function StoryPage({
   return (
     <StoryPageClient
       story={playerStory}
+      isLoggedIn={userId != null}
       isSubscribed={isSubscribed}
       recommendedStories={recommendedStories}
       spotlightBadge={spotlightBadge}

@@ -21,7 +21,11 @@ import {
   Loader2,
   Music,
 } from 'lucide-react';
-import { canPlayEpisode, episodeRequiresAccount } from '@/lib/audioEntitlement';
+import {
+  canPlayEpisode,
+  episodeRequiresAccount,
+  paywallRedirectHref,
+} from '@/lib/audioEntitlement';
 import type { StoryForPlayer } from '@/lib/stories';
 import type { PlaybackSelection } from '@/components/story/StorySeriesPlayerProvider';
 import { getTranscriptLines } from '@/lib/transcripts';
@@ -74,12 +78,14 @@ function skipIntroStorageKey(slug: string): string {
 
 export function StoryPageClient({
   story: initialStory,
+  isLoggedIn,
   isSubscribed,
   recommendedStories,
   spotlightBadge,
   spotlightInfoBar,
 }: {
   story: StoryForPlayer;
+  isLoggedIn: boolean;
   isSubscribed: boolean;
   recommendedStories: RecommendedStory[];
   spotlightBadge?: StorySpotlightBadgeDTO | null;
@@ -355,12 +361,12 @@ export function StoryPageClient({
 
   const storyPath = `/story/${story.slug}`;
 
-  const redirectToCreateAccount = () => {
-    router.push(`/signup?callbackUrl=${encodeURIComponent(storyPath)}`);
+  const redirectForLockedPlayback = () => {
+    router.push(paywallRedirectHref(isLoggedIn, storyPath));
   };
 
   const redirectIfCoverLocked = () => {
-    redirectToCreateAccount();
+    redirectForLockedPlayback();
   };
 
   const episodeAtIndex = (index: number) => story.episodes[index];
@@ -386,7 +392,7 @@ export function StoryPageClient({
   const coverScrubberProgress = inSessionWithPage ? progress : 0;
   const onSelectEpisodeFromTracklist = (index: number) => {
     if (isEpisodeLockedAtIndex(index)) {
-      redirectToCreateAccount();
+      redirectForLockedPlayback();
       return;
     }
     playAfterClaimRef.current = true;
@@ -421,7 +427,7 @@ export function StoryPageClient({
 
   const handleCoverPlayClick = () => {
     if (isEpisodeLockedAtIndex(episodeIndexForUi)) {
-      redirectToCreateAccount();
+      redirectForLockedPlayback();
       return;
     }
     if (!inSessionWithPage) {
