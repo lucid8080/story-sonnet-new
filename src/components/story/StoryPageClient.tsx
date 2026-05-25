@@ -11,8 +11,6 @@ import {
   useState,
 } from 'react';
 import {
-  ChevronDown,
-  ChevronUp,
   Image as ImageIcon,
   Info,
   Play,
@@ -51,8 +49,6 @@ import {
 } from '@/lib/storyThemeClient';
 
 type SeriesThemeLoadState = 'loading' | 'ready' | 'none';
-
-const EPISODE_WINDOW_SIZE = 3;
 
 /** Episodes track list: Full track / Preview / Read more share typography; color is per-label. */
 const TRACKLIST_LABEL_CLASS =
@@ -230,7 +226,6 @@ export function StoryPageClient({
   const episodeReadMoreReturnFocusRef = useRef<HTMLElement | null>(null);
   const transcriptScrollerRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<(HTMLParagraphElement | null)[]>([]);
-  const [episodeWindowStart, setEpisodeWindowStart] = useState(0);
 
   const episodeIndexForUi = useMemo(() => {
     const raw = inSessionWithPage ? activeEpisodeIndex : previewEpisodeIndex;
@@ -246,45 +241,12 @@ export function StoryPageClient({
 
   const activeEpisode = story.episodes[episodeIndexForUi];
   const episodeCount = story.episodes.length;
-  const maxEpisodeWindowStart = Math.max(0, episodeCount - EPISODE_WINDOW_SIZE);
-  const useEpisodeWindow = episodeCount > EPISODE_WINDOW_SIZE;
-  const visibleEpisodeIndices = useMemo(() => {
-    if (!useEpisodeWindow) {
-      return story.episodes.map((_, i) => i);
-    }
-    const out: number[] = [];
-    for (
-      let i = episodeWindowStart;
-      i < episodeWindowStart + EPISODE_WINDOW_SIZE && i < episodeCount;
-      i += 1
-    ) {
-      out.push(i);
-    }
-    return out;
-  }, [episodeCount, episodeWindowStart, story.episodes, useEpisodeWindow]);
 
   useEffect(() => {
-    setEpisodeWindowStart(0);
     setIsCoverFlipped(false);
     setIsSummaryExpanded(false);
     setEpisodeDescriptionModal(null);
   }, [story.slug]);
-
-  useEffect(() => {
-    if (!useEpisodeWindow) return;
-    setEpisodeWindowStart((prev) => {
-      if (
-        episodeIndexForUi >= prev &&
-        episodeIndexForUi < prev + EPISODE_WINDOW_SIZE
-      ) {
-        return prev;
-      }
-      return Math.min(
-        Math.max(0, episodeIndexForUi - EPISODE_WINDOW_SIZE + 1),
-        maxEpisodeWindowStart
-      );
-    });
-  }, [episodeIndexForUi, maxEpisodeWindowStart, useEpisodeWindow]);
 
   const transcriptLines = useMemo(() => {
     if (!story || !activeEpisode) return [];
@@ -762,7 +724,7 @@ export function StoryPageClient({
               </div>
             </div>
           ) : (
-            <>
+            <div className="flex aspect-[4/5] min-h-0 flex-col self-start">
               <div className="mb-4 mt-5 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-100 text-sky-600">
@@ -773,47 +735,15 @@ export function StoryPageClient({
                     <StoryNarratorLine narrators={story.narrators} />
                   </div>
                 </div>
-                {useEpisodeWindow ? (
-                  <div className="flex flex-col items-end gap-1">
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setEpisodeWindowStart((s) => Math.max(0, s - 1))
-                        }
-                        disabled={episodeWindowStart <= 0}
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:pointer-events-none disabled:opacity-40"
-                        aria-label="Show earlier episodes"
-                      >
-                        <ChevronUp className="h-5 w-5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setEpisodeWindowStart((s) =>
-                            Math.min(maxEpisodeWindowStart, s + 1)
-                          )
-                        }
-                        disabled={episodeWindowStart >= maxEpisodeWindowStart}
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:pointer-events-none disabled:opacity-40"
-                        aria-label="Show later episodes"
-                      >
-                        <ChevronDown className="h-5 w-5" />
-                      </button>
-                    </div>
-                    <span className="text-xs font-medium text-slate-400">
-                      {episodeWindowStart + 1}–
-                      {Math.min(
-                        episodeWindowStart + EPISODE_WINDOW_SIZE,
-                        episodeCount
-                      )}{' '}
-                      of {episodeCount}
-                    </span>
-                  </div>
-                ) : null}
+                <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
+                  {episodeCount} {episodeCount === 1 ? 'episode' : 'episodes'}
+                </div>
               </div>
 
-              <ul className="divide-y divide-slate-200" aria-live="polite">
+              <ul
+                className="min-h-0 flex-1 divide-y divide-slate-200 overflow-y-auto pr-2"
+                aria-live="polite"
+              >
                 {showSeriesThemeRow ? (
                   <li>
                     <div
@@ -882,8 +812,7 @@ export function StoryPageClient({
                     </div>
                   </li>
                 ) : null}
-                {visibleEpisodeIndices.map((index) => {
-                  const episode = story.episodes[index];
+                {story.episodes.map((episode, index) => {
                   const episodeLocked = isEpisodeLockedAtIndex(index);
                   const active =
                     coverPlaybackSelection === 'episode' &&
@@ -956,7 +885,7 @@ export function StoryPageClient({
                   );
                 })}
               </ul>
-            </>
+            </div>
           )}
         </section>
         </main>
