@@ -1,9 +1,35 @@
+import { z } from 'zod';
 import type { GenerationRequest } from '@/lib/story-studio/types';
 import {
   scriptPackagePayloadSchema,
   scriptPackageStorageSchema,
   type ScriptPackagePayloadParsed,
 } from '@/lib/story-studio/schemas/llm-output';
+
+function formatScriptPackageValidationError(error: z.ZodError): string {
+  const parts = error.issues.map((issue) => {
+    const [root, index, field] = issue.path;
+    if (root === 'episodes' && typeof index === 'number') {
+      const fieldLabel =
+        field === 'scriptText'
+          ? 'script text'
+          : field === 'summary'
+            ? 'summary'
+            : field === 'title'
+              ? 'title'
+              : field != null
+                ? String(field)
+                : 'field';
+      return `Episode ${index + 1} ${fieldLabel}: ${issue.message}`;
+    }
+    const path =
+      issue.path.length > 0 ? issue.path.map(String).join('.') : 'form';
+    return `${path}: ${issue.message}`;
+  });
+  return (
+    parts.slice(0, 8).join('; ') || 'Script package validation failed.'
+  );
+}
 
 export type EpisodeRowInput = {
   title: string;
@@ -119,19 +145,36 @@ export function mergeScriptPackageWithEpisodes(
     };
   }
   const pkg = scriptPackage as ScriptPackagePayloadParsed;
-  const mergedEpisodes = episodeRows.map((ep, i) => {
+  const mergedEpisodes: Array<{
+    title: string;
+    summary: string;
+    scriptText: string;
+    hookEnding?: string;
+  }> = [];
+
+  for (let i = 0; i < episodeRows.length; i++) {
+    const ep = episodeRows[i];
     const prev = pkg.episodes[i];
     const rawSummary = (ep.summary ?? '').trim();
     const summary =
       rawSummary ||
       (prev?.summary?.trim() ? prev.summary : 'Episode summary pending.');
-    return {
+    const scriptText =
+      ep.scriptText.trim() || (prev?.scriptText?.trim() ?? '');
+    if (!scriptText) {
+      const label = ep.title.trim() || `Episode ${i + 1}`;
+      return {
+        ok: false,
+        message: `Episode ${i + 1} (“${label}”): add script text before saving. Expand the episode in the Script tab if it is collapsed.`,
+      };
+    }
+    mergedEpisodes.push({
       title: ep.title.trim() || `Episode ${i + 1}`,
       summary,
-      scriptText: ep.scriptText,
+      scriptText,
       hookEnding: prev?.hookEnding,
-    };
-  });
+    });
+  }
 
   const next: ScriptPackagePayloadParsed = {
     ...pkg,
@@ -144,14 +187,10 @@ export function mergeScriptPackageWithEpisodes(
 
   const parsed = scriptPackageStorageSchema.safeParse(next);
   if (!parsed.success) {
-    const flat = parsed.error.flatten();
-    const form = Object.entries(flat.fieldErrors)
-      .map(([k, v]) => (Array.isArray(v) ? `${k}: ${v.join(', ')}` : ''))
-      .filter(Boolean)
-      .slice(0, 8)
-      .join('; ');
-    const msg = form || flat.formErrors.join('; ') || 'Script package validation failed.';
-    return { ok: false, message: msg };
+    return {
+      ok: false,
+      message: formatScriptPackageValidationError(parsed.error),
+    };
   }
   return { ok: true, data: parsed.data };
 }
