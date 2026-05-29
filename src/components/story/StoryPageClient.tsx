@@ -52,7 +52,11 @@ type SeriesThemeLoadState = 'loading' | 'ready' | 'none';
 
 /** Episodes track list: Full track / Preview / Read more share typography; color is per-label. */
 const TRACKLIST_LABEL_CLASS =
-  'shrink-0 whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.18em]';
+  'hidden shrink-0 whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.18em] sm:inline';
+
+/** Episode title in track list: wrap on narrow viewports; single-line truncate from sm up. */
+const TRACKLIST_TITLE_CLASS =
+  'min-w-0 flex-1 text-base font-bold leading-snug text-slate-900 line-clamp-2 sm:line-clamp-1 sm:truncate';
 
 type RecommendedStory = {
   slug: string;
@@ -794,7 +798,7 @@ export function StoryPageClient({
                           />
                         </span>
                         <span className="flex min-w-0 flex-1 items-center gap-2">
-                          <span className="min-w-0 flex-1 truncate text-base font-bold text-slate-900">
+                          <span className={TRACKLIST_TITLE_CLASS}>
                             Series theme music
                           </span>
                           <span className={`${TRACKLIST_LABEL_CLASS} text-slate-400`}>
@@ -843,15 +847,15 @@ export function StoryPageClient({
                             ? `Episode ${episode.episodeNumber}: ${episode.title} — create your account to listen`
                             : `Select episode ${episode.episodeNumber}: ${episode.title}`
                         }
-                        className={`flex min-w-0 w-full max-w-full cursor-pointer items-center gap-2 overflow-hidden rounded-lg px-1 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 ${
+                        className={`flex min-w-0 w-full max-w-full cursor-pointer items-start gap-2 overflow-hidden rounded-lg px-1 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 sm:items-center ${
                           active ? '' : 'hover:bg-slate-50/80'
                         }`}
                       >
-                        <span className="flex w-7 shrink-0 justify-end text-xs font-bold tabular-nums text-slate-400">
+                        <span className="flex w-7 shrink-0 justify-end pt-0.5 text-xs font-bold tabular-nums text-slate-400 sm:pt-0">
                           {episode.episodeNumber}
                         </span>
                         <span className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-1">
-                          <span className="min-w-0 truncate text-base font-bold text-slate-900">
+                          <span className={TRACKLIST_TITLE_CLASS}>
                             {episode.title}
                           </span>
                           {episode.isFreePreview ? (
@@ -882,7 +886,7 @@ export function StoryPageClient({
                             Read more
                           </button>
                         ) : null}
-                        <span className="shrink-0 tabular-nums text-sm font-semibold text-slate-500">
+                        <span className="shrink-0 pt-0.5 tabular-nums text-sm font-semibold text-slate-500 sm:pt-0">
                           {durationLabel}
                         </span>
                       </div>
