@@ -5,7 +5,7 @@ export const customerListQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
   q: z.string().max(200).optional().or(z.literal('')),
   accountStatus: z
-    .enum(['all', 'active', 'suspended', 'banned', 'pending', 'deleted'])
+    .enum(['all', 'active', 'suspended', 'banned', 'pending', 'deleted', 'archived'])
     .default('all'),
   role: z.string().max(64).optional().or(z.literal('')),
   plan: z.enum(['all', 'free', 'paying', 'premium_profile', 'past_due']).default('all'),
@@ -58,7 +58,7 @@ export const customerCreditsBodySchema = z.object({
 });
 
 export const customerStatusBodySchema = z.object({
-  accountStatus: z.enum(['active', 'suspended', 'banned', 'pending', 'deleted']),
+  accountStatus: z.enum(['active', 'suspended', 'banned', 'pending', 'deleted', 'archived']),
   reason: z.string().min(3).max(2000),
 });
 
@@ -99,6 +99,11 @@ export const bulkActionSchema = z.discriminatedUnion('action', [
   }),
   z.object({
     action: z.literal('activate'),
+    userIds: z.array(z.string().cuid()).min(1).max(200),
+    reason: z.string().min(3).max(2000),
+  }),
+  z.object({
+    action: z.literal('archive'),
     userIds: z.array(z.string().cuid()).min(1).max(200),
     reason: z.string().min(3).max(2000),
   }),

@@ -7,6 +7,7 @@ export function AccountStatusBadge({ status }: { status: string }) {
     banned: 'bg-rose-50 text-rose-800 ring-rose-100',
     pending: 'bg-slate-100 text-slate-700 ring-slate-200',
     deleted: 'bg-neutral-200 text-neutral-700 ring-neutral-300',
+    archived: 'bg-slate-200 text-slate-600 ring-slate-300',
   };
   return (
     <span

@@ -296,6 +296,7 @@ export function CustomersAdminClient() {
               <option value="banned">Banned</option>
               <option value="pending">Pending</option>
               <option value="deleted">Deleted</option>
+              <option value="archived">Archived</option>
             </select>
           </label>
           <label className="flex flex-col gap-1 text-xs font-semibold text-slate-500">
@@ -679,6 +680,7 @@ export function CustomersAdminClient() {
         confirmLabel="Run action"
         danger={
           bulkAction === 'suspend' ||
+          bulkAction === 'archive' ||
           bulkAction === 'flag' ||
           bulkAction === 'remove_tag'
         }
@@ -694,6 +696,7 @@ export function CustomersAdminClient() {
               onChange={(e) => setBulkAction(e.target.value)}
             >
               <option value="suspend">Suspend</option>
+              <option value="archive">Archive</option>
               <option value="activate">Activate</option>
               <option value="flag">Flag</option>
               <option value="unflag">Unflag</option>

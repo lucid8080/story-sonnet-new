@@ -15,6 +15,7 @@ enum AccountStatus {
   banned
   pending
   deleted
+  archived
 }
 
 enum RiskLevel {

@@ -274,7 +274,7 @@ export function CustomerDetailClient({ customerId }: { customerId: string }) {
       return;
     }
     if (
-      (status === 'banned' || status === 'suspended') &&
+      (status === 'banned' || status === 'suspended' || status === 'archived') &&
       !window.confirm(`Change account status to ${status}?`)
     ) {
       return;
@@ -1007,6 +1007,13 @@ export function CustomerDetailClient({ customerId }: { customerId: string }) {
               onClick={() => void postStatus('active')}
             >
               Activate
+            </button>
+            <button
+              type="button"
+              className="rounded-xl bg-slate-600 px-3 py-2 text-sm font-semibold text-white"
+              onClick={() => void postStatus('archived')}
+            >
+              Archive
             </button>
             <button
               type="button"

@@ -113,6 +113,7 @@ export async function POST(req: Request) {
             where: { userId },
             data: { accountStatus: 'suspended' },
           });
+          await tx.session.deleteMany({ where: { userId } });
           await recordCustomerAudit(tx, {
             userId,
             actorAdminId: adminId,
@@ -145,6 +146,30 @@ export async function POST(req: Request) {
               bulk: true,
               before: before.accountStatus,
               after: 'active',
+            },
+          });
+          affected += 1;
+        });
+      }
+    } else if (action.action === 'archive') {
+      for (const userId of action.userIds) {
+        await prisma.$transaction(async (tx) => {
+          const before = await tx.profile.findUnique({ where: { userId } });
+          if (!before) return;
+          await tx.profile.update({
+            where: { userId },
+            data: { accountStatus: 'archived' },
+          });
+          await tx.session.deleteMany({ where: { userId } });
+          await recordCustomerAudit(tx, {
+            userId,
+            actorAdminId: adminId,
+            actionType: CUSTOMER_AUDIT_ACTIONS.STATUS_CHANGE,
+            reason: action.reason,
+            metadata: {
+              bulk: true,
+              before: before.accountStatus,
+              after: 'archived',
             },
           });
           affected += 1;

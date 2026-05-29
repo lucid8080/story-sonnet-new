@@ -38,6 +38,11 @@ export function buildCustomerWhere(
     and.push({
       profile: { is: { accountStatus } },
     });
+  } else {
+    // Default list hides archived customers; use accountStatus=archived to review them.
+    and.push({
+      profile: { is: { accountStatus: { not: 'archived' } } },
+    });
   }
 
   if (role && role.trim()) {
@@ -203,7 +208,7 @@ export async function getCustomerGlobalStats() {
     recentActivity,
     flagged,
   ] = await Promise.all([
-    prisma.profile.count(),
+    prisma.profile.count({ where: { accountStatus: { not: 'archived' } } }),
     prisma.profile.count({ where: { accountStatus: 'active' } }),
     prisma.profile.count({ where: { createdAt: { gte: weekAgo } } }),
     prisma.profile.count({

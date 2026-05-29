@@ -5,6 +5,7 @@ import {
   CUSTOMER_AUDIT_ACTIONS,
   recordCustomerAudit,
 } from '@/lib/admin/customers/audit';
+import { isDeactivatedAccountStatus } from '@/lib/admin/customers/accountStatus';
 import { customerStatusBodySchema } from '@/lib/validation/customerSchemas';
 
 export async function POST(
@@ -42,6 +43,9 @@ export async function POST(
         where: { userId: id },
         data: { accountStatus },
       });
+      if (isDeactivatedAccountStatus(accountStatus)) {
+        await tx.session.deleteMany({ where: { userId: id } });
+      }
       await recordCustomerAudit(tx, {
         userId: id,
         actorAdminId: adminId,

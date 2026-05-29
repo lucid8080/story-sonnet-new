@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import prisma from '@/lib/prisma';
 import { resolvePublicAssetUrl } from '@/lib/resolvePublicAssetUrl';
 import { touchProfileLastActiveAt } from '@/lib/admin/customers/aggregates';
+import { isLoginAllowedAccountStatus } from '@/lib/admin/customers/accountStatus';
 import { normalizeFeatureTags } from '@/lib/features/customStoriesAccessCore';
 import { getGenerationSettingsForSession } from '@/lib/generation/settings';
 
@@ -37,6 +38,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const ok = await bcrypt.compare(password, user.password);
         if (!ok) return null;
 
+        const profile = await prisma.profile.findUnique({
+          where: { userId: user.id },
+          select: { accountStatus: true },
+        });
+        if (!profile || !isLoginAllowedAccountStatus(profile.accountStatus)) {
+          return null;
+        }
+
         // Return a minimal, JSON-safe user payload to avoid leaking fields
         // (like the password hash) into the JWT/session pipeline.
         return {
@@ -57,6 +66,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       : []),
   ],
   callbacks: {
+    async signIn({ user }) {
+      if (!user.id) return false;
+      const profile = await prisma.profile.findUnique({
+        where: { userId: user.id },
+        select: { accountStatus: true },
+      });
+      if (!profile) return true;
+      return isLoginAllowedAccountStatus(profile.accountStatus);
+    },
     async jwt({ token, user }) {
       if (user?.email) {
         token.email = user.email;
@@ -101,8 +119,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             }
             const p = await prisma.profile.findUnique({
               where: { userId },
-              select: { role: true, subscriptionStatus: true, internalTags: true },
+              select: {
+                role: true,
+                subscriptionStatus: true,
+                internalTags: true,
+                accountStatus: true,
+              },
             });
+            if (p && !isLoginAllowedAccountStatus(p.accountStatus)) {
+              return { expires: session.expires };
+            }
             session.user.role = p?.role ?? (token.role as string) ?? 'user';
             session.user.subscriptionStatus =
               p?.subscriptionStatus ??
