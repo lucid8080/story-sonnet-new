@@ -162,7 +162,7 @@ export default function LibraryBrowseClient({
           ) : (
             <ul className="grid list-none grid-cols-2 gap-6 p-0 xl:grid-cols-3">
               {results.map((story) => (
-                <li key={story.slug}>
+                <li key={story.slug} className="min-w-0">
                   <StoryCard
                     story={story}
                     spotlightBadge={spotlightBadgeBySlug[story.slug]}

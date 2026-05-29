@@ -425,14 +425,14 @@ export function StoryPageClient({
 
   return (
     <StoryEngagementProvider storySlug={story.slug}>
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-violet-50 text-slate-800">
-        <main className="mx-auto grid max-w-6xl gap-8 px-5 py-5 sm:px-7 lg:grid-cols-[0.88fr_1.12fr] lg:px-8 lg:py-6">
+      <div className="min-h-screen w-full overflow-x-clip bg-gradient-to-b from-slate-50 via-white to-violet-50 text-slate-800">
+        <main className="mx-auto grid w-full min-w-0 max-w-6xl gap-8 px-5 py-5 sm:px-7 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)] lg:px-8 lg:py-6">
         {spotlightInfoBar ? (
           <div className="lg:col-span-2">
             <SpotlightInfoBar spotlight={spotlightInfoBar} />
           </div>
         ) : null}
-        <section>
+        <section className="min-w-0 w-full max-w-full">
           <div className="mb-4 flex items-center justify-end gap-3">
             <div className="flex items-center gap-2">
               <button
@@ -461,9 +461,9 @@ export function StoryPageClient({
               <StorySeriesLibraryButton />
             </div>
           </div>
-          <div className="overflow-hidden rounded-[2rem] bg-white shadow-xl shadow-slate-200 ring-1 ring-slate-100 [perspective:1200px]">
+          <div className="w-full max-w-full overflow-hidden rounded-[2rem] bg-white shadow-xl shadow-slate-200 ring-1 ring-slate-100 [perspective:1200px]">
             <div
-              className={`relative aspect-[4/5] transition-transform duration-500 motion-reduce:duration-0 [transform-style:preserve-3d] ${
+              className={`relative aspect-[4/5] w-full max-w-full transition-transform duration-500 motion-reduce:duration-0 [transform-style:preserve-3d] ${
                 isCoverFlipped ? '[transform:rotateY(180deg)]' : ''
               }`}
             >
@@ -482,7 +482,7 @@ export function StoryPageClient({
                       fill
                       sizes="(max-width: 1024px) 100vw, 55vw"
                       priority
-                      className="object-cover object-top"
+                      className="max-w-full object-cover object-top"
                     />
                   )}
                   {spotlightBadge ? (
@@ -577,7 +577,12 @@ export function StoryPageClient({
                               Play from the cover
                             </div>
                             <div className="text-xs leading-5 text-white/75">
-                              Pick an episode on the right, then hit play here.
+                              <span className="lg:hidden">
+                                Pick an episode below, then hit play here.
+                              </span>
+                              <span className="hidden lg:inline">
+                                Pick an episode on the right, then hit play here.
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -686,9 +691,9 @@ export function StoryPageClient({
           </div>
         </section>
 
-        <section>
+        <section className="min-w-0 w-full max-w-full">
           {showTranscript && transcriptLines.length > 0 ? (
-            <div className="aspect-[4/5] self-start overflow-hidden rounded-[1.6rem] bg-white shadow-lg ring-1 ring-slate-100">
+            <div className="aspect-[4/5] w-full max-w-full self-start overflow-hidden rounded-[1.6rem] bg-white shadow-lg ring-1 ring-slate-100">
               <div className="flex h-full flex-col p-5">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
@@ -724,7 +729,7 @@ export function StoryPageClient({
               </div>
             </div>
           ) : (
-            <div className="flex aspect-[4/5] min-h-0 flex-col self-start">
+            <div className="flex aspect-[4/5] min-h-0 w-full max-w-full flex-col self-start">
               <div className="mb-4 mt-5 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-100 text-sky-600">
@@ -741,7 +746,7 @@ export function StoryPageClient({
               </div>
 
               <ul
-                className="min-h-0 flex-1 divide-y divide-slate-200 overflow-y-auto pr-2"
+                className="min-h-0 min-w-0 flex-1 divide-y divide-slate-200 overflow-x-hidden overflow-y-auto pr-2"
                 aria-live="polite"
               >
                 {showSeriesThemeRow ? (
@@ -767,7 +772,7 @@ export function StoryPageClient({
                         }}
                         disabled={seriesThemeLoad === 'loading'}
                         aria-busy={seriesThemeLoad === 'loading'}
-                        className="flex w-full items-center gap-3 rounded-md py-0 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 disabled:cursor-default"
+                        className="flex min-w-0 w-full max-w-full items-center gap-3 overflow-hidden rounded-md py-0 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 disabled:cursor-default"
                         aria-label={
                           seriesThemeLoad === 'loading'
                             ? 'Loading series theme music'
@@ -838,7 +843,7 @@ export function StoryPageClient({
                             ? `Episode ${episode.episodeNumber}: ${episode.title} — create your account to listen`
                             : `Select episode ${episode.episodeNumber}: ${episode.title}`
                         }
-                        className={`flex w-full cursor-pointer items-center gap-2 rounded-lg px-1 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 ${
+                        className={`flex min-w-0 w-full max-w-full cursor-pointer items-center gap-2 overflow-hidden rounded-lg px-1 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 ${
                           active ? '' : 'hover:bg-slate-50/80'
                         }`}
                       >

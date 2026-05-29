@@ -20,7 +20,7 @@ export default function StoryCard({ story, spotlightBadge = null }: Props) {
     <Link
       href={`/story/${story.slug}`}
       prefetch={false}
-      className="group flex h-full flex-col overflow-hidden rounded-2xl bg-white shadow-lg shadow-slate-200/70 ring-1 ring-slate-100 transition duration-300 hover:shadow-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-400"
+      className="group flex h-full min-w-0 w-full flex-col overflow-hidden rounded-2xl bg-white shadow-lg shadow-slate-200/70 ring-1 ring-slate-100 transition duration-300 hover:shadow-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-400"
     >
       <StoryCoverWithSpotlight spotlight={spotlightBadge}>
         <div
