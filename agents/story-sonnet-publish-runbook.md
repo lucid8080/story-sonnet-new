@@ -7,7 +7,7 @@ Handoff for posting new Story Sonnet media/content. Aligned with the `story-app`
 ## Agent FAQ (quick reference)
 
 **How do I add or upload audio episodes?**  
-Still **`/admin/uploads`**: choose **audio**, optionally set **story slug** and **audio subfolder** (e.g. `music`), upload → `POST /api/upload` returns **`storageKey`**. Keys use the **sanitized filename only** (no timestamp), e.g. `audio/<slug>/episode-01.mp3` or `audio/<slug>/music/theme.mp3`. Re-uploading the same path **overwrites** the object. Paste **`storageKey`** into the episode **“Private audio key”** in **`/admin/stories`**, **Save**, then set **`isPublished`** on the story and each episode that should be public. The browser flow goes through the admin UI; the API is the integration point (agents send the same `FormData` fields).
+Preferred for story episodes: in **`/admin/stories`** → open a story → episode row → **Private audio key** → **Upload MP3** (sets the key + duration when parseable) or **Browse episode audio in R2** (lists private-bucket `.mp3` keys via **`GET /api/admin/audio`**, scoped to all `audio/` or `audio/<slug>/`). Still works: **`/admin/uploads`** → choose **audio**, optional **story slug** / **audio subfolder** → `POST /api/upload` returns **`storageKey`** to paste by hand. Keys use the **sanitized filename only** (no timestamp), e.g. `audio/<slug>/episode-01.mp3` or `audio/<slug>/music/theme.mp3`. Re-uploading the same path **overwrites** the object. After the key is set, **Save**, then set **`isPublished`** on the story and each episode that should be public. Agents use the same **`FormData`** on **`POST /api/upload`**.
 
 **Is audio uploaded directly to S3/R2, or only via admin?**  
 Normal path is **admin UI → server → S3-compatible API** (`@aws-sdk/client-s3`, `PutObject` in `src/lib/s3.ts`). Covers get a public **`fileUrl`**; private episode files get a **key** stored as **`Episode.audioStorageKey`**. Optional **`Upload`** rows are audit metadata only. Playback uses **signed URLs** from **`/api/audio/play`**, not raw keys on the client.
@@ -20,6 +20,9 @@ TTS uploads MP3s and stores keys on the draft (`StoryStudioGeneratedAsset`). The
 
 **How do I pick an existing cover image from R2 without pasting a URL by hand?**  
 In **`/admin/stories`** → open a story → **Basic info** → **Browse covers in R2**. That loads a thumbnail grid from **`GET /api/admin/covers`** (admin-only, `ListObjectsV2` on the public bucket under `covers/…`, paginated). Pick a tile to set **`coverUrl`**; scope can be **all covers** or **this story’s folder** when the slug is valid. Same R2/S3 credentials and public base URL expectations as **`POST /api/upload`** (see `src/lib/s3.ts`).
+
+**How do I pick an existing episode MP3 from R2 without pasting the key by hand?**  
+In **`/admin/stories`** → episode → **Browse episode audio in R2**. That loads keys from **`GET /api/admin/audio`** (admin-only, `ListObjectsV2` on the **private** audio bucket under `audio/…`, `.mp3` only, paginated). Pick a row to set **`audioStorageKey`**; scope can be **all audio** or **this story’s folder** when the slug is valid.
 
 **Cover images: WebP display vs original on R2**  
 **`POST /api/upload`** (cover, blog image, spotlight badge) stores the **original** bytes at the requested key and a compressed **`_display.webp`** sidecar next to it (same basename + `_display.webp`). The JSON **`fileUrl`** is always the **display WebP** URL to paste into **`Story.coverUrl`** / blog fields so the site does not rely on Vercel Image Optimization. **`originalFileUrl`** / **`originalStoragePath`** point at the untouched upload. **`Upload`** audit rows may include two lines (original + display). Story Studio generated covers follow the same pattern; see **`metadata.originalPublicUrl`** on **`StoryStudioGeneratedAsset`**. Local static fallbacks: run **`npm run optimize:public-images`** to generate **`{base}_display.webp`** from PNG/JPEG under **`public/`**, then reference those paths (e.g. in **`src/data.js`**).
@@ -82,7 +85,8 @@ More detail: [Prisma — production troubleshooting / resolve](https://www.prism
 
 - Same uploads page + `FormData` field `assetKind=audio`; optional `storySlug`, optional `audioSubPath` (e.g. `music` or `music/extra`) — requires slug when subpath is set.
 - Same `src/app/api/upload/route.ts` → `uploadPrivateAudioObject` (e.g. `audio/<file>`, `audio/<slug>/<file>`, or `audio/<slug>/music/<file>`).
-- Link to episode: `src/components/admin/stories/StoryEpisodesSection.tsx` (“Private audio key” / `audioUrl`).
+- Link to episode: `src/components/admin/stories/StoryEpisodesSection.tsx` (“Private audio key” / `audioUrl`) — inline **Upload MP3** (same `POST /api/upload`) and **Browse episode audio in R2** via `GET` `src/app/api/admin/audio/route.ts` (private bucket, `.mp3` under `audio/`).
+- Shared prefix validation: `src/lib/admin/safe-audio-prefix.ts` (also used by transcript listing).
 
 **Create / edit story + episodes**
 
@@ -145,7 +149,7 @@ More detail: [Prisma — production troubleshooting / resolve](https://www.prism
 
 1. Log in as user with **`profiles.role = 'admin'`**. Ensure **`DATABASE_URL`** and R2/S3 env vars (`src/lib/s3.ts` / `.env.example`).
 2. **Cover**: `/admin/uploads` → optionally set **story slug** → choose file (meaningful name; same path overwrites) → copy **`fileUrl`** → `/admin/stories` → story → cover field → **Save** (`StoryEditor` → `PATCH .../api/admin/stories/<patchKey>`).
-3. **Audio**: uploads → set kind **audio** → optional **story slug** / **audio subfolder** → copy **`storageKey`** → episode row **Private audio key** → **Save** (same PATCH).
+3. **Audio**: in `/admin/stories` episode row → **Upload MP3** or **Browse episode audio in R2** (or `/admin/uploads` → kind **audio** → copy **`storageKey`**) → **Private audio key** set → **Save** (same PATCH).
 4. **Publish**: Discovery / episodes UI → turn **`isPublished`** on for story and each episode that should play → **Save**.
 5. Confirm: open `/story/<slug>` as anonymous (or non-admin); audio should load via **`/api/audio/play`**.
 

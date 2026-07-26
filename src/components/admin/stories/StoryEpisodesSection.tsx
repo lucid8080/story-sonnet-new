@@ -1,12 +1,12 @@
 'use client';
 
-import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ChevronDown, ChevronUp, Plus, Trash2, Upload } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { StoryFormState } from '@/lib/admin/story-form';
 import { emptyEpisodeForm } from '@/lib/admin/story-form';
 import { isValidStorySlug, normalizeStorySlug } from '@/lib/slug';
 
-type TranscriptListItem = { key: string };
+type StorageListItem = { key: string };
 
 export default function StoryEpisodesSection({
   form,
@@ -191,19 +191,14 @@ export default function StoryEpisodesSection({
                   placeholder="https://… or /audio/… when not using private R2"
                 />
               </label>
-              <label className="block sm:col-span-2">
-                <span className="text-[11px] font-bold text-slate-600">
-                  Private audio key (R2 object key, paywalled)
-                </span>
-                <input
-                  className={field}
-                  value={ep.audioStorageKey}
-                  onChange={(e) =>
-                    updateEp(index, { audioStorageKey: e.target.value })
-                  }
-                  placeholder="e.g. audio/story-slug/episode-1.mp3"
-                />
-              </label>
+              <EpisodeAudioField
+                episodeIndex={index}
+                storySlug={normalizedSlug}
+                canScopeToStory={canScopeTranscriptsToStory}
+                audioStorageKey={ep.audioStorageKey}
+                fieldClass={field}
+                onAudioChange={(patch) => updateEp(index, patch)}
+              />
               <EpisodeTranscriptField
                 episodeIndex={index}
                 storySlug={normalizedSlug}
@@ -258,6 +253,328 @@ export default function StoryEpisodesSection({
   );
 }
 
+function EpisodeAudioField({
+  episodeIndex,
+  storySlug,
+  canScopeToStory,
+  audioStorageKey,
+  fieldClass,
+  onAudioChange,
+}: {
+  episodeIndex: number;
+  storySlug: string;
+  canScopeToStory: boolean;
+  audioStorageKey: string;
+  fieldClass: string;
+  onAudioChange: (patch: {
+    audioStorageKey?: string;
+    durationSeconds?: string;
+  }) => void;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [scope, setScope] = useState<'all' | 'story'>('story');
+  const [items, setItems] = useState<StorageListItem[]>([]);
+  const [nextToken, setNextToken] = useState<string | undefined>();
+  const [loading, setLoading] = useState(false);
+  const [loadMoreLoading, setLoadMoreLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [uploadNote, setUploadNote] = useState<string | null>(null);
+
+  const listPrefix = useMemo(() => {
+    if (scope === 'story' && canScopeToStory) {
+      return `audio/${storySlug}/`;
+    }
+    return 'audio/';
+  }, [scope, canScopeToStory, storySlug]);
+
+  useEffect(() => {
+    if (scope === 'story' && !canScopeToStory) {
+      setScope('all');
+    }
+  }, [scope, canScopeToStory]);
+
+  const fetchPage = useCallback(
+    async (opts: {
+      continuationToken?: string;
+      append: boolean;
+      signal?: AbortSignal;
+    }) => {
+      const qs = new URLSearchParams({
+        prefix: listPrefix,
+        maxKeys: '300',
+      });
+      if (opts.continuationToken) {
+        qs.set('continuationToken', opts.continuationToken);
+      }
+      const res = await fetch(`/api/admin/audio?${qs.toString()}`, {
+        signal: opts.signal,
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        items?: StorageListItem[];
+        nextContinuationToken?: string;
+      };
+      if (!res.ok) {
+        throw new Error(data.error || `Request failed (${res.status})`);
+      }
+      const pageItems = data.items ?? [];
+      setNextToken(data.nextContinuationToken);
+      if (opts.append) {
+        setItems((prev) => {
+          const seen = new Set(prev.map((x) => x.key));
+          const merged = [...prev];
+          for (const it of pageItems) {
+            if (!seen.has(it.key)) {
+              seen.add(it.key);
+              merged.push(it);
+            }
+          }
+          return merged;
+        });
+      } else {
+        setItems(pageItems);
+      }
+    },
+    [listPrefix]
+  );
+
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const ac = new AbortController();
+    let cancelled = false;
+    setError(null);
+    setLoading(true);
+    setNextToken(undefined);
+    setItems([]);
+    fetchPage({ append: false, signal: ac.signal })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        if (e instanceof DOMException && e.name === 'AbortError') return;
+        setError(
+          e instanceof Error ? e.message : 'Failed to load episode audio files'
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+      ac.abort();
+    };
+  }, [pickerOpen, listPrefix, fetchPage]);
+
+  const onLoadMore = async () => {
+    if (!nextToken || loadMoreLoading) return;
+    setLoadMoreLoading(true);
+    setError(null);
+    try {
+      await fetchPage({ continuationToken: nextToken, append: true });
+    } catch (e: unknown) {
+      setError(
+        e instanceof Error ? e.message : 'Failed to load more episode audio files'
+      );
+    } finally {
+      setLoadMoreLoading(false);
+    }
+  };
+
+  const onUploadFile = async (file: File) => {
+    setUploading(true);
+    setError(null);
+    setUploadNote(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('assetKind', 'audio');
+      if (canScopeToStory) {
+        fd.append('storySlug', storySlug);
+      }
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        storageKey?: string;
+        durationSeconds?: number | null;
+      };
+      if (!res.ok) {
+        throw new Error(data.error || `Upload failed (${res.status})`);
+      }
+      if (!data.storageKey?.trim()) {
+        throw new Error('Upload succeeded but no storageKey was returned');
+      }
+      const patch: {
+        audioStorageKey: string;
+        durationSeconds?: string;
+      } = { audioStorageKey: data.storageKey.trim() };
+      if (
+        typeof data.durationSeconds === 'number' &&
+        Number.isFinite(data.durationSeconds) &&
+        data.durationSeconds > 0
+      ) {
+        patch.durationSeconds = String(Math.round(data.durationSeconds));
+      }
+      onAudioChange(patch);
+      setUploadNote(`Uploaded: ${data.storageKey}`);
+      if (pickerOpen) {
+        try {
+          await fetchPage({ append: false });
+        } catch {
+          // List refresh is best-effort after upload.
+        }
+      }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Upload failed');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  return (
+    <div className="block sm:col-span-2">
+      <span className="text-[11px] font-bold text-slate-600">
+        Private audio key (R2 object key, paywalled)
+      </span>
+      <input
+        className={fieldClass}
+        value={audioStorageKey}
+        onChange={(e) => onAudioChange({ audioStorageKey: e.target.value })}
+        placeholder="e.g. audio/story-slug/episode-1.mp3"
+      />
+      <p className="mt-1 text-[11px] text-slate-500">
+        Upload an MP3 here or browse the private bucket. Same key rules as
+        /admin/uploads (filename only; re-upload overwrites).
+        {!canScopeToStory
+          ? ' Set a valid story slug to upload under audio/<slug>/.'
+          : null}
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="audio/mpeg,.mp3"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void onUploadFile(file);
+          }}
+        />
+        <button
+          type="button"
+          disabled={uploading}
+          onClick={() => fileInputRef.current?.click()}
+          className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50"
+        >
+          <Upload className="h-3.5 w-3.5" />
+          {uploading ? 'Uploading…' : 'Upload MP3'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setPickerOpen((o) => !o)}
+          className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-800 hover:bg-violet-100"
+        >
+          {pickerOpen ? 'Hide audio browser' : 'Browse episode audio in R2'}
+        </button>
+        <span className="text-[11px] text-slate-500">
+          Object key only (not the bucket name).
+        </span>
+      </div>
+      {uploadNote ? (
+        <p className="mt-1 text-[11px] text-emerald-700">{uploadNote}</p>
+      ) : null}
+      {error && !pickerOpen ? (
+        <p className="mt-1 text-xs text-rose-700">{error}</p>
+      ) : null}
+      {pickerOpen ? (
+        <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold text-slate-600">
+              Scope:
+            </span>
+            <button
+              type="button"
+              onClick={() => setScope('all')}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                scope === 'all'
+                  ? 'bg-violet-600 text-white'
+                  : 'bg-slate-50 text-slate-600 ring-1 ring-slate-200'
+              }`}
+            >
+              All audio
+            </button>
+            <button
+              type="button"
+              disabled={!canScopeToStory}
+              title={
+                !canScopeToStory
+                  ? 'Set a valid story slug to filter by this story’s folder'
+                  : undefined
+              }
+              onClick={() => setScope('story')}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
+                scope === 'story'
+                  ? 'bg-violet-600 text-white'
+                  : 'bg-slate-50 text-slate-600 ring-1 ring-slate-200'
+              }`}
+            >
+              This story (episode {episodeIndex + 1})
+            </button>
+            <code className="ml-auto max-w-full truncate rounded bg-slate-50 px-1.5 py-0.5 text-[10px] text-slate-600 ring-1 ring-slate-200">
+              {listPrefix}
+            </code>
+          </div>
+          {error ? <p className="mt-2 text-xs text-rose-700">{error}</p> : null}
+          {loading ? (
+            <p className="mt-3 text-xs text-slate-600">Loading episode audio…</p>
+          ) : items.length === 0 && !error ? (
+            <p className="mt-3 text-xs text-slate-600">
+              No .mp3 files in this prefix. Upload above or under{' '}
+              <code className="rounded bg-slate-100 px-1">audio/&lt;slug&gt;/</code>{' '}
+              and save the key.
+            </p>
+          ) : (
+            <ul className="mt-3 max-h-48 space-y-1 overflow-y-auto">
+              {items.map((it) => {
+                const selected = audioStorageKey.trim() === it.key.trim();
+                return (
+                  <li key={it.key}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onAudioChange({ audioStorageKey: it.key })
+                      }
+                      className={`w-full rounded-lg px-2 py-1.5 text-left text-xs transition ${
+                        selected
+                          ? 'bg-violet-100 font-semibold text-violet-900 ring-1 ring-violet-300'
+                          : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {it.key.replace(/^audio\//, '')}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {nextToken ? (
+            <button
+              type="button"
+              disabled={loadMoreLoading}
+              onClick={() => void onLoadMore()}
+              className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {loadMoreLoading ? 'Loading…' : 'Load more'}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function EpisodeTranscriptField({
   episodeIndex,
   storySlug,
@@ -277,7 +594,7 @@ function EpisodeTranscriptField({
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [scope, setScope] = useState<'all' | 'story'>('story');
-  const [items, setItems] = useState<TranscriptListItem[]>([]);
+  const [items, setItems] = useState<StorageListItem[]>([]);
   const [nextToken, setNextToken] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
   const [loadMoreLoading, setLoadMoreLoading] = useState(false);
@@ -314,7 +631,7 @@ function EpisodeTranscriptField({
       });
       const data = (await res.json().catch(() => ({}))) as {
         error?: string;
-        items?: TranscriptListItem[];
+        items?: StorageListItem[];
         nextContinuationToken?: string;
       };
       if (!res.ok) {

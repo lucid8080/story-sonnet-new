@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { assertSafeAudioPrefix } from '@/lib/admin/safe-audio-prefix';
+import {
+  assertSafeAudioPrefix,
+  isPrivateAudioMp3Key,
+} from '@/lib/admin/safe-audio-prefix';
 import {
   getPrivateAudioBucket,
   listObjectsV2SinglePage,
 } from '@/lib/s3';
-import { isTranscriptStorageKey } from '@/lib/transcripts/transcript-file-types';
 
 export const runtime = 'nodejs';
 
@@ -18,7 +20,10 @@ export async function GET(req: Request) {
   const bucket = getPrivateAudioBucket();
   if (!bucket) {
     return NextResponse.json(
-      { error: 'Missing private audio bucket (set R2_PRIVATE_BUCKET or R2_BUCKET).' },
+      {
+        error:
+          'Missing private audio bucket (set R2_PRIVATE_BUCKET or R2_BUCKET).',
+      },
       { status: 400 }
     );
   }
@@ -50,7 +55,7 @@ export async function GET(req: Request) {
     });
 
     const items = contents
-      .filter((c) => isTranscriptStorageKey(c.key))
+      .filter((c) => isPrivateAudioMp3Key(c.key))
       .map((c) => ({ key: c.key }));
 
     return NextResponse.json({
@@ -66,7 +71,7 @@ export async function GET(req: Request) {
     ) {
       return NextResponse.json({ error: message }, { status: 503 });
     }
-    console.error('[admin/transcripts]', e);
+    console.error('[admin/audio]', e);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
