@@ -43,42 +43,71 @@ export async function uploadPrivateAudioDirect(params: {
       ? params.file.type
       : 'audio/mpeg';
 
-  const presignRes = await fetch('/api/admin/audio/presign', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      fileName: params.file.name,
-      contentType,
-      storySlug: params.storySlug?.trim() || undefined,
-      audioSubPath: params.audioSubPath?.trim() || undefined,
-      bucket: params.bucket?.trim() || undefined,
-    }),
-  });
-  const presign = (await presignRes.json().catch(() => ({}))) as PresignAudioResponse;
-  if (!presignRes.ok) {
-    throw new Error(
-      presign.error || `Presign failed (${presignRes.status})`
-    );
+  let presign: PresignAudioResponse;
+  try {
+    const presignRes = await fetch('/api/admin/audio/presign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileName: params.file.name,
+        contentType,
+        storySlug: params.storySlug?.trim() || undefined,
+        audioSubPath: params.audioSubPath?.trim() || undefined,
+        bucket: params.bucket?.trim() || undefined,
+      }),
+    });
+    presign = (await presignRes.json().catch(() => ({}))) as PresignAudioResponse;
+    if (!presignRes.ok) {
+      throw new Error(
+        presign.error || `Presign failed (${presignRes.status})`
+      );
+    }
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message && !e.message.startsWith('Presign')) {
+      // Network/parse errors on same-origin presign are rare; rethrow as-is.
+      if (
+        e.message === 'Failed to fetch' ||
+        e.name === 'TypeError'
+      ) {
+        throw new Error(
+          'Could not reach /api/admin/audio/presign (Failed to fetch). Check you are logged in as admin and the deploy includes that route.'
+        );
+      }
+    }
+    throw e;
   }
+
   if (!presign.uploadUrl?.trim() || !presign.storageKey?.trim()) {
     throw new Error('Presign succeeded but uploadUrl/storageKey missing');
   }
 
-  const putRes = await fetch(presign.uploadUrl, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': presign.contentType || contentType,
-    },
-    body: params.file,
-  });
-  if (!putRes.ok) {
-    const hint =
-      putRes.status === 403 || putRes.status === 0
-        ? ' Check R2 CORS on the private audio bucket (Allow PUT from this site origin).'
-        : '';
-    throw new Error(
-      `Direct R2 upload failed (${putRes.status}).${hint}`
-    );
+  try {
+    const putRes = await fetch(presign.uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': presign.contentType || contentType,
+      },
+      body: params.file,
+    });
+    if (!putRes.ok) {
+      const hint =
+        putRes.status === 403
+          ? ' Check R2 CORS on the private audio bucket and that Content-Type was signed correctly.'
+          : '';
+      throw new Error(
+        `Direct R2 upload failed (${putRes.status}).${hint}`
+      );
+    }
+  } catch (e: unknown) {
+    if (
+      e instanceof TypeError ||
+      (e instanceof Error && e.message === 'Failed to fetch')
+    ) {
+      throw new Error(
+        'Failed to fetch while uploading to R2 (usually CORS). On the private audio bucket set AllowedHeaders to ["Content-Type"] (not "*"), AllowedMethods including PUT, and AllowedOrigins to this site’s exact origin.'
+      );
+    }
+    throw e;
   }
 
   const durationSeconds = await readLocalAudioDurationSeconds(params.file);

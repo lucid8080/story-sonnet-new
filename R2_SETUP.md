@@ -79,14 +79,16 @@ On the **private** bucket (Cloudflare → R2 → bucket → **Settings** → **C
       "http://localhost:3000"
     ],
     "AllowedMethods": ["GET", "PUT", "HEAD"],
-    "AllowedHeaders": ["*"],
+    "AllowedHeaders": ["Content-Type"],
     "ExposeHeaders": ["ETag", "Content-Type"],
     "MaxAgeSeconds": 3600
   }
 ]
 ```
 
-Without this, the UI may show **Direct R2 upload failed (403)** (or a browser CORS error) after the 413 fix is deployed.
+**Important:** use **`AllowedHeaders: ["Content-Type"]`** (literal). R2 often does **not** honor `AllowedHeaders: ["*"]`, which makes the browser report a generic **Failed to fetch** on the PUT preflight.
+
+Apply this on **`R2_PRIVATE_BUCKET`** (e.g. `story-sonnet-audio-private`), not the public assets bucket. Origins must match the address bar exactly (scheme + host, no trailing slash).
 
 Presign API: `POST /api/admin/audio/presign` (admin session) → `{ uploadUrl, storageKey, contentType }`. Client PUTs the file bytes to `uploadUrl` with that `Content-Type`.
 
