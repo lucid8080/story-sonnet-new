@@ -7,11 +7,11 @@ Hand this document to **story-sonnet-agent** (or any automation) so uploads stay
 
 ## Purpose
 
-Upload **cover images** (public R2 URL) and **episode audio** (private bucket; returns a **storage key** to paste into story admin). The browser uses **`/admin/uploads`**; the **integration surface** for raw file drops is **`POST /api/upload`** with **`multipart/form-data`**.
+Upload **cover images** (public R2 URL) and **episode audio** (private bucket; returns a **storage key** to paste into story admin). The browser uses **`/admin/uploads`**. **Covers** still go through **`POST /api/upload`**. **Episode MP3s on Vercel** must use **`POST /api/admin/audio/presign`** then **PUT** the file to the returned `uploadUrl` (Vercel rejects multipart bodies over **~4.5MB** with **413**). Server-side Story Studio / agent jobs that run **off** Vercel request bodies can still call **`uploadPrivateAudioObject`** / multipart upload for small files.
 
 ## Authentication
 
-- **`POST /api/upload`** and **`GET /api/admin/covers`** call **`auth()`** and require **`session.user.role === 'admin'`**.
+- **`POST /api/upload`**, **`POST /api/admin/audio/presign`**, and **`GET /api/admin/covers`** / **`GET /api/admin/audio`** call **`auth()`** and require **`session.user.role === 'admin'`**.
 - **403** if not admin.
 - There is **no** separate API key in-repo: automation must run in a context that has an **admin session** (e.g. browser session after login), unless you add a dedicated mechanism later.
 
@@ -31,11 +31,25 @@ Use this when you need an **existing** public cover URL for **`Story.coverUrl`**
 
 **Errors:** **403** (not admin), **400** (missing bucket config), **503** / **500** (credentials or list failures — see response body).
 
-## Story Studio vs `POST /api/upload`
+## Story Studio vs browser upload APIs
 
 **Story Studio** narration and theme steps typically write objects **server-side** during generation (`POST /api/admin/story-studio/generate/[step]`, orchestration in `src/lib/story-studio/orchestration/run-step.ts`). Draft assets live on **`StoryStudioGeneratedAsset`** until you **push to library** or run steps that sync to the linked story; then **`Episode.audioStorageKey`** (and related fields) update through the same admin upsert path as manual saves. See the runbook **Agent FAQ** (Story Studio / `librarySync`).
 
-Agents that **only** bulk-upload files from disk should use **`POST /api/upload`**. Agents that **generate** audio should follow the runbook and architecture reference — do not assume every byte goes through multipart `POST /api/upload`.
+Agents that **bulk-upload large MP3s from a browser/session on Vercel** must use **`POST /api/admin/audio/presign`** → HTTP **PUT** to `uploadUrl`. Agents that **only** bulk-upload **cover** files should use **`POST /api/upload`**. Agents that **generate** audio server-side should follow the runbook — do not assume every byte goes through multipart `POST /api/upload`.
+
+## Private audio (browser / large files): `POST /api/admin/audio/presign`
+
+**Content-Type:** `application/json`
+
+| Field | Required | Notes |
+|--------|----------|--------|
+| `fileName` | Yes | Original name; sanitized for the object leaf (must end in `.mp3`). |
+| `contentType` | No | Default `audio/mpeg`. |
+| `storySlug` | No | Same rules as upload; when set, leaf gets a unique token. |
+| `audioSubPath` | No | Same as upload; requires slug. |
+| `bucket` | No | Private bucket name override. |
+
+**Success (200):** `{ storageKey, uploadUrl, contentType, bucket }`. Client **PUT**s raw MP3 bytes to **`uploadUrl`** with header **`Content-Type: <contentType>`**. Private bucket **CORS** must allow PUT from the site origin (see `R2_SETUP.md`).
 
 ## Transcripts (FYI)
 

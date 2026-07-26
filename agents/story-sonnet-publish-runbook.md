@@ -7,7 +7,10 @@ Handoff for posting new Story Sonnet media/content. Aligned with the `story-app`
 ## Agent FAQ (quick reference)
 
 **How do I add or upload audio episodes?**  
-Preferred for story episodes: in **`/admin/stories`** → open a story → episode row → **Private audio key** → **Upload MP3** (sets the key + duration when parseable) or **Browse episode audio in R2** (lists private-bucket `.mp3` keys via **`GET /api/admin/audio`**, scoped to all `audio/` or `audio/<slug>/`). Still works: **`/admin/uploads`** → choose **audio**, optional **story slug** / **audio subfolder** → `POST /api/upload` returns **`storageKey`** to paste by hand. Keys use the **sanitized filename only** (no timestamp), e.g. `audio/<slug>/episode-01.mp3` or `audio/<slug>/music/theme.mp3`. Re-uploading the same path **overwrites** the object. After the key is set, **Save**, then set **`isPublished`** on the story and each episode that should be public. Agents use the same **`FormData`** on **`POST /api/upload`**.
+Preferred for story episodes: in **`/admin/stories`** → open a story → episode row → **Private audio key** → **Upload MP3** (browser **presigned PUT** to private R2 via **`POST /api/admin/audio/presign`**, then sets the key + client-derived duration) or **Browse episode audio in R2** (lists private-bucket `.mp3` keys via **`GET /api/admin/audio`**, scoped to all `audio/` or `audio/<slug>/`). Same direct-upload path on **`/admin/uploads`** when kind is **audio**. Do **not** send large MP3s through **`POST /api/upload`** on Vercel — bodies over **~4.5MB** return **HTTP 413**. Keys use the **sanitized filename only** (no timestamp), e.g. `audio/<slug>/episode-01.mp3` or `audio/<slug>/music/theme.mp3` (with slug, leaf gets a short unique token). Re-uploading the same path **overwrites** when slug is omitted. After the key is set, **Save**, then set **`isPublished`** on the story and each episode that should be public.
+
+**Browser MP3 upload fails with CORS / Direct R2 upload failed (403)?**  
+The private audio bucket needs an R2 **CORS** rule allowing **PUT** from your site origin(s) (production domain, `*.vercel.app`, and `http://localhost:3000` for local). See **`R2_SETUP.md`** § CORS for browser audio uploads.
 
 **Is audio uploaded directly to S3/R2, or only via admin?**  
 Normal path is **admin UI → server → S3-compatible API** (`@aws-sdk/client-s3`, `PutObject` in `src/lib/s3.ts`). Covers get a public **`fileUrl`**; private episode files get a **key** stored as **`Episode.audioStorageKey`**. Optional **`Upload`** rows are audit metadata only. Playback uses **signed URLs** from **`/api/audio/play`**, not raw keys on the client.
@@ -83,10 +86,12 @@ More detail: [Prisma — production troubleshooting / resolve](https://www.prism
 
 **Audio file**
 
-- Same uploads page + `FormData` field `assetKind=audio`; optional `storySlug`, optional `audioSubPath` (e.g. `music` or `music/extra`) — requires slug when subpath is set.
-- Same `src/app/api/upload/route.ts` → `uploadPrivateAudioObject` (e.g. `audio/<file>`, `audio/<slug>/<file>`, or `audio/<slug>/music/<file>`).
-- Link to episode: `src/components/admin/stories/StoryEpisodesSection.tsx` (“Private audio key” / `audioUrl`) — inline **Upload MP3** (same `POST /api/upload`) and **Browse episode audio in R2** via `GET` `src/app/api/admin/audio/route.ts` (private bucket, `.mp3` under `audio/`).
+- Admin UI: episode editor / uploads page → **presigned** browser PUT (`POST /api/admin/audio/presign` → R2 `PutObject`) via `src/lib/admin/upload-private-audio-client.ts` (avoids Vercel 4.5MB / 413).
+- Legacy/server path still: uploads `FormData` `assetKind=audio` on `POST` `src/app/api/upload/route.ts` → `uploadPrivateAudioObject` (fine for small files / non-Vercel; **not** for large MP3s on Vercel).
+- Keys: `audio/<file>`, `audio/<slug>/<file>`, or `audio/<slug>/music/<file>` (`src/lib/media-upload-keys.ts`).
+- Link to episode: `src/components/admin/stories/StoryEpisodesSection.tsx` (“Private audio key” / `audioUrl`) — **Upload MP3** + **Browse episode audio in R2** via `GET` `src/app/api/admin/audio/route.ts`.
 - Shared prefix validation: `src/lib/admin/safe-audio-prefix.ts` (also used by transcript listing).
+- Private bucket **CORS** required for browser PUT — see `R2_SETUP.md`.
 
 **Create / edit story + episodes**
 

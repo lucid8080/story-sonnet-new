@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { uploadPrivateAudioDirect } from '@/lib/admin/upload-private-audio-client';
 
 export default function AdminUploadsPage() {
   const [bucket, setBucket] = useState('');
@@ -20,38 +21,43 @@ export default function AdminUploadsPage() {
       setStatus('Choose a file.');
       return;
     }
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('assetKind', assetKind);
-    if (bucket) fd.append('bucket', bucket);
-    if (storySlug.trim()) fd.append('storySlug', storySlug.trim());
-    if (assetKind === 'audio' && audioSubPath.trim()) {
-      fd.append('audioSubPath', audioSubPath.trim());
-    }
     setUploading(true);
     try {
+      if (assetKind === 'audio') {
+        const { storageKey, durationSeconds } = await uploadPrivateAudioDirect({
+          file,
+          storySlug: storySlug.trim() || undefined,
+          audioSubPath: audioSubPath.trim() || undefined,
+          bucket: bucket.trim() || undefined,
+        });
+        const durationNote =
+          typeof durationSeconds === 'number' && durationSeconds > 0
+            ? ` (duration: ${Math.floor(durationSeconds / 60)}:${String(
+                durationSeconds % 60
+              ).padStart(2, '0')})`
+            : '';
+        setStatus(
+          `Private audio key (paste in episode admin): ${storageKey}${durationNote}`
+        );
+        fileInput.value = '';
+        return;
+      }
+
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('assetKind', 'cover');
+      if (bucket) fd.append('bucket', bucket);
+      if (storySlug.trim()) fd.append('storySlug', storySlug.trim());
       const res = await fetch('/api/upload', { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok) {
         setStatus(data.error || `Upload failed (${res.status})`);
         return;
       }
-      if (data.storageKey) {
-        const durationNote =
-          typeof data.durationSeconds === 'number' && data.durationSeconds > 0
-            ? ` (duration: ${Math.floor(data.durationSeconds / 60)}:${String(
-                data.durationSeconds % 60
-              ).padStart(2, '0')})`
-            : '';
-        setStatus(
-          `Private audio key (paste in episode admin): ${data.storageKey}${durationNote}`
-        );
-      } else {
-        setStatus(`Uploaded: ${data.fileUrl}`);
-      }
+      setStatus(`Uploaded: ${data.fileUrl}`);
       fileInput.value = '';
-    } catch {
-      setStatus('Network error');
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Network error');
     } finally {
       setUploading(false);
     }
@@ -62,14 +68,15 @@ export default function AdminUploadsPage() {
       <h1 className="text-2xl font-black text-slate-900">Uploads</h1>
       <p className="mt-1 text-sm text-slate-500">
         Covers use the <strong>public</strong> bucket (<code>R2_BUCKET</code> +
-        <code>R2_PUBLIC_BASE_URL</code>). MP3s use the <strong>private</strong>{' '}
-        audio bucket (<code>R2_PRIVATE_BUCKET</code> or fallback{' '}
-        <code>R2_BUCKET</code>) and return a storage key for the episode editor.
+        <code>R2_PUBLIC_BASE_URL</code>). MP3s use a <strong>presigned PUT</strong>{' '}
+        straight to the <strong>private</strong> audio bucket (
+        <code>R2_PRIVATE_BUCKET</code> or fallback <code>R2_BUCKET</code>) so
+        large files are not limited by Vercel’s 4.5MB function body size.
         Object keys use your <strong>filename</strong> only (no timestamp);
-        uploading again to the same path <strong>overwrites</strong> the file.
-        <strong> Bucket override</strong> is the bucket <em>name</em> only (no
-        slashes). Use <strong>Story slug</strong> and (for audio){' '}
-        <strong>Audio subfolder</strong> to build paths like{' '}
+        uploading again to the same path <strong>overwrites</strong> the file
+        when story slug is omitted. <strong>Bucket override</strong> is the
+        bucket <em>name</em> only (no slashes). Use <strong>Story slug</strong>{' '}
+        and (for audio) <strong>Audio subfolder</strong> to build paths like{' '}
         <code>covers/my-story/cover.webp</code> or{' '}
         <code>audio/my-story/music/theme.mp3</code>.
       </p>

@@ -64,3 +64,29 @@ So once:
 
 your site will stream MP3s and load cover art directly from Cloudflare R2.
 
+### 5. CORS for browser audio uploads (required on production)
+
+Admin **Upload MP3** uses a **presigned PUT** from the browser straight to the **private** audio bucket (`R2_PRIVATE_BUCKET`, or `R2_BUCKET` if unset). That bypasses Vercel’s **4.5MB** function body limit (HTTP **413**).
+
+On the **private** bucket (Cloudflare → R2 → bucket → **Settings** → **CORS policy**), allow your site origins. Example:
+
+```json
+[
+  {
+    "AllowedOrigins": [
+      "https://story-sonnet-new.vercel.app",
+      "https://YOUR-CUSTOM-DOMAIN.com",
+      "http://localhost:3000"
+    ],
+    "AllowedMethods": ["GET", "PUT", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag", "Content-Type"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Without this, the UI may show **Direct R2 upload failed (403)** (or a browser CORS error) after the 413 fix is deployed.
+
+Presign API: `POST /api/admin/audio/presign` (admin session) → `{ uploadUrl, storageKey, contentType }`. Client PUTs the file bytes to `uploadUrl` with that `Content-Type`.
+

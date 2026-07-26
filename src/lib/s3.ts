@@ -361,6 +361,43 @@ export async function presignPrivateAudioGetUrl(params: {
   });
 }
 
+const AUDIO_PUT_DEFAULT_TTL_SEC = 900;
+
+/**
+ * Browser/direct upload URL for private episode MP3s (bypasses Vercel 4.5MB body limit).
+ * Caller must PUT the exact body with the same Content-Type used when signing.
+ */
+export async function presignPrivateAudioPutUrl(params: {
+  key: string;
+  contentType?: string;
+  expiresIn?: number;
+  bucket?: string;
+}): Promise<{ uploadUrl: string; bucket: string; key: string; contentType: string }> {
+  const bucket =
+    params.bucket?.trim() || getPrivateAudioBucket();
+  if (!bucket) {
+    throw new Error('Set R2_PRIVATE_BUCKET or R2_BUCKET for private audio.');
+  }
+  const accessKeyId = getAccessKeyId();
+  const secretAccessKey = getSecretAccessKey();
+  if (!accessKeyId || !secretAccessKey) {
+    throw new Error('R2/S3 credentials are not configured.');
+  }
+
+  const key = params.key.replace(/^\/+/, '');
+  const contentType = (params.contentType?.trim() || 'audio/mpeg').trim();
+  const client = getClient();
+  const cmd = new PutObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    ContentType: contentType,
+  });
+  const uploadUrl = await getSignedUrl(client, cmd, {
+    expiresIn: params.expiresIn ?? AUDIO_PUT_DEFAULT_TTL_SEC,
+  });
+  return { uploadUrl, bucket, key, contentType };
+}
+
 async function bodyToBuffer(
   body:
     | Readable

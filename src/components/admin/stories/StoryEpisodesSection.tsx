@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, Plus, Trash2, Upload } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { StoryFormState } from '@/lib/admin/story-form';
 import { emptyEpisodeForm } from '@/lib/admin/story-form';
+import { uploadPrivateAudioDirect } from '@/lib/admin/upload-private-audio-client';
 import { isValidStorySlug, normalizeStorySlug } from '@/lib/slug';
 
 type StorageListItem = { key: string };
@@ -385,37 +386,23 @@ function EpisodeAudioField({
     setError(null);
     setUploadNote(null);
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('assetKind', 'audio');
-      if (canScopeToStory) {
-        fd.append('storySlug', storySlug);
-      }
-      const res = await fetch('/api/upload', { method: 'POST', body: fd });
-      const data = (await res.json().catch(() => ({}))) as {
-        error?: string;
-        storageKey?: string;
-        durationSeconds?: number | null;
-      };
-      if (!res.ok) {
-        throw new Error(data.error || `Upload failed (${res.status})`);
-      }
-      if (!data.storageKey?.trim()) {
-        throw new Error('Upload succeeded but no storageKey was returned');
-      }
+      const { storageKey, durationSeconds } = await uploadPrivateAudioDirect({
+        file,
+        storySlug: canScopeToStory ? storySlug : undefined,
+      });
       const patch: {
         audioStorageKey: string;
         durationSeconds?: string;
-      } = { audioStorageKey: data.storageKey.trim() };
+      } = { audioStorageKey: storageKey };
       if (
-        typeof data.durationSeconds === 'number' &&
-        Number.isFinite(data.durationSeconds) &&
-        data.durationSeconds > 0
+        typeof durationSeconds === 'number' &&
+        Number.isFinite(durationSeconds) &&
+        durationSeconds > 0
       ) {
-        patch.durationSeconds = String(Math.round(data.durationSeconds));
+        patch.durationSeconds = String(durationSeconds);
       }
       onAudioChange(patch);
-      setUploadNote(`Uploaded: ${data.storageKey}`);
+      setUploadNote(`Uploaded: ${storageKey}`);
       if (pickerOpen) {
         try {
           await fetchPage({ append: false });
