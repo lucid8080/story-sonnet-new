@@ -1,3 +1,5 @@
+import { TAG_DENSITY_UI_OPTIONS } from '@/lib/story-studio/tag-density';
+
 export type CustomStoryPackageType = 'basic' | 'plus' | 'premium' | 'deluxe';
 
 export const CUSTOM_STORY_STATUS = {
@@ -143,11 +145,9 @@ export const STUDIO_FORMAT_OPTIONS = [
   { id: 'series-episode', label: 'Series episode' },
 ] as const;
 
-export const STUDIO_TARGET_LENGTH_OPTIONS = [
-  { id: '2-3', label: '2-3 min' },
-  { id: '3-4', label: '3-4 min' },
-  { id: '4-5', label: '4-5 min' },
-] as const;
+import { TARGET_LENGTH_UI_OPTIONS } from '@/lib/story-studio/target-length';
+
+export const STUDIO_TARGET_LENGTH_OPTIONS = TARGET_LENGTH_UI_OPTIONS;
 
 export const STUDIO_TONE_OPTIONS = [
   { id: 'cozy', label: 'Cozy' },
@@ -210,11 +210,7 @@ export const STUDIO_VOICE_ENERGY_OPTIONS = [
   { id: 'dramatic', label: 'Dramatic' },
 ] as const;
 
-export const STUDIO_TAG_DENSITY_OPTIONS = [
-  { id: 'light', label: 'Light tags' },
-  { id: 'medium', label: 'Medium' },
-  { id: 'expressive', label: 'Expressive' },
-] as const;
+export const STUDIO_TAG_DENSITY_OPTIONS = TAG_DENSITY_UI_OPTIONS;
 
 export function normalizePackageType(input: string): CustomStoryPackageType {
   const lower = input.trim().toLowerCase();

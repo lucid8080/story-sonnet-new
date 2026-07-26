@@ -6,6 +6,10 @@ import {
 import { ART_STYLE_OPTIONS } from '@/lib/story-studio/art-style-options';
 import type { ArtStyleId } from '@/lib/story-studio/art-style-options';
 import { PRESET_FIELD_TOGGLE_KEYS } from '@/lib/story-studio/preset-field-toggles';
+import {
+  TARGET_LENGTH_RANGE_IDS,
+  remapTargetLengthRange,
+} from '@/lib/story-studio/target-length';
 
 const artStyleEnum = z.enum(
   ART_STYLE_OPTIONS.map((o) => o.id) as [ArtStyleId, ...ArtStyleId[]]
@@ -76,7 +80,7 @@ const setting = z.enum([
 ]);
 const narrationStyle = z.enum(['warm', 'playful', 'cinematic', 'sleepy-bedtime']);
 const voiceEnergy = z.enum(['calm', 'expressive', 'lively', 'dramatic']);
-const tagDensity = z.enum(['light', 'medium', 'expressive']);
+const tagDensity = z.enum(['none', 'light', 'medium', 'expressive']);
 const mode = z.enum(['quick', 'prompt']);
 
 const genreHint = z.enum(
@@ -86,17 +90,21 @@ const moodHint = z.enum(
   MOOD_FILTER_OPTIONS.map((o) => o.id) as [string, ...string[]]
 );
 
-const targetLengthRange = z.enum(['2-3', '3-4', '4-5']);
+const targetLengthRange = z.enum(TARGET_LENGTH_RANGE_IDS);
 const presetFieldToggleKey = z.enum(PRESET_FIELD_TOGGLE_KEYS);
 
-/** Maps legacy `targetMinutes` from DB/presets into `targetLengthRange`. */
+/**
+ * Maps legacy `targetMinutes` and old range ids (`2-3` | `3-4` | `4-5`)
+ * into current `targetLengthRange` tiers.
+ */
 function coerceLegacyGenerationRequestPatch(val: unknown): unknown {
   if (!val || typeof val !== 'object' || Array.isArray(val)) return val;
   const o = { ...(val as Record<string, unknown>) };
   if (o.targetLengthRange == null && typeof o.targetMinutes === 'number') {
-    const m = o.targetMinutes as number;
-    o.targetLengthRange = m <= 3 ? '2-3' : m === 4 ? '3-4' : '4-5';
+    o.targetLengthRange = remapTargetLengthRange(o.targetMinutes);
     delete o.targetMinutes;
+  } else if (o.targetLengthRange != null) {
+    o.targetLengthRange = remapTargetLengthRange(o.targetLengthRange);
   }
   return o;
 }

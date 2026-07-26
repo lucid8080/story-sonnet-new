@@ -95,7 +95,7 @@ export async function PATCH(
     {
       ...mergedPatch,
       format: episodeCount > 1 ? 'mini-series' : 'standalone',
-      targetLengthRange: '4-5',
+      targetLengthRange: '3-5',
       episodeCount,
     } as GenerationRequestPatch
   );

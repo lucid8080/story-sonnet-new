@@ -7,11 +7,16 @@ import type {
   GenerationRequest,
   StudioAgeBand,
   StoryTypeId,
-  TargetLengthRangeId,
 } from '@/lib/story-studio/types';
 import type { GenerationRequestPatch } from '@/lib/story-studio/schemas/request-schema';
 import { generationRequestPatchSchema } from '@/lib/story-studio/schemas/request-schema';
 import { defaultPresetFieldEnabled } from '@/lib/story-studio/preset-field-toggles';
+import {
+  DEFAULT_TARGET_LENGTH_RANGE,
+  targetLengthRangeToApproxMinutes,
+} from '@/lib/story-studio/target-length';
+
+export { targetLengthRangeToApproxMinutes } from '@/lib/story-studio/target-length';
 
 export function studioAgeToCatalogAgeRange(band: StudioAgeBand): AgeRangeId {
   switch (band) {
@@ -82,22 +87,6 @@ export function toneToMood(tone: GenerationRequest['tone']): MoodId | null {
   return m[tone] ?? null;
 }
 
-/** Single-number hint for catalog duration when LLM omits `estimatedRuntimeMinutes`. */
-export function targetLengthRangeToApproxMinutes(
-  range: TargetLengthRangeId
-): number {
-  switch (range) {
-    case '2-3':
-      return 3;
-    case '3-4':
-      return 4;
-    case '4-5':
-      return 5;
-    default:
-      return 4;
-  }
-}
-
 const BASE_REQUEST: Omit<
   GenerationRequest,
   | 'catalogAgeRange'
@@ -111,7 +100,7 @@ const BASE_REQUEST: Omit<
   studioAgeBand: '5-7',
   storyType: 'adventure',
   format: 'standalone',
-  targetLengthRange: '3-4',
+  targetLengthRange: DEFAULT_TARGET_LENGTH_RANGE,
   episodeCount: 1,
   tone: 'whimsical',
   lesson: 'kindness',

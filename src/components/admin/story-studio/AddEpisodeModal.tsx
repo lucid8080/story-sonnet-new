@@ -7,7 +7,16 @@ import {
   mergeScriptPackageWithEpisodes,
 } from '@/lib/story-studio/merge-script-package';
 import type { ScriptPackagePayloadParsed } from '@/lib/story-studio/schemas/llm-output';
-import type { GenerationRequest } from '@/lib/story-studio/types';
+import {
+  DEFAULT_TARGET_LENGTH_RANGE,
+  TARGET_LENGTH_UI_OPTIONS,
+  llmMaxScriptCharsForRange,
+  llmMinScriptCharsForRange,
+  type TargetLengthRangeId,
+} from '@/lib/story-studio/target-length';
+import { TAG_DENSITY_UI_OPTIONS } from '@/lib/story-studio/tag-density';
+import type { GenerationRequest, TagDensityId } from '@/lib/story-studio/types';
+import { SelectionChips } from './SelectionChips';
 
 type DraftEpisode = {
   id: string;
@@ -53,6 +62,13 @@ export function AddEpisodeModal({
   const [directions, setDirections] = useState('');
   /** null = append at end; number = insert after this episode index (0-based). */
   const [insertAfterIndex, setInsertAfterIndex] = useState<number | null>(null);
+  const [targetLengthRange, setTargetLengthRange] =
+    useState<TargetLengthRangeId>(
+      request.targetLengthRange ?? DEFAULT_TARGET_LENGTH_RANGE
+    );
+  const [tagDensity, setTagDensity] = useState<TagDensityId>(
+    request.tagDensity ?? 'medium'
+  );
 
   const [previewTitle, setPreviewTitle] = useState('');
   const [previewSummary, setPreviewSummary] = useState('');
@@ -85,7 +101,11 @@ export function AddEpisodeModal({
     setPreviewScript('');
     setDirections('');
     setInsertAfterIndex(null);
-  }, [open, draftId]);
+    setTargetLengthRange(
+      request.targetLengthRange ?? DEFAULT_TARGET_LENGTH_RANGE
+    );
+    setTagDensity(request.tagDensity ?? 'medium');
+  }, [open, draftId, request.targetLengthRange, request.tagDensity]);
 
   const handleGenerate = useCallback(async () => {
     if (!hasBrief) {
@@ -110,6 +130,8 @@ export function AddEpisodeModal({
         body: JSON.stringify({
           draftId,
           directions,
+          targetLengthRange,
+          tagDensity,
           ...positionPayload,
         }),
       });
@@ -131,7 +153,15 @@ export function AddEpisodeModal({
     } finally {
       setGenerating(false);
     }
-  }, [hasBrief, draftId, directions, insertAfterIndex, episodes]);
+  }, [
+    hasBrief,
+    draftId,
+    directions,
+    targetLengthRange,
+    tagDensity,
+    insertAfterIndex,
+    episodes,
+  ]);
 
   const handleSave = useCallback(async () => {
     setSaveError(null);
@@ -322,6 +352,36 @@ export function AddEpisodeModal({
               </select>
             </label>
           )}
+
+          <SelectionChips
+            label="Target length"
+            options={TARGET_LENGTH_UI_OPTIONS}
+            value={targetLengthRange}
+            columns={2}
+            onChange={(id) =>
+              setTargetLengthRange(id as TargetLengthRangeId)
+            }
+          />
+          <p className="text-xs text-slate-500">
+            Generation must land between{' '}
+            {llmMinScriptCharsForRange(targetLengthRange).toLocaleString()} and{' '}
+            {llmMaxScriptCharsForRange(targetLengthRange).toLocaleString()}{' '}
+            characters. You can still edit up to{' '}
+            {STORY_STUDIO_MAX_SCRIPT_CHARS_PER_EPISODE.toLocaleString()} after.
+          </p>
+
+          <SelectionChips
+            label="Emotion / expression tags"
+            options={TAG_DENSITY_UI_OPTIONS}
+            value={tagDensity}
+            columns={2}
+            onChange={(id) => setTagDensity(id as TagDensityId)}
+          />
+          <p className="text-xs text-slate-500">
+            Off removes tags like{' '}
+            <span className="font-mono">[narrator warmly]</span> from the
+            generated script.
+          </p>
 
           <label className="block text-sm">
             <span className="font-semibold text-slate-700">

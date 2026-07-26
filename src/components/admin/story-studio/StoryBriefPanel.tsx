@@ -11,6 +11,7 @@ import {
   GENRE_FILTER_OPTIONS,
   MOOD_FILTER_OPTIONS,
 } from '@/constants/storyFilters';
+import { STORY_STUDIO_MAX_ESTIMATED_RUNTIME_MINUTES } from '@/lib/story-studio/constants';
 import { draftSlugFromTitle } from '@/lib/story-studio/draft-slug-from-title';
 
 const field =
@@ -424,12 +425,13 @@ export function StoryBriefPanel({
 
         <label className="mt-4 block sm:max-w-xs">
           <span className="text-xs font-bold text-slate-700">
-            Estimated runtime (minutes, 1–5)
+            Estimated runtime (minutes, 1–
+            {STORY_STUDIO_MAX_ESTIMATED_RUNTIME_MINUTES})
           </span>
           <input
             type="number"
             min={1}
-            max={5}
+            max={STORY_STUDIO_MAX_ESTIMATED_RUNTIME_MINUTES}
             className={field}
             value={form.estimatedRuntimeMinutes}
             onChange={(e) => {
@@ -437,7 +439,10 @@ export function StoryBriefPanel({
               if (Number.isNaN(n)) return;
               setForm({
                 ...form,
-                estimatedRuntimeMinutes: Math.min(5, Math.max(1, n)),
+                estimatedRuntimeMinutes: Math.min(
+                  STORY_STUDIO_MAX_ESTIMATED_RUNTIME_MINUTES,
+                  Math.max(1, n)
+                ),
               });
             }}
           />

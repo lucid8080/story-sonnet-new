@@ -25,6 +25,8 @@ import {
 import { buildDraftCoverImagePrompt } from '@/lib/story-studio/prompt-builder';
 import { studioSeriesTitleForDraftMeta } from '@/lib/story-studio/studio-series-for-draft-meta';
 import type { GenerationRequest } from '@/lib/story-studio/types';
+import { TARGET_LENGTH_UI_OPTIONS } from '@/lib/story-studio/target-length';
+import { TAG_DENSITY_UI_OPTIONS } from '@/lib/story-studio/tag-density';
 import { ArtStylePresetPromptsEditor } from './ArtStylePresetPromptsEditor';
 import { GenerationStatusBar } from './GenerationStatusBar';
 import { PreviewTabs, type PreviewTabId } from './PreviewTabs';
@@ -158,17 +160,10 @@ const ENERGY = [
   { id: 'dramatic', label: 'Dramatic' },
 ] as const;
 
-const TAGS = [
-  { id: 'light', label: 'Light tags' },
-  { id: 'medium', label: 'Medium' },
-  { id: 'expressive', label: 'Expressive' },
-] as const;
+const TAGS = TAG_DENSITY_UI_OPTIONS;
 
-const TARGET_LENGTH_RANGES = [
-  { id: '2-3', label: '2–3 min' },
-  { id: '3-4', label: '3–4 min' },
-  { id: '4-5', label: '4–5 min' },
-] as const;
+const TARGET_LENGTH_RANGES = TARGET_LENGTH_UI_OPTIONS;
+
 
 function slugFromTitle(raw: string): string {
   const s = raw
@@ -1359,7 +1354,7 @@ export function StoryStudioClient() {
               }
             />
             <SelectionChips
-              label="Expression tag density"
+              label="Emotion / expression tags"
               options={TAGS}
               value={req.tagDensity}
               muted={!isPresetFieldOn('tagDensity')}

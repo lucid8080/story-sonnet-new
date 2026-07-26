@@ -104,7 +104,7 @@ export async function createCustomStoryOrder(userId: string, input: CreateCustom
   const request = mergeGenerationRequest(defaultGenerationRequest(), {
     ...requestPatch,
     format: pricing.episodeCount > 1 ? 'mini-series' : 'standalone',
-    targetLengthRange: '4-5',
+    targetLengthRange: '3-5',
     episodeCount: pricing.episodeCount,
   } as GenerationRequestPatch);
   const draftTitle = normalizedInputs.title.trim() || deriveSeriesTitleFromSimpleIdea(normalizedInputs.simpleIdea);
@@ -151,7 +151,7 @@ export async function createCustomStoryPrepurchaseOrder(
   const request = mergeGenerationRequest(defaultGenerationRequest(), {
     mode: 'quick',
     format: pricing.episodeCount > 1 ? 'mini-series' : 'standalone',
-    targetLengthRange: '4-5',
+    targetLengthRange: '3-5',
     episodeCount: pricing.episodeCount,
     simpleIdea: '',
   } as GenerationRequestPatch);
@@ -268,8 +268,8 @@ export async function generateCustomStoryFromOrder(order: { id: string; storyId:
         isPremium: false,
         isFeatured: false,
         ageRange: String((safeInputs as { studioSetup?: { studioAgeBand?: string } }).studioSetup?.studioAgeBand ?? '6-8'),
-        durationLabel: '4-5 min each',
-        durationMinutes: 5,
+        durationLabel: '3-5 min each',
+        durationMinutes: 4,
         episodes: {
           create: generatedEpisodes.map((ep) => ({
             episodeNumber: ep.episodeNumber,
@@ -318,7 +318,7 @@ async function generateStoryPlan(inputs: GenerationInputShape, episodeCount: num
   const prompt = [
     'Return strict JSON only.',
     `Create a continuous children audio story arc for ${episodeCount} episodes.`,
-    'Each episode must be 4-5 minutes spoken narration.',
+    'Each episode must be 3-5 minutes spoken narration.',
     `Simple idea: ${idea}.`,
     `Age band: ${ageBand}.`,
     `Main character: ${mainCharacter}. Setting: ${setting}.`,
@@ -354,9 +354,9 @@ async function generateEpisodeScript(
     `Episode ${episodeNumber}: ${episodePlan.title}`,
     `Episode synopsis: ${episodePlan.synopsis}`,
     `Narration style: ${inputs.studioSetup?.narrationStyle ?? 'warm'}.`,
-    'Write one complete narration script target 4-5 minutes.',
+    'Write one complete narration script target 3-5 minutes.',
     'Use warm, child-friendly language and keep continuity with previous episodes.',
-    'JSON shape: {"scriptText":"...","durationSeconds":number,"durationLabel":"4-5 min"}',
+    'JSON shape: {"scriptText":"...","durationSeconds":number,"durationLabel":"3-5 min"}',
   ].join('\n');
   const out = await executeTextGeneration({
     toolKey: 'story_studio_generate_episode',
@@ -366,11 +366,11 @@ async function generateEpisodeScript(
   });
   const parsed = safeParseJson<{ scriptText: string; durationSeconds?: number; durationLabel?: string }>(out.content);
   if (!parsed?.scriptText) throw new Error(`Episode ${episodeNumber} script generation failed.`);
-  const durationSeconds = Math.min(300, Math.max(240, Number(parsed.durationSeconds ?? 270)));
+  const durationSeconds = Math.min(300, Math.max(180, Number(parsed.durationSeconds ?? 240)));
   return {
     scriptText: parsed.scriptText,
     durationSeconds,
-    durationLabel: parsed.durationLabel?.trim() || '4-5 min',
+    durationLabel: parsed.durationLabel?.trim() || '3-5 min',
   };
 }
 

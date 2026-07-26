@@ -13,6 +13,17 @@ import {
 } from '@/lib/story-studio/schemas/llm-output';
 import { z } from 'zod';
 import { executeTextGeneration } from '@/lib/generation/execute';
+import {
+  TARGET_LENGTH_RANGE_IDS,
+  maxTokensForTargetLengthRange,
+  remapTargetLengthRange,
+  scriptLengthOutOfRangeMessage,
+} from '@/lib/story-studio/target-length';
+import {
+  isTagDensityId,
+  stripExpressionBracketTags,
+} from '@/lib/story-studio/tag-density';
+import type { TagDensityId } from '@/lib/story-studio/types';
 
 export const runtime = 'nodejs';
 
@@ -22,6 +33,12 @@ const bodySchema = z
   .object({
     draftId: z.string().min(1),
     directions: z.string().optional().default(''),
+    /** Optional one-shot length override for this generate (Add Episode). */
+    targetLengthRange: z.enum(TARGET_LENGTH_RANGE_IDS).optional(),
+    /** Optional expression-tag density override for this generate. */
+    tagDensity: z
+      .enum(['none', 'light', 'medium', 'expressive'])
+      .optional(),
     position: z
       .union([
         z.literal('append'),
@@ -53,7 +70,8 @@ export async function POST(req: Request) {
     );
   }
 
-  const { draftId, directions, position } = parsedBody.data;
+  const { draftId, directions, position, targetLengthRange, tagDensity } =
+    parsedBody.data;
 
   const draft = await prisma.storyStudioDraft.findUnique({
     where: { id: draftId },
@@ -78,7 +96,26 @@ export async function POST(req: Request) {
     );
   }
 
-  const reqResolved = resolveDraftGenerationRequest(draft);
+  const baseReq = resolveDraftGenerationRequest(draft);
+  const lengthRange = targetLengthRange
+    ? remapTargetLengthRange(targetLengthRange)
+    : baseReq.targetLengthRange;
+  const density: TagDensityId =
+    tagDensity && isTagDensityId(tagDensity)
+      ? tagDensity
+      : baseReq.tagDensity;
+  // Force length + tag density into the prompt for this generate even if the
+  // draft preset had those fields toggled off.
+  const reqResolved = {
+    ...baseReq,
+    targetLengthRange: lengthRange,
+    tagDensity: density,
+    presetFieldEnabled: {
+      ...baseReq.presetFieldEnabled,
+      targetLengthRange: true,
+      tagDensity: true,
+    },
+  };
   const artStyleOverrides = await getArtStylePromptOverrides(prisma);
   const eps = draft.episodes;
   const n = eps.length;
@@ -133,7 +170,7 @@ export async function POST(req: Request) {
     const { content: rawOut } = await executeTextGeneration({
       toolKey: 'story_studio_generate_episode',
       messages,
-      maxTokens: 8000,
+      maxTokens: maxTokensForTargetLengthRange(reqResolved.targetLengthRange),
       temperature: 0.88,
     });
     const parsed = parseJsonToScriptEpisode(rawOut);
@@ -147,7 +184,22 @@ export async function POST(req: Request) {
         { status: 422 }
       );
     }
-    return NextResponse.json({ ok: true, episode: parsed.data });
+    let episode = parsed.data;
+    if (reqResolved.tagDensity === 'none') {
+      episode = {
+        ...episode,
+        scriptText: stripExpressionBracketTags(episode.scriptText),
+      };
+    }
+    const lengthError = scriptLengthOutOfRangeMessage(
+      'Episode',
+      episode.scriptText.length,
+      reqResolved.targetLengthRange
+    );
+    if (lengthError) {
+      return NextResponse.json({ error: lengthError }, { status: 422 });
+    }
+    return NextResponse.json({ ok: true, episode });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Generation failed';
     console.error('[story-studio/generate/episode]', e);

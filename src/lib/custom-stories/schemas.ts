@@ -38,7 +38,7 @@ export const defaultCustomStoryStudioSetup: z.infer<typeof customStoryStudioSetu
   customArtStyle: '',
   storyType: 'adventure',
   format: 'standalone',
-  targetLengthRange: '4-5',
+  targetLengthRange: '3-5',
   studioAgeBand: '5-7',
   tone: 'cozy',
   lesson: 'kindness',

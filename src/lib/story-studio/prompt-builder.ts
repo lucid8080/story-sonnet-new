@@ -6,7 +6,7 @@ import {
   expressionTagDensityGuidance,
   storyCoreSystemPreamble,
 } from '@/lib/story-studio/story-core';
-import { STORY_STUDIO_LLM_MAX_SCRIPT_CHARS_PER_EPISODE } from '@/lib/story-studio/constants';
+import { STORY_STUDIO_MAX_ESTIMATED_RUNTIME_MINUTES } from '@/lib/story-studio/constants';
 import {
   formatArtStylePromptBlock,
   type ArtStylePromptOverrides,
@@ -14,15 +14,15 @@ import {
 import { isPresetFieldEnabled } from '@/lib/story-studio/preset-field-toggles';
 import type { GenerationRequest } from '@/lib/story-studio/types';
 import { catalogAgeLabel } from '@/lib/story-studio/normalize-request';
+import {
+  llmMaxScriptCharsForRange,
+  llmMinScriptCharsForRange,
+  llmTargetScriptCharsForRange,
+  scriptLengthGuidanceForRange,
+  targetLengthMinutesLabel,
+} from '@/lib/story-studio/target-length';
 
 export type { ArtStylePromptOverrides } from '@/lib/story-studio/art-style-options';
-
-const TARGET_LENGTH_LABEL: Record<GenerationRequest['targetLengthRange'], string> =
-  {
-    '2-3': '2–3',
-    '3-4': '3–4',
-    '4-5': '4–5',
-  };
 
 function requestSummary(
   req: GenerationRequest,
@@ -35,8 +35,12 @@ function requestSummary(
 
   const lines: string[] = [`MODE: ${req.mode}`];
   if (isPresetFieldEnabled(req.presetFieldEnabled, 'targetLengthRange')) {
+    const min = llmMinScriptCharsForRange(req.targetLengthRange);
+    const target = llmTargetScriptCharsForRange(req.targetLengthRange);
+    const max = llmMaxScriptCharsForRange(req.targetLengthRange);
     lines.push(
-      `TARGET LENGTH: about ${TARGET_LENGTH_LABEL[req.targetLengthRange]} minutes of spoken audio (approximate).`
+      `TARGET LENGTH: about ${targetLengthMinutesLabel(req.targetLengthRange)} minutes of spoken audio.`,
+      `TARGET SCRIPT SIZE: ${min}–${max} characters per episode (aim ~${target}). This is a hard band, not a soft suggestion.`
     );
   }
   if (isPresetFieldEnabled(req.presetFieldEnabled, 'format')) {
@@ -118,7 +122,7 @@ const BRIEF_JSON_INSTRUCTIONS = `Return a single JSON object with these keys:
 - episodeOutline (array of { title, beat } — length must match episode count requested)
 - coverArtPrompt (one paragraph: kid-safe illustration only — scene, characters, palette, mood; **match the ART STYLE and any CUSTOM ART STYLE NOTES from the request above**; do not describe on-image title or typography here; do not reserve space for series names, subtitles, bottom banners, or “label margins” — no extra text areas)
 - musicPrompt (single paragraph: style, tempo, instruments; prefer instrumental)
-- estimatedRuntimeMinutes (number from 1 to 5, within the requested minute range)
+- estimatedRuntimeMinutes (number from 1 to ${STORY_STUDIO_MAX_ESTIMATED_RUNTIME_MINUTES}, matching the requested TARGET LENGTH minute range — not shorter than that range)
 - safetyNotes (short: how you stayed age-safe)`;
 
 const BRIEF_CREATIVITY_RULES = `CREATIVE DIVERSITY (required):
@@ -165,7 +169,12 @@ function forestAnimalProtagonistSpin(
   return FOREST_ANIMAL_PROTAGONIST_SPINS[idx] ?? null;
 }
 
-function scriptJsonInstructions(density: string): string {
+function scriptJsonInstructions(
+  density: string,
+  scriptMinChars: number,
+  scriptTargetChars: number,
+  scriptMaxChars: number
+): string {
   return `Return a single JSON object with these keys:
 - seriesTitle (string)
 - summary (short catalog summary)
@@ -174,10 +183,11 @@ function scriptJsonInstructions(density: string): string {
 - coverArtPrompt (refined: same rules as brief — illustration/scene only; match ART STYLE / custom art notes from the request; no series labels, subtitles, or reserved margins for extra text)
 - musicPrompt (refined)
 - narrationNotes (bullets for voice director)
-- estimatedRuntimeMinutes (number from 1 to 5, within the requested minute range)
+- estimatedRuntimeMinutes (number from 1 to ${STORY_STUDIO_MAX_ESTIMATED_RUNTIME_MINUTES}, matching the requested minute range — not shorter)
 - ageRange (0-2 | 3-5 | 6-8 | 9-12)
 - tags (string array: topics for catalog)
-- expressionTagDensity (must be exactly: "${density}")`;
+- expressionTagDensity (must be exactly: "${density}")
+- Each episodes[].scriptText MUST be ${scriptMinChars}–${scriptMaxChars} characters (aim ~${scriptTargetChars})`;
 }
 
 export function buildBriefUserPrompt(
@@ -200,12 +210,22 @@ export function buildScriptUserPrompt(
 ): string {
   const briefJson = JSON.stringify(brief, null, 2);
   const density = req.tagDensity;
-  const scriptInstructions = scriptJsonInstructions(density);
+  const scriptMinChars = llmMinScriptCharsForRange(req.targetLengthRange);
+  const scriptTargetChars = llmTargetScriptCharsForRange(req.targetLengthRange);
+  const scriptMaxChars = llmMaxScriptCharsForRange(req.targetLengthRange);
+  const scriptInstructions = scriptJsonInstructions(
+    density,
+    scriptMinChars,
+    scriptTargetChars,
+    scriptMaxChars
+  );
 
   return `${requestSummary(req, artStyleOverrides)}
 
-APPROVED BRIEF (follow closely; you may refine titles for read-aloud rhythm):
+APPROVED BRIEF (follow closely for cast/setting/tone; you may refine titles for read-aloud rhythm):
 ${briefJson}
+
+${scriptLengthGuidanceForRange(req.targetLengthRange)}
 
 TASK: Write the FULL SCRIPT for spoken audio.
 
@@ -215,9 +235,9 @@ SCRIPT RULES:
 - Primary content lives in episodes[].scriptText (and fullScript optional duplicate for single episode).
 - Each episodes[].summary must be a unique, short episode blurb (1-2 sentences).
 - Do not copy any sentence/paragraph from episodes[].scriptText into episodes[].summary, including the first paragraph.
-- Each episodes[].scriptText must be at most ${STORY_STUDIO_LLM_MAX_SCRIPT_CHARS_PER_EPISODE} characters (narration only; JSON titles/summaries do not count toward this cap).
-- Use expression tags per TAG DENSITY tier.
-- Include light sound cues only as bracket tags, not SFX stage directions outside brackets.
+- Each episodes[].scriptText MUST be ${scriptMinChars}–${scriptMaxChars} characters (aim ~${scriptTargetChars}; narration only; JSON titles/summaries do not count toward this band).
+- Use expression tags per TAG DENSITY tier (if density is "none", write zero square-bracket tags).
+- Include light sound cues only as bracket tags when TAG DENSITY is not "none"; never use brackets when density is "none".
 - Keep vocabulary aligned with age band ${req.studioAgeBand}.`;
 }
 
@@ -268,11 +288,16 @@ export type SingleEpisodePromptContext = {
   directions: string;
 };
 
-function singleEpisodeJsonInstructions(density: string): string {
+function singleEpisodeJsonInstructions(
+  density: string,
+  scriptMinChars: number,
+  scriptTargetChars: number,
+  scriptMaxChars: number
+): string {
   return `Return a single JSON object with ONLY these keys (no wrapper, no markdown):
 - title (string)
 - summary (unique short episode blurb, 1–2 sentences; must NOT copy wording from scriptText)
-- scriptText (string: full narration for THIS episode only; at most ${STORY_STUDIO_LLM_MAX_SCRIPT_CHARS_PER_EPISODE} characters)
+- scriptText (string: full narration for THIS episode only; MUST be ${scriptMinChars}–${scriptMaxChars} characters, aim ~${scriptTargetChars})
 - hookEnding (optional string: soft “next time” line only if the series format calls for it)
 
 Expression tag density for bracket tags must match: "${density}".`;
@@ -303,16 +328,22 @@ export function buildSingleEpisodeUserPrompt(
     ctx.directions.trim() ||
     '(No extra directions — follow the brief and continuity.)';
 
+  const scriptMinChars = llmMinScriptCharsForRange(req.targetLengthRange);
+  const scriptTargetChars = llmTargetScriptCharsForRange(req.targetLengthRange);
+  const scriptMaxChars = llmMaxScriptCharsForRange(req.targetLengthRange);
+
   return `${requestSummary(req, artStyleOverrides)}
 
 APPROVED SERIES BRIEF (stay consistent with characters, setting, and tone):
 ${briefJson}
 
+${scriptLengthGuidanceForRange(req.targetLengthRange)}
+
 THIS EPISODE SLOT: episode ${ctx.episodeIndex + 1} of ${ctx.totalEpisodesAfter} (after adding this installment).
 
 ${outlineBlock}
 
-PRIOR CONTEXT (continuity):
+PRIOR CONTEXT (continuity only — do not copy prior episode length):
 ${priorBlock}
 
 USER DIRECTIONS FOR THIS EPISODE:
@@ -320,10 +351,17 @@ ${directions}
 
 TASK: Write ONE new episode only — spoken audio script for a kids story.
 
-${singleEpisodeJsonInstructions(req.tagDensity)}
+${singleEpisodeJsonInstructions(
+  req.tagDensity,
+  scriptMinChars,
+  scriptTargetChars,
+  scriptMaxChars
+)}
 
 SCRIPT RULES:
 - scriptText is narration for this episode only; do not include other episodes.
+- scriptText MUST be ${scriptMinChars}–${scriptMaxChars} characters (aim ~${scriptTargetChars}).
+- Follow TAG DENSITY exactly (if "none", no square-bracket emotion/performance tags).
 - summary must be unique and must not duplicate sentences from scriptText.
 - Keep vocabulary aligned with age band ${req.studioAgeBand}.`;
 }

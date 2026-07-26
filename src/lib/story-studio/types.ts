@@ -1,8 +1,10 @@
 import type { AgeRangeId, GenreId, MoodId } from '@/constants/storyFilters';
 import type { ArtStyleId } from '@/lib/story-studio/art-style-options';
 import type { PresetFieldEnabledMap } from '@/lib/story-studio/preset-field-toggles';
+import type { TargetLengthRangeId } from '@/lib/story-studio/target-length';
 
 export type { ArtStyleId } from '@/lib/story-studio/art-style-options';
+export type { TargetLengthRangeId } from '@/lib/story-studio/target-length';
 
 export type StoryStudioMode = 'quick' | 'prompt';
 
@@ -78,10 +80,7 @@ export type NarrationStyleId =
 
 export type VoiceEnergyId = 'calm' | 'expressive' | 'lively' | 'dramatic';
 
-export type TagDensityId = 'light' | 'medium' | 'expressive';
-
-/** Story Studio target listening length (minutes); max option is 4–5 min. */
-export type TargetLengthRangeId = '2-3' | '3-4' | '4-5';
+export type TagDensityId = 'none' | 'light' | 'medium' | 'expressive';
 
 export type GenerationJobStep =
   | 'brief'

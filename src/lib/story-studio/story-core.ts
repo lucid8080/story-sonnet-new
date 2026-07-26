@@ -2,6 +2,8 @@ import type { TagDensityId } from '@/lib/story-studio/types';
 
 export function expressionTagDensityGuidance(density: TagDensityId): string {
   switch (density) {
+    case 'none':
+      return `Expression tags (square brackets): OFF — write plain narration ONLY. Do NOT use any square-bracket tags such as [narrator warmly], [giggles], [whispering], [dramatic pause], or sound-cue brackets.`;
     case 'light':
       return `Expression tags (square brackets): use SPARINGLY — about one tag every 8–12 lines of dialogue/narration. Prefer plain narration when the emotion is obvious.`;
     case 'medium':
@@ -31,9 +33,10 @@ NON-NEGOTIABLES:
 - Scene descriptions should be concrete enough to inspire cover art or illustration (colors, scale, mood) without long static lists.
 
 EXPRESSION TAGS FOR TTS (square brackets):
-- You MAY use inline performance tags like [whispering], [giggles], [narrator warmly], [dramatic pause], [sleepy yawn], [yelling from afar].
+- When TAG DENSITY is not "none", you MAY use inline performance tags like [whispering], [giggles], [narrator warmly], [dramatic pause], [sleepy yawn], [yelling from afar].
+- When TAG DENSITY is "none", do NOT use any square-bracket tags at all — plain spoken narration only.
 - Tags must sound natural when read aloud by a single narrator unless the script clearly switches speakers.
-- Follow the requested TAG DENSITY tier exactly — do not over-tag.
+- Follow the requested TAG DENSITY tier exactly — do not over-tag, and never invent tags when density is none.
 
 SERIES / EPISODES:
 - If multiple episodes are requested, each episode should stand somewhat alone while advancing a light arc.

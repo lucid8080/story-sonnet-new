@@ -32,9 +32,14 @@ import {
   sanitizeUploadFileName,
 } from '@/lib/media-upload-keys';
 import { trimAudioToBuffer } from '@/lib/story-studio/audio/trim-intro';
-import { STORY_STUDIO_LLM_MAX_SCRIPT_CHARS_PER_EPISODE } from '@/lib/story-studio/constants';
+import {
+  maxTokensForTargetLengthRange,
+  scriptLengthOutOfRangeMessage,
+  type TargetLengthRangeId,
+} from '@/lib/story-studio/target-length';
+import { stripExpressionBracketTags } from '@/lib/story-studio/tag-density';
 import { draftSlugFromTitle } from '@/lib/story-studio/draft-slug-from-title';
-import type { GenerationJobStep } from '@/lib/story-studio/types';
+import type { GenerationJobStep, GenerationRequest } from '@/lib/story-studio/types';
 import {
   syncLinkedLibraryFromDraft,
   type SyncLinkedLibraryResult,
@@ -149,16 +154,41 @@ function normalizeScriptPackage(
   return { ...pkg, episodes };
 }
 
-function assertEpisodeScriptCharLimits(pkg: ScriptPackagePayloadParsed) {
-  const max = STORY_STUDIO_LLM_MAX_SCRIPT_CHARS_PER_EPISODE;
+function assertEpisodeScriptCharLimits(
+  pkg: ScriptPackagePayloadParsed,
+  range: TargetLengthRangeId
+) {
   pkg.episodes.forEach((ep, i) => {
-    const n = ep.scriptText.length;
-    if (n > max) {
-      throw new Error(
-        `Episode ${i + 1} script exceeds character limit: ${n} characters (max ${max}). Regenerate or shorten the script.`
-      );
-    }
+    const msg = scriptLengthOutOfRangeMessage(
+      `Episode ${i + 1}`,
+      ep.scriptText.length,
+      range
+    );
+    if (msg) throw new Error(msg);
   });
+}
+
+/** When tag density is off, strip leftover `[...]` tags from generated scripts. */
+function applyTagDensityPostProcess(
+  pkg: ScriptPackagePayloadParsed,
+  tagDensity: GenerationRequest['tagDensity']
+): ScriptPackagePayloadParsed {
+  if (tagDensity !== 'none') {
+    return { ...pkg, expressionTagDensity: tagDensity };
+  }
+  const episodes = pkg.episodes.map((ep) => ({
+    ...ep,
+    scriptText: stripExpressionBracketTags(ep.scriptText),
+  }));
+  const fullScript = pkg.fullScript
+    ? stripExpressionBracketTags(pkg.fullScript)
+    : pkg.fullScript;
+  return {
+    ...pkg,
+    episodes,
+    fullScript,
+    expressionTagDensity: 'none',
+  };
 }
 
 async function loadDraftFull(draftId: string) {
@@ -255,7 +285,8 @@ export async function executeGenerationStep(
     const { content: raw } = await executeTextGeneration({
       toolKey: 'story_studio_generate_script',
       messages,
-      maxTokens: 12000,
+      // Scale with target length so longer tiers are not truncated mid-JSON.
+      maxTokens: maxTokensForTargetLengthRange(req.targetLengthRange),
       temperature: undefined,
     });
     const parsed = parseJsonToScriptPackage(raw);
@@ -264,11 +295,14 @@ export async function executeGenerationStep(
         `Script JSON invalid: ${parsed.error.message.slice(0, 300)}`
       );
     }
-    const normalized = normalizeScriptPackage(parsed.data);
+    const normalized = applyTagDensityPostProcess(
+      normalizeScriptPackage(parsed.data),
+      req.tagDensity
+    );
     if (!normalized.episodes.length) {
       throw new Error('Script has no episodes and no fullScript.');
     }
-    assertEpisodeScriptCharLimits(normalized);
+    assertEpisodeScriptCharLimits(normalized, req.targetLengthRange);
     await persistScriptEpisodes(draftId, normalized);
     return;
   }

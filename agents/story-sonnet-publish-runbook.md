@@ -188,7 +188,7 @@ More detail: [Prisma — production troubleshooting / resolve](https://www.prism
 
 **Deleting a library story:** **`DELETE /api/admin/stories/[id]`** (Story Library admin) deletes all objects under **`covers/<slug>/`** (default public bucket) and **`audio/<slug>/`** (private audio bucket) for that story’s slug, then deletes the **`Story`** row. Requires S3-compatible credentials with **`s3:ListBucket`** (prefix) and **`s3:DeleteObject`**. Does not delete Story Studio draft-only paths such as **`covers/studio-draft-<draftId>/…`**.
 
-**Length limits:** Draft **`request.targetLengthRange`** is one of `2-3`, `3-4`, or `4-5` (minutes). Each generated episode **`scriptText`** is capped at **4950** characters. LLM brief/script **`estimatedRuntimeMinutes`** is validated to **≤ 5**.
+**Length limits:** Draft **`request.targetLengthRange`** is one of `1-3`, `3-5`, `5-8`, or `8-12` (minutes). Per-tier LLM band for each episode **`scriptText`**: **1000–2500 / 2500–4500 / 5000–7000 / 7500–10000** characters (min–max; see `src/lib/story-studio/target-length.ts`). Manual edit / import / save ceiling remains **12000**. LLM brief/script **`estimatedRuntimeMinutes`** is validated to **≤ 12**. Legacy stored ids `2-3` / `3-4` / `4-5` are remapped on load. Generation prompts treat the band as mandatory (ignore shorter brief runtime estimates); too-short/too-long scripts are rejected so the user can regenerate.
 
 **Persistence:** Postgres models `StoryStudioPreset`, `StoryStudioDraft`, `StoryStudioDraftEpisode`, `StoryStudioGeneratedAsset`, `StoryStudioGenerationJob`, and singleton **`StoryStudioSettings`** (global row) for optional **art style prompt overrides** JSON (`art_style_prompt_overrides_json`). Seed presets: `npm run db:seed`.
 

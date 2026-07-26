@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   STORY_STUDIO_LLM_MAX_SCRIPT_CHARS_PER_EPISODE,
   STORY_STUDIO_MAX_SCRIPT_CHARS_PER_EPISODE,
+  STORY_STUDIO_MAX_ESTIMATED_RUNTIME_MINUTES,
 } from '@/lib/story-studio/constants';
 import {
   AGE_FILTER_OPTIONS,
@@ -123,7 +124,10 @@ export const briefPayloadSchema = z.object({
   ),
   coverArtPrompt: z.string(),
   musicPrompt: z.string(),
-  estimatedRuntimeMinutes: z.number().min(1).max(5),
+  estimatedRuntimeMinutes: z
+    .number()
+    .min(1)
+    .max(STORY_STUDIO_MAX_ESTIMATED_RUNTIME_MINUTES),
   safetyNotes: z.string(),
 });
 
@@ -165,7 +169,7 @@ export const scriptEpisodeStorageSchema = scriptEpisodeSchema(
   STORY_STUDIO_MAX_SCRIPT_CHARS_PER_EPISODE
 );
 
-const tagDensitySchema = z.enum(['light', 'medium', 'expressive']);
+const tagDensitySchema = z.enum(['none', 'light', 'medium', 'expressive']);
 
 const scriptPackageFields = {
   seriesTitle: z.string().min(1),
@@ -174,7 +178,10 @@ const scriptPackageFields = {
   coverArtPrompt: z.preprocess(nullToEmptyString, z.string()),
   musicPrompt: z.preprocess(nullToEmptyString, z.string()),
   narrationNotes: z.preprocess(nullToEmptyString, z.string()),
-  estimatedRuntimeMinutes: z.number().min(1).max(5),
+  estimatedRuntimeMinutes: z
+    .number()
+    .min(1)
+    .max(STORY_STUDIO_MAX_ESTIMATED_RUNTIME_MINUTES),
   ageRange: ageRangeSchema,
   tags: z.preprocess(nullToStringArray, z.array(z.string())),
   expressionTagDensity: tagDensitySchema,
