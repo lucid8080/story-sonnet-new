@@ -23,6 +23,7 @@ import {
   isTagDensityId,
   stripExpressionBracketTags,
 } from '@/lib/story-studio/tag-density';
+import { normalizeExpressionTags } from '@/lib/story-studio/expression-tags';
 import type { TagDensityId } from '@/lib/story-studio/types';
 
 export const runtime = 'nodejs';
@@ -189,6 +190,11 @@ export async function POST(req: Request) {
       episode = {
         ...episode,
         scriptText: stripExpressionBracketTags(episode.scriptText),
+      };
+    } else {
+      episode = {
+        ...episode,
+        scriptText: normalizeExpressionTags(episode.scriptText),
       };
     }
     const lengthError = scriptLengthOutOfRangeMessage(

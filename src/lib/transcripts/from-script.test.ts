@@ -7,7 +7,7 @@ import {
 
 describe('stripExpressionTags', () => {
   it('removes bracket expression tags', () => {
-    expect(stripExpressionTags('[narrator warmly] Hello there.')).toBe(
+    expect(stripExpressionTags('[whispering] Hello there.')).toBe(
       ' Hello there.'
     );
   });
@@ -22,7 +22,7 @@ describe('stripExpressionTags', () => {
 describe('scriptToTranscriptLines', () => {
   it('produces sequential ids and strips tags per line', () => {
     const lines = scriptToTranscriptLines(
-      '[narrator softly]\nFirst line.\n\n[fox]\nSecond line.'
+      '[soft]\nFirst line.\n\n[laughing]\nSecond line.'
     );
     expect(lines).toHaveLength(2);
     expect(lines[0]).toEqual({ id: 1, text: 'First line.' });

@@ -19,13 +19,13 @@ describe('TAG_DENSITY_UI_OPTIONS', () => {
 describe('stripExpressionBracketTags', () => {
   it('removes emotion / performance tags', () => {
     const raw =
-      '[narrator warmly] Pip smiled. [giggles] "Hello!" [dramatic pause]\nNext line.';
+      '[whispering] Pip smiled. [laughing] "Hello!" [pause]\nNext line.';
     expect(stripExpressionBracketTags(raw)).toBe(
       'Pip smiled. "Hello!"\nNext line.'
     );
   });
 
   it('collapses leftover blank lines', () => {
-    expect(stripExpressionBracketTags('[whisper]\n\n\nHi')).toBe('Hi');
+    expect(stripExpressionBracketTags('[whispering]\n\n\nHi')).toBe('Hi');
   });
 });

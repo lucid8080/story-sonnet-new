@@ -1,11 +1,11 @@
 /**
  * Build scrolling transcript lines from Story Studio script text.
- * Strips bracket expression tags (e.g. [narrator warmly]) and splits into readable lines.
+ * Strips bracket expression tags (e.g. [whispering]) and splits into readable lines.
  */
 
 export type TranscriptLineJson = { id: string | number; text: string };
 
-/** Remove Story Studio / TTS expression tags like [narrator warmly]. */
+/** Remove Story Studio / TTS expression tags like [whispering]. */
 export function stripExpressionTags(script: string): string {
   return script.replace(/\[[^\]]+\]/g, '');
 }

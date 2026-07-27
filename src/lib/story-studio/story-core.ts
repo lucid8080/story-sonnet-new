@@ -1,15 +1,16 @@
 import type { TagDensityId } from '@/lib/story-studio/types';
+import { expressionTagsAllowlistForPrompt } from '@/lib/story-studio/expression-tags';
 
 export function expressionTagDensityGuidance(density: TagDensityId): string {
   switch (density) {
     case 'none':
-      return `Expression tags (square brackets): OFF — write plain narration ONLY. Do NOT use any square-bracket tags such as [narrator warmly], [giggles], [whispering], [dramatic pause], or sound-cue brackets.`;
+      return `Expression tags (square brackets): OFF — write plain narration ONLY. Do NOT use any square-bracket tags such as [whispering], [laughing], [pause], or any Emotional Tone / Audio Effects brackets.`;
     case 'light':
-      return `Expression tags (square brackets): use SPARINGLY — about one tag every 8–12 lines of dialogue/narration. Prefer plain narration when the emotion is obvious.`;
+      return `Expression tags (square brackets): use SPARINGLY — about one tag every 8–12 lines of dialogue/narration. Prefer plain narration when the emotion is obvious. Use ONLY tags from the allowlist below.`;
     case 'medium':
-      return `Expression tags: use MODERATELY — about one tag every 4–6 lines where it helps a voice actor. Do not tag every sentence.`;
+      return `Expression tags: use MODERATELY — about one tag every 4–6 lines where it helps a voice actor. Do not tag every sentence. Use ONLY tags from the allowlist below.`;
     case 'expressive':
-      return `Expression tags: use more freely for TTS direction — about every 2–4 lines where useful, but never stack multiple tags on the same line.`;
+      return `Expression tags: use more freely for TTS direction — about every 2–4 lines where useful, but never stack multiple tags on the same line. Use ONLY tags from the allowlist below.`;
     default:
       return expressionTagDensityGuidance('medium');
   }
@@ -33,7 +34,9 @@ NON-NEGOTIABLES:
 - Scene descriptions should be concrete enough to inspire cover art or illustration (colors, scale, mood) without long static lists.
 
 EXPRESSION TAGS FOR TTS (square brackets):
-- When TAG DENSITY is not "none", you MAY use inline performance tags like [whispering], [giggles], [narrator warmly], [dramatic pause], [sleepy yawn], [yelling from afar].
+- When TAG DENSITY is not "none", you MAY use inline performance tags, but ONLY from this closed allowlist (exact spelling, lowercase):
+${expressionTagsAllowlistForPrompt()}
+- Do NOT invent tags. Do NOT use stage directions or freeform cues such as [narrator warmly], [giggles], [dramatic pause], [sleepy yawn], or [yelling from afar].
 - When TAG DENSITY is "none", do NOT use any square-bracket tags at all — plain spoken narration only.
 - Tags must sound natural when read aloud by a single narrator unless the script clearly switches speakers.
 - Follow the requested TAG DENSITY tier exactly — do not over-tag, and never invent tags when density is none.

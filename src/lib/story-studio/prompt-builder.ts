@@ -237,7 +237,8 @@ SCRIPT RULES:
 - Do not copy any sentence/paragraph from episodes[].scriptText into episodes[].summary, including the first paragraph.
 - Each episodes[].scriptText MUST be ${scriptMinChars}–${scriptMaxChars} characters (aim ~${scriptTargetChars}; narration only; JSON titles/summaries do not count toward this band).
 - Use expression tags per TAG DENSITY tier (if density is "none", write zero square-bracket tags).
-- Include light sound cues only as bracket tags when TAG DENSITY is not "none"; never use brackets when density is "none".
+- Expression tags must be from the allowed Emotional Tone / Audio Effects list only (exact spelling); never invent freeform brackets.
+- Include light sound cues only as allowlisted bracket tags when TAG DENSITY is not "none"; never use brackets when density is "none".
 - Keep vocabulary aligned with age band ${req.studioAgeBand}.`;
 }
 
@@ -362,6 +363,7 @@ SCRIPT RULES:
 - scriptText is narration for this episode only; do not include other episodes.
 - scriptText MUST be ${scriptMinChars}–${scriptMaxChars} characters (aim ~${scriptTargetChars}).
 - Follow TAG DENSITY exactly (if "none", no square-bracket emotion/performance tags).
+- Expression tags must be from the allowed Emotional Tone / Audio Effects list only (exact spelling); never invent freeform brackets.
 - summary must be unique and must not duplicate sentences from scriptText.
 - Keep vocabulary aligned with age band ${req.studioAgeBand}.`;
 }

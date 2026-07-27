@@ -38,6 +38,7 @@ import {
   type TargetLengthRangeId,
 } from '@/lib/story-studio/target-length';
 import { stripExpressionBracketTags } from '@/lib/story-studio/tag-density';
+import { normalizeExpressionTags } from '@/lib/story-studio/expression-tags';
 import { draftSlugFromTitle } from '@/lib/story-studio/draft-slug-from-title';
 import type { GenerationJobStep, GenerationRequest } from '@/lib/story-studio/types';
 import {
@@ -168,26 +169,27 @@ function assertEpisodeScriptCharLimits(
   });
 }
 
-/** When tag density is off, strip leftover `[...]` tags from generated scripts. */
+/** Strip all tags when density is off; otherwise normalize to the allowlist. */
 function applyTagDensityPostProcess(
   pkg: ScriptPackagePayloadParsed,
   tagDensity: GenerationRequest['tagDensity']
 ): ScriptPackagePayloadParsed {
-  if (tagDensity !== 'none') {
-    return { ...pkg, expressionTagDensity: tagDensity };
-  }
+  const rewrite =
+    tagDensity === 'none'
+      ? stripExpressionBracketTags
+      : normalizeExpressionTags;
   const episodes = pkg.episodes.map((ep) => ({
     ...ep,
-    scriptText: stripExpressionBracketTags(ep.scriptText),
+    scriptText: rewrite(ep.scriptText),
   }));
   const fullScript = pkg.fullScript
-    ? stripExpressionBracketTags(pkg.fullScript)
+    ? rewrite(pkg.fullScript)
     : pkg.fullScript;
   return {
     ...pkg,
     episodes,
     fullScript,
-    expressionTagDensity: 'none',
+    expressionTagDensity: tagDensity,
   };
 }
 

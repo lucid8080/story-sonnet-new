@@ -9,7 +9,7 @@ export const TAG_DENSITY_UI_OPTIONS = [
 ] as const satisfies ReadonlyArray<{ id: TagDensityId; label: string }>;
 
 /**
- * Remove square-bracket performance / cue tags like `[narrator warmly]`.
+ * Remove square-bracket performance / cue tags like `[whispering]`.
  * Used when tag density is `none` so output stays plain narration.
  */
 export function stripExpressionBracketTags(script: string): string {

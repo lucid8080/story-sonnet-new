@@ -379,8 +379,9 @@ export function AddEpisodeModal({
           />
           <p className="text-xs text-slate-500">
             Off removes tags like{' '}
-            <span className="font-mono">[narrator warmly]</span> from the
-            generated script.
+            <span className="font-mono">[whispering]</span> from the
+            generated script. When tags are on, only Emotional Tone / Audio
+            Effects brackets are kept.
           </p>
 
           <label className="block text-sm">
