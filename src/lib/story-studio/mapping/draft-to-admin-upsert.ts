@@ -11,6 +11,7 @@ import {
   targetLengthRangeToApproxMinutes,
 } from '@/lib/story-studio/normalize-request';
 import { readLibraryEpisodeIdFromNotes } from '@/lib/story-studio/library-episode-link';
+import { resolveEpisodePublishedForLibrarySync } from '@/lib/story-studio/mapping/episode-publish-for-sync';
 import { scriptToTranscriptLines } from '@/lib/transcripts/from-script';
 
 type DraftForMapping = {
@@ -23,6 +24,8 @@ type DraftForMapping = {
   preset: { defaults: unknown } | null;
   episodes: StoryStudioDraftEpisode[];
   assets: StoryStudioGeneratedAsset[];
+  /** When syncing a linked published series, new episodes inherit publish. */
+  linkedStoryIsPublished?: boolean;
   /** Library episodes when `linkedStoryId` is set (track order + manual rows). */
   libraryEpisodes?: Pick<
     Episode,
@@ -65,6 +68,13 @@ function latestEpisodeAudio(
   return match?.storageKey ?? null;
 }
 
+/**
+ * Maps a Story Studio draft to an admin story upsert payload.
+ * For **linked** library sync / re-push, callers must run
+ * `mergeLibraryStoryPreserveFields` so publish state, cover, narrators, and
+ * discovery fields are not wiped by draft defaults (`autoPublish: false`,
+ * empty cover, empty narratorIds, etc.).
+ */
 export function draftToAdminUpsertInput(draft: DraftForMapping): AdminStoryUpsertInput {
   const req = resolveDraftGenerationRequest(draft);
   const brief = draft.brief as BriefPayloadParsed | null;
@@ -151,7 +161,11 @@ export function draftToAdminUpsertInput(draft: DraftForMapping): AdminStoryUpser
         audioUrl: lib?.audioUrl ?? null,
         audioStorageKey: audioKey,
         transcriptStorageKey: null,
-        isPublished: lib?.isPublished ?? req.autoPublish,
+        isPublished: resolveEpisodePublishedForLibrarySync({
+          libraryEpisodeIsPublished: lib?.isPublished,
+          autoPublish: req.autoPublish,
+          linkedStoryIsPublished: draft.linkedStoryIsPublished === true,
+        }),
         isPremium: lib?.isPremium ?? false,
         isFreePreview: lib?.isFreePreview ?? index === 0,
         label:

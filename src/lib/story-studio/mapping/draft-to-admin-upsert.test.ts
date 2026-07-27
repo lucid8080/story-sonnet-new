@@ -53,4 +53,78 @@ describe('draftToAdminUpsertInput', () => {
     ]);
     expect(payload.episodes[0].isPublished).toBe(true);
   });
+
+  it('publishes new studio episodes when the linked story is already published', () => {
+    const payload = draftToAdminUpsertInput({
+      id: 'draft-1',
+      seriesTitle: 'Test series',
+      slug: 'test-series',
+      brief: null,
+      scriptPackage: null,
+      request: { format: 'mini-series', autoPublish: false },
+      preset: null,
+      linkedStoryIsPublished: true,
+      episodes: [
+        {
+          id: 'studio-ep-new',
+          draftId: 'draft-1',
+          sortOrder: 0,
+          title: 'New episode',
+          scriptText: 'Fresh script text for the new episode.',
+          summary: null,
+          estimatedDurationSeconds: null,
+          notes: null,
+        },
+      ],
+      assets: [],
+      libraryEpisodes: [],
+    } as Parameters<typeof draftToAdminUpsertInput>[0]);
+
+    expect(payload.episodes[0].isPublished).toBe(true);
+    expect(payload.isPublished).toBe(false);
+  });
+
+  it('keeps intentionally unpublished linked episodes unpublished', () => {
+    const payload = draftToAdminUpsertInput({
+      id: 'draft-1',
+      seriesTitle: 'Test series',
+      slug: 'test-series',
+      brief: null,
+      scriptPackage: null,
+      request: { format: 'mini-series', autoPublish: true },
+      preset: null,
+      linkedStoryIsPublished: true,
+      episodes: [
+        {
+          id: 'studio-ep-1',
+          draftId: 'draft-1',
+          sortOrder: 0,
+          title: 'Hidden ep',
+          scriptText: 'Script',
+          summary: null,
+          estimatedDurationSeconds: null,
+          notes: notesWithLibraryEpisodeId(null, '7'),
+        },
+      ],
+      assets: [],
+      libraryEpisodes: [
+        {
+          id: BigInt(7),
+          episodeNumber: 1,
+          title: 'Hidden ep',
+          description: null,
+          audioStorageKey: null,
+          audioUrl: null,
+          durationSeconds: null,
+          isPublished: false,
+          isPremium: false,
+          isFreePreview: false,
+          label: null,
+          slug: null,
+        },
+      ],
+    } as Parameters<typeof draftToAdminUpsertInput>[0]);
+
+    expect(payload.episodes[0].isPublished).toBe(false);
+  });
 });
