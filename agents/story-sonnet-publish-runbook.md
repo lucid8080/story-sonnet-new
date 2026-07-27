@@ -21,6 +21,9 @@ Normal path is **admin UI → server → S3-compatible API** (`@aws-sdk/client-s
 **Story Studio: I narrated an episode but `/admin/stories` does not show the private audio key.**  
 TTS uploads MP3s and stores keys on the draft (`StoryStudioGeneratedAsset`). The library **`Episode.audioStorageKey`** is updated when the draft is pushed/synced to the linked story. Use **Push to story library** once to create the **`Story`** and set **`linkedStoryId`**; after that, **`POST /api/admin/story-studio/generate/tts`** (and a full **`package`** run that includes audio) automatically runs the same **`draftToAdminUpsertInput` → `upsertStoryFromAdmin`** path so episode keys appear under Story Library without a second manual push. The JSON response may include **`librarySync`**: **`{ ok: true }`**, **`{ ok: true, skipped: true }`** when there is no linked story yet, or **`{ ok: false, message }`** if the sync step failed (narration file may still exist in storage).
 
+**How do I upload a cover image for a story?**  
+Preferred: in **`/admin/stories`** → open a story → **Basic info** → **Upload cover** (requires a valid slug). That `POST`s **`/api/upload`** with `assetKind=cover` + `storySlug`, writes under **`covers/<slug>/…`** (original + `_display.webp`), and fills **`coverUrl`** with the display WebP URL. Same path still works from **`/admin/uploads`** when kind is **cover**.
+
 **How do I pick an existing cover image from R2 without pasting a URL by hand?**  
 In **`/admin/stories`** → open a story → **Basic info** → **Browse covers in R2**. That loads a thumbnail grid from **`GET /api/admin/covers`** (admin-only, `ListObjectsV2` on the public bucket under `covers/…`, paginated). Pick a tile to set **`coverUrl`**; scope can be **all covers** or **this story’s folder** when the slug is valid. Same R2/S3 credentials and public base URL expectations as **`POST /api/upload`** (see `src/lib/s3.ts`).
 
@@ -79,9 +82,9 @@ More detail: [Prisma — production troubleshooting / resolve](https://www.prism
 
 **Cover image**
 
-- UI: `src/app/admin/uploads/page.tsx` → `fetch('/api/upload', { POST, FormData })`, default `assetKind` = cover; optional `storySlug` for `covers/<slug>/<sanitized-filename>`.
+- Preferred UI: `src/components/admin/stories/StoryBasicsSection.tsx` → **Upload cover** (passes story slug) → `fetch('/api/upload', { POST, FormData })` with `assetKind=cover` + `storySlug` → sets `coverUrl` from response `fileUrl`. Also: `src/app/admin/uploads/page.tsx` (optional `storySlug` for `covers/<slug>/<sanitized-filename>`).
 - API: `POST` `src/app/api/upload/route.ts` → `uploadOriginalPlusDisplayWebp` (`src/lib/images/dualPublicImageUpload.ts`) + `src/lib/s3.ts` `uploadPublicObject` (keys from `src/lib/media-upload-keys.ts`, e.g. `covers/<file>` or `covers/<slug>/<file>` — **sanitized filename only, no timestamp**; repeat upload **overwrites**). Response **`fileUrl`** is the **`_display.webp`** URL; original is **`originalFileUrl`**.
-- Link to story: `src/components/admin/stories/StoryBasicsSection.tsx` (cover URL field, optional **Browse covers in R2** gallery) → save path below.
+- Link to story: same `StoryBasicsSection` (cover URL field, **Upload cover**, optional **Browse covers in R2** gallery) → save path below.
 - Browse existing covers: `GET` `src/app/api/admin/covers/route.ts` → lists image objects under `covers/` (query `prefix`, `continuationToken`, `maxKeys`); responses use `publicUrlForObjectKey` in `src/lib/s3.ts` so URLs match upload output.
 
 **Audio file**
@@ -153,7 +156,7 @@ More detail: [Prisma — production troubleshooting / resolve](https://www.prism
 ## 4. SMALLEST WORKING PROCEDURE
 
 1. Log in as user with **`profiles.role = 'admin'`**. Ensure **`DATABASE_URL`** and R2/S3 env vars (`src/lib/s3.ts` / `.env.example`).
-2. **Cover**: `/admin/uploads` → optionally set **story slug** → choose file (meaningful name; same path overwrites) → copy **`fileUrl`** → `/admin/stories` → story → cover field → **Save** (`StoryEditor` → `PATCH .../api/admin/stories/<patchKey>`).
+2. **Cover**: `/admin/stories` → story → **Basic info** → ensure valid **slug** → **Upload cover** (lands in `covers/<slug>/…`, fills **`coverUrl`** with display WebP) or **Browse covers in R2** → **Save** (`StoryEditor` → `PATCH .../api/admin/stories/<patchKey>`). Alternate: `/admin/uploads` → set **story slug** → upload → paste **`fileUrl`**.
 3. **Audio**: in `/admin/stories` episode row → **Upload MP3** or **Browse episode audio in R2** (or `/admin/uploads` → kind **audio** → copy **`storageKey`**) → **Private audio key** set → **Save** (same PATCH).
 4. **Publish**: Discovery / episodes UI → turn **`isPublished`** on for story and each episode that should play → **Save**.
 5. Confirm: open `/story/<slug>` as anonymous (or non-admin); audio should load via **`/api/audio/play`**.
