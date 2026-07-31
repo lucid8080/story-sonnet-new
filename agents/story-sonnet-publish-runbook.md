@@ -24,6 +24,12 @@ TTS uploads MP3s and stores keys on the draft (`StoryStudioGeneratedAsset`). The
 **Where is the Story Brief, and can I open it from Story Series?**  
 The brief lives on **`StoryStudioDraft.brief`** (JSON). From **`/admin/stories`** → open a DB-backed story → **Story brief** (header). That calls **`POST /api/admin/stories/[id]/studio-draft`** to find or create a linked Studio draft, then edits the same brief Studio uses. Character/scene reference images upload via **`POST /api/upload`** with **`assetKind=brief_reference`** + **`draftId`**. Download JSON/text from the brief panel.
 
+**Story Studio produce: what fills Full / series description?**  
+**`draftToAdminUpsertInput`** builds **`Story.fullDescription`** from parent-facing **Story Brief** fields (`summary`, `logline`, `settingSketch`, `characters`, `episodeOutline`) — **not** episode dialog / `scriptText` / `fullScript`. Short catalog **`summary`** still prefers script-package summary, then brief summary. Script text continues to feed episode transcripts only.
+
+**How do I fix existing stories whose Full / series description is still episode dialog?**  
+Stories produced before the Brief mapping still have script text in **`Story.fullDescription`**. Re-push from Studio, or run **`npm run backfill:full-description-from-brief`** (loads linked drafts’ briefs and rewrites the field). Use **`-- --dry-run`** first; optional **`-- --slug=<story-slug>`** to limit scope. Requires **`DATABASE_URL`** in **`.env`**.
+
 **How do I upload a cover image for a story?**  
 Preferred: in **`/admin/stories`** → open a story → **Basic info** → **Upload cover** (requires a valid slug). That `POST`s **`/api/upload`** with `assetKind=cover` + `storySlug`, writes under **`covers/<slug>/…`** (original + `_display.webp`), and fills **`coverUrl`** with the display WebP URL. Same path still works from **`/admin/uploads`** when kind is **cover**.
 

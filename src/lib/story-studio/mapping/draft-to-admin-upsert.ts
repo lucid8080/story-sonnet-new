@@ -70,6 +70,54 @@ function latestEpisodeAudio(
 }
 
 /**
+ * Parent-facing Full / series description from Story Brief fields.
+ * Never uses episode script / dialog text.
+ */
+export function fullDescriptionFromBrief(
+  brief: BriefPayloadParsed | null | undefined
+): string | null {
+  if (!brief) return null;
+
+  const sections: string[] = [];
+  const summary = brief.summary?.trim() ?? '';
+  if (summary) sections.push(summary);
+
+  const logline = brief.logline?.trim() ?? '';
+  if (
+    logline &&
+    !summary.toLowerCase().includes(logline.toLowerCase())
+  ) {
+    sections.push(logline);
+  }
+
+  const setting = brief.settingSketch?.trim() ?? '';
+  if (setting) sections.push(setting);
+
+  const characters = (brief.characters ?? [])
+    .map((c) => c.trim())
+    .filter(Boolean);
+  if (characters.length > 0) {
+    sections.push(characters.map((c) => `- ${c}`).join('\n'));
+  }
+
+  const outlineLines = (brief.episodeOutline ?? [])
+    .map((row) => {
+      const title = row.title?.trim() ?? '';
+      const beat = row.beat?.trim() ?? '';
+      if (!title && !beat) return null;
+      if (title && beat) return `${title} — ${beat}`;
+      return title || beat;
+    })
+    .filter((line): line is string => !!line);
+  if (outlineLines.length > 0) {
+    sections.push(outlineLines.join('\n'));
+  }
+
+  const composed = sections.join('\n\n').trim();
+  return composed || null;
+}
+
+/**
  * Maps a Story Studio draft to an admin story upsert payload.
  * For **linked** library sync / re-push, callers must run
  * `mergeLibraryStoryPreserveFields` so publish state, cover, narrators, and
@@ -87,13 +135,7 @@ export function draftToAdminUpsertInput(draft: DraftForMapping): AdminStoryUpser
     brief?.summary ??
     'Short description for library cards.';
 
-  const fullDescription =
-    script?.episodes?.length && script.episodes.length === 1
-      ? script.episodes[0].scriptText
-      : script?.fullScript ??
-        (script?.episodes?.length
-          ? script.episodes.map((e) => e.scriptText).join('\n\n---\n\n')
-          : null);
+  const fullDescription = fullDescriptionFromBrief(brief);
 
   const ageRange = script?.ageRange ?? brief?.ageRange ?? req.catalogAgeRange;
   const genre = brief?.suggestedGenre ?? req.catalogGenre;

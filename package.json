@@ -19,9 +19,11 @@
     "create-admin": "node --env-file=.env scripts/create-admin.mjs",
     "db:seed": "node --env-file=.env prisma/seed.mjs",
     "backfill:episode-transcripts": "node --env-file=.env ./node_modules/tsx/dist/cli.mjs scripts/backfill-episode-transcripts-from-studio.ts",
+    "backfill:full-description-from-brief": "node --env-file=.env ./node_modules/tsx/dist/cli.mjs scripts/backfill-full-description-from-brief.ts",
     "optimize:public-images": "node scripts/optimize-public-images.mjs",
     "backfill:story-cover-webp": "node --env-file=.env ./node_modules/tsx/dist/cli.mjs scripts/backfill-story-cover-webp.ts",
     "backfill:display-webp": "node --env-file=.env ./node_modules/tsx/dist/cli.mjs scripts/backfill-story-cover-webp.ts",
+    "r2:cors-private-audio": "node --env-file=.env ./node_modules/tsx/dist/cli.mjs scripts/r2-set-private-audio-cors.ts",
     "check:blog-featured-url": "node --env-file=.env ./node_modules/tsx/dist/cli.mjs scripts/check-blog-featured-url.ts"
   },
   "prisma": {
