@@ -48,6 +48,7 @@ async function loadLibraryEpisodesForDraft(
       isPublished: true,
       isPremium: true,
       isFreePreview: true,
+      isFreePreviewRequiresSignup: true,
       label: true,
       slug: true,
     },

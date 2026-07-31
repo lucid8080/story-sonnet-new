@@ -39,6 +39,7 @@ type DraftForMapping = {
     | 'isPublished'
     | 'isPremium'
     | 'isFreePreview'
+    | 'isFreePreviewRequiresSignup'
     | 'label'
     | 'slug'
   >[];
@@ -168,6 +169,8 @@ export function draftToAdminUpsertInput(draft: DraftForMapping): AdminStoryUpser
         }),
         isPremium: lib?.isPremium ?? false,
         isFreePreview: lib?.isFreePreview ?? index === 0,
+        isFreePreviewRequiresSignup:
+          lib?.isFreePreviewRequiresSignup ?? false,
         label:
           lib?.label ??
           (episodesSorted.length > 1 ? `Part ${index + 1}` : null),

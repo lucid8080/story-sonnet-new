@@ -57,6 +57,8 @@ export const adminEpisodeSchema = z.object({
   isPublished: z.boolean().optional().default(false),
   isPremium: z.boolean().optional().default(false),
   isFreePreview: z.boolean().optional().default(false),
+  /** With isFreePreview: require free account signup (not paid subscription). */
+  isFreePreviewRequiresSignup: z.boolean().optional().default(false),
   label: z.string().nullable().optional(),
   /** When set (e.g. Story Studio push), replaces episode transcript; omit to preserve DB value. */
   transcriptLines: z.preprocess(

@@ -237,13 +237,48 @@ export default function StoryEpisodesSection({
                 <label className="flex items-center gap-2 text-sm text-slate-800">
                   <input
                     type="checkbox"
-                    checked={ep.isFreePreview}
-                    onChange={(e) =>
-                      updateEp(index, { isFreePreview: e.target.checked })
+                    checked={
+                      ep.isFreePreview && !ep.isFreePreviewRequiresSignup
                     }
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        updateEp(index, {
+                          isFreePreview: true,
+                          isFreePreviewRequiresSignup: false,
+                        });
+                      } else {
+                        updateEp(index, {
+                          isFreePreview: false,
+                          isFreePreviewRequiresSignup: false,
+                        });
+                      }
+                    }}
                     className="h-4 w-4 rounded border-slate-300"
                   />
                   Free preview (no subscription)
+                </label>
+                <label className="flex items-center gap-2 text-sm text-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={
+                      ep.isFreePreview && ep.isFreePreviewRequiresSignup
+                    }
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        updateEp(index, {
+                          isFreePreview: true,
+                          isFreePreviewRequiresSignup: true,
+                        });
+                      } else {
+                        updateEp(index, {
+                          isFreePreview: false,
+                          isFreePreviewRequiresSignup: false,
+                        });
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-slate-300"
+                  />
+                  Free preview (with subscription)
                 </label>
               </div>
             </div>

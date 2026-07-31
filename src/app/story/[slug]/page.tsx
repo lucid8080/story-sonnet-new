@@ -35,7 +35,7 @@ export default async function StoryPage({
         })
       : false;
 
-  const playerStory = storyToPlayerPayload(story, isSubscribed);
+  const playerStory = storyToPlayerPayload(story, isSubscribed, userId != null);
   const storyId = BigInt(story.id);
 
   const [spotlightBadge, spotlightInfoBar, recommendedStories] =

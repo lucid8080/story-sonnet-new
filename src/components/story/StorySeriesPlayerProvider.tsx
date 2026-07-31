@@ -27,6 +27,7 @@ function skipIntroStorageKey(slug: string): string {
 export type StorySeriesPlayerContextValue = {
   story: StoryForPlayer | null;
   isSubscribed: boolean;
+  isLoggedIn: boolean;
   /** True after user has started playback at least once for the current slug (drives header mini player). */
   playbackSessionActive: boolean;
   activeEpisodeIndex: number;
@@ -66,8 +67,12 @@ export type StorySeriesPlayerContextValue = {
   handleMainAudioError: () => void;
   selectFullTheme: () => void;
   selectEpisodeIndex: (index: number) => void;
-  /** Call from story page when `story` / subscription props change. */
-  syncStoryFromPage: (story: StoryForPlayer, isSubscribed: boolean) => void;
+  /** Call from story page when `story` / subscription / login props change. */
+  syncStoryFromPage: (
+    story: StoryForPlayer,
+    isSubscribed: boolean,
+    isLoggedIn?: boolean
+  ) => void;
   /**
    * Take over the global player with this story (pause prior audio, reset state).
    * Call when the user starts playback from a story page while another story was still active.
@@ -78,6 +83,7 @@ export type StorySeriesPlayerContextValue = {
     opts?: {
       initialEpisodeIndex?: number;
       initialPlaybackSelection?: PlaybackSelection;
+      isLoggedIn?: boolean;
     }
   ) => void;
   /** Marquee / header: series title – episode num – title (or theme label). */
@@ -98,6 +104,7 @@ export function StorySeriesPlayerProvider({
 }) {
   const [story, setStory] = useState<StoryForPlayer | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [playbackSessionActive, setPlaybackSessionActive] = useState(false);
   const [activeEpisodeIndex, setActiveEpisodeIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -150,7 +157,9 @@ export function StorySeriesPlayerProvider({
       story.isPremium,
       activeEpisode.isPremium,
       activeEpisode.isFreePreview,
-      isSubscribed
+      isSubscribed,
+      isLoggedIn,
+      activeEpisode.isFreePreviewRequiresSignup
     )
   );
 
@@ -195,6 +204,7 @@ export function StorySeriesPlayerProvider({
       opts?: {
         initialEpisodeIndex?: number;
         initialPlaybackSelection?: PlaybackSelection;
+        isLoggedIn?: boolean;
       }
     ) => {
       const nextSlug = nextStory.slug;
@@ -216,6 +226,9 @@ export function StorySeriesPlayerProvider({
       }
       setStory(nextStory);
       setIsSubscribed(sub);
+      if (typeof opts?.isLoggedIn === 'boolean') {
+        setIsLoggedIn(opts.isLoggedIn);
+      }
       setPlaybackSessionActive(false);
       setActiveEpisodeIndex(idx);
       setIsPlaying(false);
@@ -254,6 +267,7 @@ export function StorySeriesPlayerProvider({
       opts?: {
         initialEpisodeIndex?: number;
         initialPlaybackSelection?: PlaybackSelection;
+        isLoggedIn?: boolean;
       }
     ) => {
       replaceSessionWithStory(nextStory, sub, opts);
@@ -262,13 +276,16 @@ export function StorySeriesPlayerProvider({
   );
 
   const syncStoryFromPage = useCallback(
-    (nextStory: StoryForPlayer, sub: boolean) => {
+    (nextStory: StoryForPlayer, sub: boolean, loggedIn?: boolean) => {
       const prevSlug = prevSlugForSyncRef.current;
       const nextSlug = nextStory.slug;
 
       if (prevSlug === nextSlug) {
         setStory(nextStory);
         setIsSubscribed(sub);
+        if (typeof loggedIn === 'boolean') {
+          setIsLoggedIn(loggedIn);
+        }
         return;
       }
 
@@ -283,7 +300,9 @@ export function StorySeriesPlayerProvider({
         return;
       }
 
-      replaceSessionWithStory(nextStory, sub);
+      replaceSessionWithStory(nextStory, sub, {
+        isLoggedIn: loggedIn,
+      });
     },
     [replaceSessionWithStory]
   );
@@ -692,7 +711,9 @@ export function StorySeriesPlayerProvider({
             story.isPremium,
             ep.isPremium,
             ep.isFreePreview,
-            isSubscribed
+            isSubscribed,
+            isLoggedIn,
+            ep.isFreePreviewRequiresSignup
           )
         ) {
           continueAfterEpisodeEndedRef.current = true;
@@ -709,6 +730,7 @@ export function StorySeriesPlayerProvider({
     story,
     activeEpisodeIndex,
     isSubscribed,
+    isLoggedIn,
   ]);
 
   const persistSkipIntro = useCallback(
@@ -890,6 +912,7 @@ export function StorySeriesPlayerProvider({
     () => ({
       story,
       isSubscribed,
+      isLoggedIn,
       playbackSessionActive,
       activeEpisodeIndex,
       setActiveEpisodeIndex,
@@ -935,6 +958,7 @@ export function StorySeriesPlayerProvider({
     [
     story,
     isSubscribed,
+    isLoggedIn,
     playbackSessionActive,
     activeEpisodeIndex,
     isPlaying,

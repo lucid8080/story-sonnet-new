@@ -13,28 +13,43 @@ export function canPlayEpisode(
   storyIsPremium: boolean,
   episodeIsPremium: boolean,
   episodeIsFreePreview: boolean,
-  isSubscribed: boolean
+  isSubscribed: boolean,
+  isLoggedIn: boolean = false,
+  requiresSignup: boolean = false
 ): boolean {
-  return (
-    isSubscribed ||
-    !needsSubscriptionForEpisode(
-      storyIsPremium,
-      episodeIsPremium,
-      episodeIsFreePreview
-    )
+  if (isSubscribed) return true;
+  if (episodeIsFreePreview) {
+    if (requiresSignup) return isLoggedIn;
+    return true;
+  }
+  return !needsSubscriptionForEpisode(
+    storyIsPremium,
+    episodeIsPremium,
+    episodeIsFreePreview
   );
 }
 
-/** Logged-out / non-subscriber must create an account (or subscribe) before playback. */
+/**
+ * True when this viewer cannot play yet (paywall / signup gate).
+ * Signup-required free preview: locked only when logged out.
+ * Premium non-preview: locked when not subscribed (signup or pricing redirect).
+ */
 export function episodeRequiresAccount(
   storyIsPremium: boolean,
   episodeIsPremium: boolean,
   episodeIsFreePreview: boolean,
-  isSubscribed: boolean
+  isSubscribed: boolean,
+  isLoggedIn: boolean = false,
+  requiresSignup: boolean = false
 ): boolean {
-  if (isSubscribed) return false;
-  if (episodeIsFreePreview) return false;
-  return storyIsPremium || episodeIsPremium;
+  return !canPlayEpisode(
+    storyIsPremium,
+    episodeIsPremium,
+    episodeIsFreePreview,
+    isSubscribed,
+    isLoggedIn,
+    requiresSignup
+  );
 }
 
 /**

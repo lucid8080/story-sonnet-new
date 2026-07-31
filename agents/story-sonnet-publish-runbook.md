@@ -36,6 +36,9 @@ In **`/admin/stories`** → episode → **Browse episode audio in R2**. That loa
 **How do I backfill existing `Story.coverUrl` / `BlogPost.featured_image_url` values to WebP (≤50KB)?**  
 Run **`npm run backfill:story-cover-webp`** (alias: **`npm run backfill:display-webp`**) from the repo root with **`.env`** loaded (**`DATABASE_URL`**, **`R2_BUCKET`** / **`S3_BUCKET`**, R2/S3 credentials, and **`NEXT_PUBLIC_ASSETS_BASE_URL`** or **`R2_PUBLIC_BASE_URL`** so URLs map to object keys). The script (`scripts/backfill-story-cover-webp.ts`) **`fetch`**es each image (or **`GetObject`** by key), skips **SVG** / **GIF** / already-small **WebP**, re-encodes with Sharp to **≤50KB**, uploads to **`…_display.webp`** (or overwrites an existing **`_display.webp`**). **Stories:** loads rows with non-null **`cover_url`**, **`UPDATE`s** **`stories.cover_url`** when the canonical public URL string changes. **Blog:** loads rows with non-null **`featured_image_url`**, uses **`maxWidth` 1200** for encoding (aligned with the blog display preset), and **`UPDATE`s** **`featured_image_url`** and **`featured_image_storage_key`** together when the display URL or storage key should change. Use **`--scope stories`**, **`--scope blog`**, or **`--scope all`** (default **`all`**); **`--dry-run`** to log without uploading or DB writes; **`--limit N`** applies per table when **`--scope all`** (first N stories, then first N blog posts). Does **not** rewrite **`content_html`** inline `<img>` URLs (possible follow-up).
 
+**How do free preview / premium episode flags work?**  
+Per episode in **`/admin/stories`**: **Premium** needs a paid subscription (or trial) unless a free-preview flag is set. **Free preview (no subscription)** — anyone can listen, including logged-out. **Free preview (with subscription)** — sign-up only free preview: any logged-in free account can listen (no paid Stripe sub); logged-out users see a notice and are sent to **`/signup`**. Fields: **`isFreePreview`**, **`isFreePreviewRequiresSignup`**. Entitlement: **`src/lib/audioEntitlement.ts`** + **`/api/audio/play`**.
+
 **What is Content Calendar / spotlights?**  
 Admin lives at **`/admin/content-calendar`**: month view, **Spotlights** (holiday / awareness / seasonal collections), **Badge assets** (reusable PNGs), and settings. Spotlights attach to **`Story`** rows, optional **PNG badge** on cover art (corner set per spotlight via **`badgeCorner`**: bottom-right / bottom-left / top-right / top-left; default bottom-right), optional **info bar** on **`/story/[slug]`**, and optional **featured rails** above the homepage and library grids. **Badge uploads** use the same **`POST /api/upload`** as covers, with **`assetKind=spotlight_badge`** (PNG-only, max 1MB); objects land under **`spotlight-badges/`** in the public bucket. Register a row via **`POST /api/admin/content-calendar/badge-assets`** after upload so spotlights can reference **`badgeAssetId`**. Public rendering uses **`src/lib/content-spotlight/resolve.ts`** (active + published + in-window; priority tie-break).
 
@@ -125,7 +128,7 @@ More detail: [Prisma — production troubleshooting / resolve](https://www.prism
 
 - Required: `id` (non-empty string), `episodeNumber` (int ≥ 1), `title`.
 - Optional: `slug` (unique per story if set), `audioUrl`, `audioStorageKey`, `summary`, durations, `label`, `transcriptLines` (array of `{ id, text }` for the scrolling reader; Story Studio push sets this from script text).
-- Publish: `isPublished` (default false). Premium: `isPremium`, `isFreePreview`.
+- Publish: `isPublished` (default false). Premium: `isPremium`, `isFreePreview`, `isFreePreviewRequiresSignup` (signup-only free preview when both free-preview flags apply).
 
 **Upload / media**
 

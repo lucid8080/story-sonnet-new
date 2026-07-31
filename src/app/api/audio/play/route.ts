@@ -94,6 +94,7 @@ export async function GET(req: Request) {
   let storyIsPremium = false;
   let episodeIsPremium = false;
   let episodeIsFreePreview = false;
+  let episodeRequiresSignup = false;
   let episodeNumber = 0;
   let key = '';
   let legacyUrl = '';
@@ -132,6 +133,7 @@ export async function GET(req: Request) {
     storyIsPremium = episode.story.isPremium;
     episodeIsPremium = episode.isPremium;
     episodeIsFreePreview = episode.isFreePreview;
+    episodeRequiresSignup = episode.isFreePreviewRequiresSignup;
     episodeNumber = episode.episodeNumber;
     key = episode.audioStorageKey?.trim() ?? '';
     legacyUrl = episode.audioUrl?.trim() ?? '';
@@ -154,6 +156,7 @@ export async function GET(req: Request) {
     storyIsPremium = story.isPremium;
     episodeIsPremium = ep.isPremium;
     episodeIsFreePreview = ep.isFreePreview;
+    episodeRequiresSignup = ep.isFreePreviewRequiresSignup;
     episodeNumber = epNum;
     key = ep.audioStorageKey?.trim() ?? '';
     legacyUrl = ep.audioSrc?.trim() ?? '';
@@ -163,7 +166,9 @@ export async function GET(req: Request) {
     storyIsPremium,
     episodeIsPremium,
     episodeIsFreePreview,
-    isSubscribed
+    isSubscribed,
+    !!viewerUserId,
+    episodeRequiresSignup
   );
 
   if (!canPlay) {

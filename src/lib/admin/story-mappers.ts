@@ -63,6 +63,8 @@ export function appStoryToForm(story: AppStory): StoryFormState {
             isPublished: ep.isPublished,
             isPremium: ep.isPremium,
             isFreePreview: ep.isFreePreview ?? false,
+            isFreePreviewRequiresSignup:
+              ep.isFreePreviewRequiresSignup ?? false,
             label: ep.label ?? '',
           };
         })
@@ -155,6 +157,7 @@ export function formToAdminUpsertPayload(form: StoryFormState): AdminStoryUpsert
       isPublished: ep.isPublished,
       isPremium: ep.isPremium,
       isFreePreview: ep.isFreePreview,
+      isFreePreviewRequiresSignup: ep.isFreePreviewRequiresSignup,
       label: ep.label.trim() === '' ? null : ep.label,
     };
   });

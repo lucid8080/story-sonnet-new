@@ -19,6 +19,7 @@ export type EpisodeFormState = {
   isPublished: boolean;
   isPremium: boolean;
   isFreePreview: boolean;
+  isFreePreviewRequiresSignup: boolean;
   label: string;
 };
 
@@ -75,6 +76,7 @@ export function emptyEpisodeForm(id: string, episodeNumber: number): EpisodeForm
     isPublished: false,
     isPremium: false,
     isFreePreview: false,
+    isFreePreviewRequiresSignup: false,
     label: '',
   };
 }

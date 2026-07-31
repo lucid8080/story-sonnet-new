@@ -876,6 +876,8 @@ model Episode {
   isPremium         Boolean  @default(false) @map("is_premium")
   /** When true, episode is playable without a subscription (sample), even if the series is premium. */
   isFreePreview     Boolean  @default(false) @map("is_free_preview")
+  /** When true with isFreePreview, listener must be signed in (free account); no paid subscription required. */
+  isFreePreviewRequiresSignup Boolean @default(false) @map("is_free_preview_requires_signup")
   /// JSON array of { id: string | number; text: string } for scrolling transcript (Story Studio / admin).
   transcriptLines   Json?    @map("transcript_lines")
   createdAt      DateTime @default(now()) @map("created_at")

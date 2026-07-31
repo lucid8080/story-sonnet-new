@@ -63,7 +63,9 @@ export async function GET(req: Request) {
     story.isPremium,
     firstEp.isPremium,
     firstEp.isFreePreview,
-    isSubscribed
+    isSubscribed,
+    !!session?.user?.id,
+    firstEp.isFreePreviewRequiresSignup
   );
 
   if (!canPlay) {

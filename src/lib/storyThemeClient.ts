@@ -20,7 +20,8 @@ async function fetchThemePlayUrl(
 export async function storyWithThemeForViewer(
   story: StoryForPlayer,
   probe: ThemeAudioProbeResult,
-  isSubscribed: boolean
+  isSubscribed: boolean,
+  isLoggedIn: boolean = false
 ): Promise<StoryForPlayer> {
   let merged = attachThemeAudioToPlayerStory(story, probe);
   const firstEp = merged.episodes[0];
@@ -30,7 +31,9 @@ export async function storyWithThemeForViewer(
     merged.isPremium,
     firstEp.isPremium,
     firstEp.isFreePreview,
-    isSubscribed
+    isSubscribed,
+    isLoggedIn,
+    firstEp.isFreePreviewRequiresSignup
   );
   if (!entitled) return merged;
 

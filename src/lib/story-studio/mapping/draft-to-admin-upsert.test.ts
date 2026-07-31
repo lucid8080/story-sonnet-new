@@ -37,6 +37,7 @@ describe('draftToAdminUpsertInput', () => {
           isPublished: true,
           isPremium: false,
           isFreePreview: true,
+          isFreePreviewRequiresSignup: false,
           label: 'Part 1',
           slug: null,
         },
@@ -52,6 +53,7 @@ describe('draftToAdminUpsertInput', () => {
       { id: 1, text: 'Hello from the script tab.' },
     ]);
     expect(payload.episodes[0].isPublished).toBe(true);
+    expect(payload.episodes[0].isFreePreviewRequiresSignup).toBe(false);
   });
 
   it('publishes new studio episodes when the linked story is already published', () => {
@@ -119,6 +121,7 @@ describe('draftToAdminUpsertInput', () => {
           isPublished: false,
           isPremium: false,
           isFreePreview: false,
+          isFreePreviewRequiresSignup: false,
           label: null,
           slug: null,
         },

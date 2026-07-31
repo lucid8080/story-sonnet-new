@@ -123,12 +123,13 @@ export function StoryPageClient({
         const merged = await storyWithThemeForViewer(
           initialStory,
           probe,
-          isSubscribed
+          isSubscribed,
+          isLoggedIn
         );
         if (cancelled) return;
         setStory(merged);
         storyRef.current = merged;
-        player.syncStoryFromPage(merged, isSubscribed);
+        player.syncStoryFromPage(merged, isSubscribed, isLoggedIn);
         setSeriesThemeLoad(merged.hasFullTheme ? 'ready' : 'none');
       })
       .catch(() => {
@@ -138,12 +139,12 @@ export function StoryPageClient({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- probe once per slug; initialStory carries episode payload
-  }, [initialStory.slug, isSubscribed, player.syncStoryFromPage]);
+  }, [initialStory.slug, isSubscribed, isLoggedIn, player.syncStoryFromPage]);
 
   useLayoutEffect(() => {
-    player.syncStoryFromPage(storyRef.current, isSubscribed);
+    player.syncStoryFromPage(storyRef.current, isSubscribed, isLoggedIn);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- omit `player`; syncStoryFromPage is stable
-  }, [player.syncStoryFromPage, story.slug, isSubscribed]);
+  }, [player.syncStoryFromPage, story.slug, isSubscribed, isLoggedIn]);
 
   const {
     activeEpisodeIndex,
@@ -308,13 +309,20 @@ export function StoryPageClient({
     story.isPremium,
     activeEpisode.isPremium,
     activeEpisode.isFreePreview,
-    isSubscribed
+    isSubscribed,
+    isLoggedIn,
+    activeEpisode.isFreePreviewRequiresSignup
   );
   const coverEntitled = inSessionWithPage ? entitled : pageEntitled;
   const coverLocked = !coverEntitled;
   const coverPlaybackSelection = inSessionWithPage
     ? playbackSelection
     : previewPlaybackSelection;
+
+  const showSignupOnlyPreviewNotice =
+    !isLoggedIn &&
+    activeEpisode.isFreePreview &&
+    activeEpisode.isFreePreviewRequiresSignup;
 
   const showIntroChromeUi =
     seriesThemeLoad === 'loading' || storyShowsIntroTheme(story);
@@ -344,7 +352,9 @@ export function StoryPageClient({
       story.isPremium,
       ep.isPremium,
       ep.isFreePreview,
-      isSubscribed
+      isSubscribed,
+      isLoggedIn,
+      ep.isFreePreviewRequiresSignup
     );
   };
 
@@ -371,6 +381,7 @@ export function StoryPageClient({
     claimStorySession(story, isSubscribed, {
       initialEpisodeIndex: index,
       initialPlaybackSelection: 'episode',
+      isLoggedIn,
     });
   };
 
@@ -388,6 +399,7 @@ export function StoryPageClient({
     setPreviewPlaybackSelection('fullTheme');
     claimStorySession(story, isSubscribed, {
       initialPlaybackSelection: 'fullTheme',
+      isLoggedIn,
     });
   };
 
@@ -401,6 +413,7 @@ export function StoryPageClient({
       claimStorySession(story, isSubscribed, {
         initialEpisodeIndex: previewEpisodeIndex,
         initialPlaybackSelection: previewPlaybackSelection,
+        isLoggedIn,
       });
       return;
     }
@@ -580,14 +593,31 @@ export function StoryPageClient({
                             <div className="text-sm font-bold text-white">
                               Play from the cover
                             </div>
-                            <div className="text-xs leading-5 text-white/75">
-                              <span className="lg:hidden">
-                                Pick an episode below, then hit play here.
-                              </span>
-                              <span className="hidden lg:inline">
-                                Pick an episode on the right, then hit play here.
-                              </span>
-                            </div>
+                            {showSignupOnlyPreviewNotice ? (
+                              <div
+                                role="status"
+                                className="mt-1 text-xs leading-5 text-amber-100/95"
+                              >
+                                Sign-up only free preview —{' '}
+                                <Link
+                                  href={`/signup?${new URLSearchParams({ callbackUrl: storyPath }).toString()}`}
+                                  className="font-semibold underline underline-offset-2 hover:text-white"
+                                >
+                                  create a free account
+                                </Link>{' '}
+                                to listen (no paid subscription needed).
+                              </div>
+                            ) : (
+                              <div className="text-xs leading-5 text-white/75">
+                                <span className="lg:hidden">
+                                  Pick an episode below, then hit play here.
+                                </span>
+                                <span className="hidden lg:inline">
+                                  Pick an episode on the right, then hit play
+                                  here.
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -749,6 +779,22 @@ export function StoryPageClient({
                 </div>
               </div>
 
+              {showSignupOnlyPreviewNotice ? (
+                <p
+                  role="status"
+                  className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm leading-5 text-rose-900"
+                >
+                  This free preview requires a free account to listen.{' '}
+                  <Link
+                    href={`/signup?${new URLSearchParams({ callbackUrl: storyPath }).toString()}`}
+                    className="font-semibold underline underline-offset-2"
+                  >
+                    Sign up to play
+                  </Link>
+                  — no subscription needed.
+                </p>
+              ) : null}
+
               <ul
                 className="min-h-0 min-w-0 flex-1 divide-y divide-slate-200 overflow-x-hidden overflow-y-auto pr-2"
                 aria-live="polite"
@@ -844,7 +890,10 @@ export function StoryPageClient({
                         aria-current={active ? 'true' : undefined}
                         aria-label={
                           episodeLocked
-                            ? `Episode ${episode.episodeNumber}: ${episode.title} — create your account to listen`
+                            ? episode.isFreePreview &&
+                              episode.isFreePreviewRequiresSignup
+                              ? `Episode ${episode.episodeNumber}: ${episode.title} — sign-up only free preview; create a free account to listen`
+                              : `Episode ${episode.episodeNumber}: ${episode.title} — create your account to listen`
                             : `Select episode ${episode.episodeNumber}: ${episode.title}`
                         }
                         className={`flex min-w-0 w-full max-w-full cursor-pointer items-start gap-2 overflow-hidden rounded-lg px-1 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 sm:items-center ${
@@ -860,7 +909,9 @@ export function StoryPageClient({
                           </span>
                           {episode.isFreePreview ? (
                             <span className={`${TRACKLIST_LABEL_CLASS} text-rose-600`}>
-                              Preview
+                              {episode.isFreePreviewRequiresSignup
+                                ? 'Free preview · Sign up'
+                                : 'Preview'}
                             </span>
                           ) : episodeLocked ? (
                             <span className={`${TRACKLIST_LABEL_CLASS} text-violet-600`}>

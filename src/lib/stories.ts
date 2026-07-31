@@ -52,6 +52,8 @@ export type AppEpisode = {
   isPremium: boolean;
   /** Playable without subscription when true (sample), even for premium series. */
   isFreePreview: boolean;
+  /** With isFreePreview: require free account (not paid sub). */
+  isFreePreviewRequiresSignup: boolean;
   isPublished: boolean;
   /** Scrolling transcript lines (DB-backed stories); static catalog uses JSON files. */
   transcriptLines?: TranscriptLineJson[];
@@ -120,6 +122,7 @@ export type EpisodeForPlayer = {
   description: string | null;
   isPremium: boolean;
   isFreePreview: boolean;
+  isFreePreviewRequiresSignup: boolean;
   isPublished: boolean;
   useSignedPlayback: boolean;
   playbackEpisodeId: string | null;
@@ -140,10 +143,11 @@ export type StoryForPlayer = Omit<AppStory, 'episodes'> & {
 
 export function storyToPlayerPayload(
   story: AppStory,
-  isSubscribed: boolean
+  isSubscribed: boolean,
+  isLoggedIn: boolean = false
 ): StoryForPlayer {
   const episodes = story.episodes.map((ep) =>
-    episodeToPlayerEpisode(ep, story, isSubscribed)
+    episodeToPlayerEpisode(ep, story, isSubscribed, isLoggedIn)
   );
   return {
     ...story,
@@ -160,13 +164,16 @@ export function storyToPlayerPayload(
 function episodeToPlayerEpisode(
   ep: AppEpisode,
   story: AppStory,
-  isSubscribed: boolean
+  isSubscribed: boolean,
+  isLoggedIn: boolean
 ): EpisodeForPlayer {
   const entitled = canPlayEpisode(
     story.isPremium,
     ep.isPremium,
     ep.isFreePreview,
-    isSubscribed
+    isSubscribed,
+    isLoggedIn,
+    ep.isFreePreviewRequiresSignup
   );
   const hasAudio = !!(
     (ep.audioStorageKey && ep.audioStorageKey.trim()) ||
@@ -187,6 +194,7 @@ function episodeToPlayerEpisode(
       description: ep.description,
       isPremium: ep.isPremium,
       isFreePreview: ep.isFreePreview,
+      isFreePreviewRequiresSignup: ep.isFreePreviewRequiresSignup,
       isPublished: ep.isPublished,
       useSignedPlayback: false,
       playbackEpisodeId: null,
@@ -207,6 +215,7 @@ function episodeToPlayerEpisode(
       description: ep.description,
       isPremium: ep.isPremium,
       isFreePreview: ep.isFreePreview,
+      isFreePreviewRequiresSignup: ep.isFreePreviewRequiresSignup,
       isPublished: ep.isPublished,
       useSignedPlayback: true,
       playbackEpisodeId: ep.id,
@@ -226,6 +235,7 @@ function episodeToPlayerEpisode(
     description: ep.description,
     isPremium: ep.isPremium,
     isFreePreview: ep.isFreePreview,
+    isFreePreviewRequiresSignup: ep.isFreePreviewRequiresSignup,
     isPublished: ep.isPublished,
     useSignedPlayback: false,
     playbackEpisodeId: null,
@@ -299,6 +309,7 @@ function mapDbStoryToApp(
     description: ep.description,
     isPremium: ep.isPremium,
     isFreePreview: ep.isFreePreview,
+    isFreePreviewRequiresSignup: ep.isFreePreviewRequiresSignup,
     isPublished: ep.isPublished,
     transcriptLines: parseTranscriptLinesJson(ep.transcriptLines),
   }));
@@ -406,6 +417,7 @@ function mapStaticToApp(): AppStory[] {
         description: ep.description ?? null,
         isPremium: !!(ep as { isPremium?: boolean }).isPremium,
         isFreePreview: false,
+        isFreePreviewRequiresSignup: false,
         isPublished: true,
       };
     });
@@ -759,6 +771,7 @@ async function syncEpisodesForStory(
         isPublished: true,
         isPremium: !!ep.isPremium,
         isFreePreview: false,
+        isFreePreviewRequiresSignup: false,
         label: ep.label ?? null,
       };
     });
@@ -882,6 +895,7 @@ async function syncEpisodesForStory(
       isPublished: ep.isPublished,
       isPremium: ep.isPremium,
       isFreePreview: ep.isFreePreview ?? false,
+      isFreePreviewRequiresSignup: ep.isFreePreviewRequiresSignup ?? false,
       ...(transcriptLines !== undefined
         ? {
             transcriptLines: transcriptLines as Prisma.InputJsonValue,
@@ -1133,6 +1147,7 @@ export async function duplicateStoryAdmin(id: string): Promise<Story> {
           isPublished: ep.isPublished,
           isPremium: ep.isPremium,
           isFreePreview: ep.isFreePreview,
+          isFreePreviewRequiresSignup: ep.isFreePreviewRequiresSignup ?? false,
         })),
       },
     },
