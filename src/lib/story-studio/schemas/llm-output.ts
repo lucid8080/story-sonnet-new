@@ -107,6 +107,20 @@ function normalizeForComparison(v: string): string {
     .replace(/[^\w\s-]/g, '');
 }
 
+/** Human/reference guide row (image + notes); optional on older briefs. */
+export const briefReferenceGuideSchema = z.object({
+  name: z.string(),
+  notes: z.string(),
+  imageUrl: z.preprocess(
+    (v) => (v == null || v === '' ? null : v),
+    z.string().nullable()
+  ),
+});
+
+export type BriefReferenceGuideParsed = z.infer<
+  typeof briefReferenceGuideSchema
+>;
+
 export const briefPayloadSchema = z.object({
   seriesTitle: z.string().min(1),
   summary: z.string().min(1),
@@ -129,6 +143,11 @@ export const briefPayloadSchema = z.object({
     .min(1)
     .max(STORY_STUDIO_MAX_ESTIMATED_RUNTIME_MINUTES),
   safetyNotes: z.string(),
+  characterGuides: z
+    .array(briefReferenceGuideSchema)
+    .optional()
+    .default([]),
+  sceneGuides: z.array(briefReferenceGuideSchema).optional().default([]),
 });
 
 function scriptEpisodeSummaryRefine(
@@ -230,6 +249,32 @@ function unwrapBriefCharactersField(v: unknown): unknown {
   return v;
 }
 
+function normalizeBriefGuideList(v: unknown): BriefReferenceGuideParsed[] {
+  if (v == null) return [];
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+        return null;
+      }
+      const row = entry as Record<string, unknown>;
+      const name = typeof row.name === 'string' ? row.name : '';
+      const notes =
+        typeof row.notes === 'string'
+          ? row.notes
+          : typeof row.label === 'string'
+            ? row.label
+            : '';
+      const imageRaw = row.imageUrl;
+      const imageUrl =
+        typeof imageRaw === 'string' && imageRaw.trim()
+          ? imageRaw.trim()
+          : null;
+      return { name, notes, imageUrl };
+    })
+    .filter((g): g is BriefReferenceGuideParsed => g != null);
+}
+
 function normalizeBriefJsonBeforeParse(data: unknown): unknown {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return data;
   const o = { ...(data as Record<string, unknown>) };
@@ -242,7 +287,30 @@ function normalizeBriefJsonBeforeParse(data: unknown): unknown {
   if ('characters' in o) {
     o.characters = normalizeBriefCharactersValue(o.characters);
   }
+  o.characterGuides = normalizeBriefGuideList(o.characterGuides);
+  o.sceneGuides = normalizeBriefGuideList(o.sceneGuides);
   return o;
+}
+
+/** Strip image URLs before sending brief JSON to text LLMs. */
+export function briefPayloadForLlmPrompt(
+  brief: BriefPayloadParsed
+): BriefPayloadParsed {
+  return {
+    ...brief,
+    characterGuides: (brief.characterGuides ?? []).map(
+      ({ name, notes }) => ({
+        name,
+        notes,
+        imageUrl: null,
+      })
+    ),
+    sceneGuides: (brief.sceneGuides ?? []).map(({ name, notes }) => ({
+      name,
+      notes,
+      imageUrl: null,
+    })),
+  };
 }
 
 export function parseJsonToBrief(raw: string) {

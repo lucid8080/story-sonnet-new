@@ -2,6 +2,7 @@ import type {
   BriefPayloadParsed,
   ScriptPackagePayloadParsed,
 } from '@/lib/story-studio/schemas/llm-output';
+import { briefPayloadForLlmPrompt } from '@/lib/story-studio/schemas/llm-output';
 import {
   expressionTagDensityGuidance,
   storyCoreSystemPreamble,
@@ -208,7 +209,7 @@ export function buildScriptUserPrompt(
   brief: BriefPayloadParsed,
   artStyleOverrides?: ArtStylePromptOverrides
 ): string {
-  const briefJson = JSON.stringify(brief, null, 2);
+  const briefJson = JSON.stringify(briefPayloadForLlmPrompt(brief), null, 2);
   const density = req.tagDensity;
   const scriptMinChars = llmMinScriptCharsForRange(req.targetLengthRange);
   const scriptTargetChars = llmTargetScriptCharsForRange(req.targetLengthRange);
@@ -310,7 +311,7 @@ export function buildSingleEpisodeUserPrompt(
   ctx: SingleEpisodePromptContext,
   artStyleOverrides?: ArtStylePromptOverrides
 ): string {
-  const briefJson = JSON.stringify(brief, null, 2);
+  const briefJson = JSON.stringify(briefPayloadForLlmPrompt(brief), null, 2);
   const priorBlock =
     ctx.priorEpisodes.length === 0
       ? '(This is the first episode in the series.)'

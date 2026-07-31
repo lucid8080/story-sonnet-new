@@ -83,6 +83,23 @@ export function buildCoverKey(params: {
   return key;
 }
 
+/**
+ * Character / scene reference images for a Story Studio brief.
+ * Keys: covers/studio-draft-<draftId>/brief-refs/<file>
+ */
+export function buildBriefReferenceKey(params: {
+  draftId: string;
+  safeFileName: string;
+}): string {
+  const draftId = params.draftId.replace(/[^a-zA-Z0-9_-]/g, '');
+  if (!draftId) {
+    throw new UploadKeyValidationError('Invalid draft id for brief reference.');
+  }
+  const key = `covers/studio-draft-${draftId}/brief-refs/${params.safeFileName}`;
+  assertKeyLength(key);
+  return key;
+}
+
 /** Public blog images (featured + inline), same slug rules as story segments. */
 export function buildBlogImageKey(params: {
   blogSlug: string;

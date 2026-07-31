@@ -145,6 +145,12 @@ export type GenerationRequest = {
   presetFieldEnabled?: PresetFieldEnabledMap;
 };
 
+export type BriefReferenceGuide = {
+  name: string;
+  notes: string;
+  imageUrl: string | null;
+};
+
 export type BriefPayload = {
   seriesTitle: string;
   summary: string;
@@ -159,6 +165,8 @@ export type BriefPayload = {
   musicPrompt: string;
   estimatedRuntimeMinutes: number;
   safetyNotes: string;
+  characterGuides?: BriefReferenceGuide[];
+  sceneGuides?: BriefReferenceGuide[];
 };
 
 export type ScriptEpisodePayload = {

@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   parseJsonToBrief,
   type BriefPayloadParsed,
+  type BriefReferenceGuideParsed,
 } from '@/lib/story-studio/schemas/llm-output';
 import type { GenerationRequest } from '@/lib/story-studio/types';
 import {
@@ -16,6 +17,10 @@ import { draftSlugFromTitle } from '@/lib/story-studio/draft-slug-from-title';
 
 const field =
   'mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-400';
+
+function emptyGuide(): BriefReferenceGuideParsed {
+  return { name: '', notes: '', imageUrl: null };
+}
 
 function defaultBrief(
   seriesTitle: string,
@@ -36,6 +41,8 @@ function defaultBrief(
     musicPrompt: '',
     estimatedRuntimeMinutes: 3,
     safetyNotes: '',
+    characterGuides: [],
+    sceneGuides: [],
   };
 }
 
@@ -46,8 +53,220 @@ function briefFromDraft(
 ): BriefPayloadParsed {
   if (brief == null) return defaultBrief(seriesTitle, req);
   const parsed = parseJsonToBrief(JSON.stringify(brief));
-  if (parsed.success) return parsed.data;
+  if (parsed.success) {
+    return {
+      ...parsed.data,
+      characterGuides: parsed.data.characterGuides ?? [],
+      sceneGuides: parsed.data.sceneGuides ?? [],
+    };
+  }
   return defaultBrief(seriesTitle, req);
+}
+
+function downloadBlob(filename: string, blob: Blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function briefToPlainText(brief: BriefPayloadParsed): string {
+  const lines: string[] = [];
+  const section = (title: string) => {
+    lines.push('');
+    lines.push(`## ${title}`);
+    lines.push('');
+  };
+
+  lines.push(`# Story Brief: ${brief.seriesTitle}`);
+  section('Summary');
+  lines.push(brief.summary || '(none)');
+  section('Logline');
+  lines.push(brief.logline || '(none)');
+  section('Characters');
+  if (brief.characters.length === 0) {
+    lines.push('(none)');
+  } else {
+    brief.characters.forEach((c, i) => lines.push(`${i + 1}. ${c}`));
+  }
+  section('Setting sketch');
+  lines.push(brief.settingSketch || '(none)');
+  section('Catalog hints');
+  lines.push(`Genre: ${brief.suggestedGenre ?? '—'}`);
+  lines.push(`Mood: ${brief.suggestedMood ?? '—'}`);
+  lines.push(`Age range: ${brief.ageRange}`);
+  lines.push(
+    `Estimated runtime (minutes): ${brief.estimatedRuntimeMinutes}`
+  );
+  section('Episode outline');
+  if (brief.episodeOutline.length === 0) {
+    lines.push('(none)');
+  } else {
+    brief.episodeOutline.forEach((row, i) => {
+      lines.push(`${i + 1}. ${row.title || '(untitled)'}`);
+      lines.push(`   ${row.beat || '(no beat)'}`);
+    });
+  }
+  section('Cover art prompt');
+  lines.push(brief.coverArtPrompt || '(none)');
+  section('Music prompt');
+  lines.push(brief.musicPrompt || '(none)');
+  section('Safety notes');
+  lines.push(brief.safetyNotes || '(none)');
+  section('Character reference guides');
+  const charGuides = brief.characterGuides ?? [];
+  if (charGuides.length === 0) {
+    lines.push('(none)');
+  } else {
+    charGuides.forEach((g, i) => {
+      lines.push(`${i + 1}. ${g.name || '(unnamed)'}`);
+      lines.push(`   Notes: ${g.notes || '(none)'}`);
+      lines.push(`   Image: ${g.imageUrl || '(none)'}`);
+    });
+  }
+  section('Scene guides');
+  const sceneGuides = brief.sceneGuides ?? [];
+  if (sceneGuides.length === 0) {
+    lines.push('(none)');
+  } else {
+    sceneGuides.forEach((g, i) => {
+      lines.push(`${i + 1}. ${g.name || '(unnamed)'}`);
+      lines.push(`   Notes: ${g.notes || '(none)'}`);
+      lines.push(`   Image: ${g.imageUrl || '(none)'}`);
+    });
+  }
+  lines.push('');
+  return lines.join('\n');
+}
+
+function ReferenceGuidesEditor({
+  title,
+  guides,
+  draftId,
+  busy,
+  uploadingIndex,
+  onChange,
+  onUpload,
+}: {
+  title: string;
+  guides: BriefReferenceGuideParsed[];
+  draftId: string;
+  busy: boolean;
+  uploadingIndex: number | null;
+  onChange: (next: BriefReferenceGuideParsed[]) => void;
+  onUpload: (index: number, file: File) => void;
+}) {
+  const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  const setGuide = (
+    index: number,
+    patch: Partial<BriefReferenceGuideParsed>
+  ) => {
+    onChange(
+      guides.map((g, i) => (i === index ? { ...g, ...patch } : g))
+    );
+  };
+
+  return (
+    <div className="mt-4">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold text-slate-700">{title}</span>
+        <button
+          type="button"
+          onClick={() => onChange([...guides, emptyGuide()])}
+          className="text-xs font-semibold text-violet-700 hover:underline"
+        >
+          + Add
+        </button>
+      </div>
+      <ul className="mt-2 space-y-3">
+        {guides.map((g, i) => (
+          <li
+            key={i}
+            className="rounded-xl border border-slate-100 bg-slate-50/80 p-3"
+          >
+            <div className="mb-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() =>
+                  onChange(guides.filter((_, idx) => idx !== i))
+                }
+                className="text-xs text-slate-600 hover:underline"
+              >
+                Remove
+              </button>
+            </div>
+            <input
+              className={field}
+              value={g.name}
+              onChange={(e) => setGuide(i, { name: e.target.value })}
+              placeholder="Name / label"
+            />
+            <textarea
+              rows={2}
+              className={`${field} mt-2`}
+              value={g.notes}
+              onChange={(e) => setGuide(i, { notes: e.target.value })}
+              placeholder="Short notes"
+            />
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              {g.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- admin preview of uploaded R2 URL
+                <img
+                  src={g.imageUrl}
+                  alt={g.name || 'Reference'}
+                  className="h-16 w-16 rounded-lg border border-slate-200 object-cover"
+                />
+              ) : (
+                <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white text-[10px] text-slate-400">
+                  No image
+                </div>
+              )}
+              <div className="flex flex-col gap-1">
+                <input
+                  ref={(el) => {
+                    fileInputRefs.current[i] = el;
+                  }}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (file) onUpload(i, file);
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={busy || uploadingIndex === i || !draftId}
+                  onClick={() => fileInputRefs.current[i]?.click()}
+                  className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  {uploadingIndex === i ? 'Uploading…' : 'Upload image'}
+                </button>
+                {g.imageUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => setGuide(i, { imageUrl: null })}
+                    className="text-left text-xs text-slate-500 hover:underline"
+                  >
+                    Clear image
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {guides.length === 0 ? (
+        <p className="mt-1 text-xs text-slate-500">
+          Optional: attach reference images with short notes.
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 export function StoryBriefPanel({
@@ -75,6 +294,12 @@ export function StoryBriefPanel({
     briefFromDraft(brief, draftSeriesTitle, request)
   );
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [charUploadIndex, setCharUploadIndex] = useState<number | null>(
+    null
+  );
+  const [sceneUploadIndex, setSceneUploadIndex] = useState<number | null>(
+    null
+  );
 
   useEffect(() => {
     setForm(briefFromDraft(brief, draftSeriesTitle, request));
@@ -88,6 +313,16 @@ export function StoryBriefPanel({
     const normalized: BriefPayloadParsed = {
       ...form,
       characters: form.characters.map((c) => c.trim()).filter(Boolean),
+      characterGuides: (form.characterGuides ?? []).map((g) => ({
+        name: g.name.trim(),
+        notes: g.notes.trim(),
+        imageUrl: g.imageUrl?.trim() || null,
+      })),
+      sceneGuides: (form.sceneGuides ?? []).map((g) => ({
+        name: g.name.trim(),
+        notes: g.notes.trim(),
+        imageUrl: g.imageUrl?.trim() || null,
+      })),
     };
     if (!normalized.characters.length) {
       setSaveError('Add at least one character (non-empty line).');
@@ -125,6 +360,63 @@ export function StoryBriefPanel({
       setSaveError(e instanceof Error ? e.message : 'Save failed');
     }
   }, [form, saveDraftPatch, onSaveNotice]);
+
+  const downloadJson = useCallback(() => {
+    const slug = draftSlugFromTitle(form.seriesTitle || 'story-brief');
+    downloadBlob(
+      `${slug}-brief.json`,
+      new Blob([JSON.stringify(form, null, 2)], {
+        type: 'application/json',
+      })
+    );
+  }, [form]);
+
+  const downloadText = useCallback(() => {
+    const slug = draftSlugFromTitle(form.seriesTitle || 'story-brief');
+    downloadBlob(
+      `${slug}-brief.txt`,
+      new Blob([briefToPlainText(form)], { type: 'text/plain;charset=utf-8' })
+    );
+  }, [form]);
+
+  const uploadGuideImage = useCallback(
+    async (
+      kind: 'characterGuides' | 'sceneGuides',
+      index: number,
+      file: File
+    ) => {
+      setSaveError(null);
+      if (kind === 'characterGuides') setCharUploadIndex(index);
+      else setSceneUploadIndex(index);
+      try {
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('assetKind', 'brief_reference');
+        fd.append('draftId', draftId);
+        const res = await fetch('/api/upload', { method: 'POST', body: fd });
+        const data = (await res.json()) as {
+          error?: string;
+          fileUrl?: string;
+        };
+        if (!res.ok || !data.fileUrl) {
+          throw new Error(data.error || `Upload failed (${res.status})`);
+        }
+        setForm((f) => {
+          const list = [...(f[kind] ?? [])];
+          if (!list[index]) return f;
+          list[index] = { ...list[index], imageUrl: data.fileUrl! };
+          return { ...f, [kind]: list };
+        });
+        onSaveNotice('Reference image uploaded (save brief to keep)');
+      } catch (e) {
+        setSaveError(e instanceof Error ? e.message : 'Upload failed');
+      } finally {
+        if (kind === 'characterGuides') setCharUploadIndex(null);
+        else setSceneUploadIndex(null);
+      }
+    },
+    [draftId, onSaveNotice]
+  );
 
   const dirtyCharacters = !form.characters.some((c) => c.trim().length > 0);
   const setCharacter = (index: number, value: string) => {
@@ -180,6 +472,22 @@ export function StoryBriefPanel({
         >
           Save brief
         </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={downloadJson}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Download JSON
+          </button>
+          <button
+            type="button"
+            onClick={downloadText}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Download text
+          </button>
+        </div>
       </div>
       {saveError && (
         <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
@@ -260,6 +568,20 @@ export function StoryBriefPanel({
           </ul>
         </div>
 
+        <ReferenceGuidesEditor
+          title="Character reference guides"
+          guides={form.characterGuides ?? []}
+          draftId={draftId}
+          busy={busy}
+          uploadingIndex={charUploadIndex}
+          onChange={(characterGuides) =>
+            setForm((f) => ({ ...f, characterGuides }))
+          }
+          onUpload={(index, file) =>
+            void uploadGuideImage('characterGuides', index, file)
+          }
+        />
+
         <label className="mt-4 block">
           <span className="text-xs font-bold text-slate-700">
             Setting sketch
@@ -273,6 +595,18 @@ export function StoryBriefPanel({
             }
           />
         </label>
+
+        <ReferenceGuidesEditor
+          title="Scene guides"
+          guides={form.sceneGuides ?? []}
+          draftId={draftId}
+          busy={busy}
+          uploadingIndex={sceneUploadIndex}
+          onChange={(sceneGuides) => setForm((f) => ({ ...f, sceneGuides }))}
+          onUpload={(index, file) =>
+            void uploadGuideImage('sceneGuides', index, file)
+          }
+        />
 
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           <label className="block">

@@ -9,6 +9,8 @@ export default function StoryEditorHeader({
   onSave,
   onCancel,
   onReset,
+  onOpenBrief,
+  briefDisabled,
   disabled,
 }: {
   title: string;
@@ -19,6 +21,8 @@ export default function StoryEditorHeader({
   onSave: () => void;
   onCancel: () => void;
   onReset: () => void;
+  onOpenBrief?: () => void;
+  briefDisabled?: boolean;
   disabled?: boolean;
 }) {
   return (
@@ -39,6 +43,16 @@ export default function StoryEditorHeader({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {onOpenBrief ? (
+            <button
+              type="button"
+              onClick={onOpenBrief}
+              disabled={disabled || briefDisabled}
+              className="rounded-full border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-800 shadow-sm hover:bg-violet-100 disabled:opacity-40"
+            >
+              Story brief
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={onReset}

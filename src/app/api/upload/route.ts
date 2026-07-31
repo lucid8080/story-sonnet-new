@@ -3,6 +3,7 @@ import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 import {
   buildBlogImageKey,
+  buildBriefReferenceKey,
   buildCoverKey,
   buildPrivateAudioKey,
   buildSpotlightBadgeKey,
@@ -39,7 +40,8 @@ export async function POST(req: Request) {
     | 'audio'
     | 'spotlight_badge'
     | 'blog_cover'
-    | 'blog_inline' =
+    | 'blog_inline'
+    | 'brief_reference' =
     assetKindRaw === 'audio'
       ? 'audio'
       : assetKindRaw === 'spotlight_badge'
@@ -48,7 +50,9 @@ export async function POST(req: Request) {
           ? 'blog_cover'
           : assetKindRaw === 'blog_inline'
             ? 'blog_inline'
-            : 'cover';
+            : assetKindRaw === 'brief_reference'
+              ? 'brief_reference'
+              : 'cover';
 
   const bucketField =
     (formData.get('bucket') as string) ||
@@ -72,11 +76,21 @@ export async function POST(req: Request) {
 
   let storySlug = '';
   let blogSlug = '';
+  let briefDraftId = '';
   let audioSubPathSegments: string[] = [];
 
   try {
     storySlug = validateStorySlugInput(formData.get('storySlug') as string);
     blogSlug = validateStorySlugInput(formData.get('blogSlug') as string);
+    if (assetKind === 'brief_reference') {
+      const rawDraftId = String(formData.get('draftId') ?? '').trim();
+      if (!rawDraftId || !/^[a-zA-Z0-9_-]+$/.test(rawDraftId)) {
+        throw new UploadKeyValidationError(
+          'brief_reference uploads require a valid draftId.'
+        );
+      }
+      briefDraftId = rawDraftId;
+    }
     if (assetKind === 'audio') {
       audioSubPathSegments = parseAudioSubPathSegments(
         formData.get('audioSubPath') as string
@@ -92,6 +106,7 @@ export async function POST(req: Request) {
   if (
     storySlug ||
     assetKind === 'spotlight_badge' ||
+    assetKind === 'brief_reference' ||
     ((assetKind === 'blog_cover' || assetKind === 'blog_inline') && blogSlug)
   ) {
     safeName = makeUniqueSafeFileName(safeName);
@@ -100,6 +115,52 @@ export async function POST(req: Request) {
   const buf = Buffer.from(await file.arrayBuffer());
 
   try {
+    if (assetKind === 'brief_reference') {
+      const key = buildBriefReferenceKey({
+        draftId: briefDraftId,
+        safeFileName: safeName,
+      });
+      const ct = file.type || 'application/octet-stream';
+      const dual = await uploadOriginalPlusDisplayWebp({
+        bucket: bucketField,
+        originalKey: key,
+        body: buf,
+        originalContentType: ct,
+        preset: 'cover',
+      });
+
+      if (process.env.DATABASE_URL) {
+        await prisma.upload.create({
+          data: {
+            fileName: file.name,
+            fileType: ct,
+            fileUrl: dual.originalUrl,
+            storagePath: dual.originalKey,
+            uploadedBy: session.user.id,
+          },
+        });
+        if (dual.displayKey !== dual.originalKey) {
+          await prisma.upload.create({
+            data: {
+              fileName: `${file.name} (display.webp)`,
+              fileType: 'image/webp',
+              fileUrl: dual.displayUrl,
+              storagePath: dual.displayKey,
+              uploadedBy: session.user.id,
+            },
+          });
+        }
+      }
+
+      return NextResponse.json({
+        assetKind: 'brief_reference',
+        fileUrl: dual.displayUrl,
+        storagePath: dual.displayKey,
+        originalFileUrl: dual.originalUrl,
+        originalStoragePath: dual.originalKey,
+      });
+    }
+
     if (assetKind === 'spotlight_badge') {
       if (buf.length > SPOTLIGHT_BADGE_MAX_BYTES) {
         return NextResponse.json(

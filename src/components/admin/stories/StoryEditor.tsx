@@ -18,6 +18,7 @@ import StoryDisplaySection from './StoryDisplaySection';
 import StoryEpisodesSection from './StoryEpisodesSection';
 import StorySeoSection from './StorySeoSection';
 import StoryNarratorsSection from './StoryNarratorsSection';
+import StoryBriefModal from './StoryBriefModal';
 
 export default function StoryEditor({
   story,
@@ -44,7 +45,10 @@ export default function StoryEditor({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [duping, setDuping] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [briefOpen, setBriefOpen] = useState(false);
   const successTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const canOpenBrief = isNumericDbStoryId(story.id);
 
   useEffect(() => {
     const next = appStoryToForm(story);
@@ -52,6 +56,7 @@ export default function StoryEditor({
     setBaseline(cloneStoryFormState(next));
     setSaveError(null);
     setSaveSuccess(false);
+    setBriefOpen(false);
     // Re-sync form when switching list selection (by id/slug), not on every parent re-render.
   }, [story.id, story.slug]); // eslint-disable-line react-hooks/exhaustive-deps -- story
 
@@ -212,6 +217,16 @@ export default function StoryEditor({
         onSave={onSave}
         onCancel={onCancel}
         onReset={onReset}
+        onOpenBrief={() => {
+          if (!canOpenBrief) {
+            setSaveError(
+              'Save this story to the database before opening Story Brief.'
+            );
+            return;
+          }
+          setBriefOpen(true);
+        }}
+        briefDisabled={!canOpenBrief}
         disabled={deleting || duping}
       />
       <div className="flex flex-wrap gap-2 border-b border-slate-100 bg-white px-4 py-2 sm:px-6">
@@ -241,6 +256,13 @@ export default function StoryEditor({
         <StoryEpisodesSection form={form} onChange={setForm} />
         <StorySeoSection form={form} onChange={setForm} />
       </div>
+      {canOpenBrief ? (
+        <StoryBriefModal
+          storyId={story.id}
+          open={briefOpen}
+          onClose={() => setBriefOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }
