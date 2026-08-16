@@ -57,9 +57,9 @@ export function EpisodeAmazonBookLink({
       title="Get the book on Amazon"
       onClick={stopRow}
       onKeyDown={stopRow}
-      className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 ${className}`}
+      className={`relative inline-flex shrink-0 items-center justify-center text-slate-500 transition hover:text-slate-800 focus-visible:rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 before:absolute before:-inset-2 before:content-[''] ${className}`}
     >
-      <BookOpen className="h-4 w-4" aria-hidden />
+      <BookOpen className="h-3.5 w-3.5" aria-hidden />
     </a>
   );
 }

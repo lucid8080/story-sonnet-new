@@ -910,13 +910,7 @@ export function StoryPageClient({
                           <span className={TRACKLIST_TITLE_CLASS}>
                             {episode.title}
                           </span>
-                          {episode.isFreePreview ? (
-                            <span className={`${TRACKLIST_LABEL_CLASS} text-rose-600`}>
-                              {episode.isFreePreviewRequiresSignup
-                                ? 'Free preview · Sign up'
-                                : 'Preview'}
-                            </span>
-                          ) : episodeLocked ? (
+                          {!episode.isFreePreview && episodeLocked ? (
                             <span className={`${TRACKLIST_LABEL_CLASS} text-violet-600`}>
                               Premium
                             </span>
