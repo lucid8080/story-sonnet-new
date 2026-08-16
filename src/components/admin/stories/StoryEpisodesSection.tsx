@@ -5,6 +5,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { StoryFormState } from '@/lib/admin/story-form';
 import { emptyEpisodeForm } from '@/lib/admin/story-form';
 import { uploadPrivateAudioDirect } from '@/lib/admin/upload-private-audio-client';
+import {
+  AMAZON_BOOK_URL_ERROR,
+  parseAmazonBookUrl,
+} from '@/lib/amazonBookUrl';
 import { isValidStorySlug, normalizeStorySlug } from '@/lib/slug';
 
 type StorageListItem = { key: string };
@@ -211,6 +215,36 @@ export default function StoryEpisodesSection({
                   updateEp(index, { transcriptStorageKey: key })
                 }
               />
+              <div className="sm:col-span-2 space-y-2 border-t border-slate-200/80 pt-3">
+                <h4 className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                  Book
+                </h4>
+                <label className="block">
+                  <span className="text-[11px] font-bold text-slate-600">
+                    Amazon Book URL
+                  </span>
+                  <input
+                    className={field}
+                    type="text"
+                    inputMode="url"
+                    autoComplete="off"
+                    value={ep.amazonBookUrl}
+                    onChange={(e) =>
+                      updateEp(index, { amazonBookUrl: e.target.value })
+                    }
+                    placeholder="https://amzn.to/… or amazon.com/dp/…"
+                  />
+                </label>
+                {!parseAmazonBookUrl(ep.amazonBookUrl).ok ? (
+                  <p className="text-xs text-rose-700" role="alert">
+                    {AMAZON_BOOK_URL_ERROR}
+                  </p>
+                ) : null}
+                <p className="text-xs text-slate-500">
+                  Adding an Amazon book link will display a book icon beside
+                  this episode in Sozo Play.
+                </p>
+              </div>
               <div className="flex flex-wrap gap-4 sm:col-span-2">
                 <label className="flex items-center gap-2 text-sm text-slate-800">
                   <input

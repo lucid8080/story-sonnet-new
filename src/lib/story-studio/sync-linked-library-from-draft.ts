@@ -51,6 +51,7 @@ async function loadLibraryEpisodesForDraft(
       isFreePreviewRequiresSignup: true,
       label: true,
       slug: true,
+      amazonBookUrl: true,
     },
   });
 }

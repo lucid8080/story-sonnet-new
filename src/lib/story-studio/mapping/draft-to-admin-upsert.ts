@@ -42,6 +42,7 @@ type DraftForMapping = {
     | 'isFreePreviewRequiresSignup'
     | 'label'
     | 'slug'
+    | 'amazonBookUrl'
   >[];
 };
 
@@ -217,6 +218,8 @@ export function draftToAdminUpsertInput(draft: DraftForMapping): AdminStoryUpser
           lib?.label ??
           (episodesSorted.length > 1 ? `Part ${index + 1}` : null),
         ...(transcriptLines !== undefined ? { transcriptLines } : {}),
+        // Preserve admin Amazon URLs when syncing a linked library episode.
+        ...(lib ? { amazonBookUrl: lib.amazonBookUrl } : {}),
       };
     }
   );

@@ -48,6 +48,9 @@ Run **`npm run backfill:story-cover-webp`** (alias: **`npm run backfill:display-
 **How do free preview / premium episode flags work?**  
 Per episode in **`/admin/stories`**: **Premium** needs a paid subscription (or trial) unless a free-preview flag is set. **Free preview (no subscription)** — anyone can listen, including logged-out. **Free preview (with subscription)** — sign-up only free preview: any logged-in free account can listen (no paid Stripe sub); logged-out users see a notice and are sent to **`/signup`**. Fields: **`isFreePreview`**, **`isFreePreviewRequiresSignup`**. Entitlement: **`src/lib/audioEntitlement.ts`** + **`/api/audio/play`**.
 
+**How do I link an Amazon book to an episode?**  
+Optional per-episode field **`Episode.amazonBookUrl`** (not on the series/`Story`). In **`/admin/stories`** → episode → **BOOK** → **Amazon Book URL**. When set to a valid Amazon storefront or short link (`amazon.*`, `amzn.to`, `a.co`), the public story tracklist shows a book icon for that episode only (`EpisodeAmazonBookLink`); the Read-more modal can show **Get the Book on Amazon**. Empty/blank = no icon. Validation: `src/lib/amazonBookUrl.ts`. Story Studio sync preserves existing URLs via linked library episodes / omit-on-undefined in **`syncEpisodesForStory`**.
+
 **What is Content Calendar / spotlights?**  
 Admin lives at **`/admin/content-calendar`**: month view, **Spotlights** (holiday / awareness / seasonal collections), **Badge assets** (reusable PNGs), and settings. Spotlights attach to **`Story`** rows, optional **PNG badge** on cover art (corner set per spotlight via **`badgeCorner`**: bottom-right / bottom-left / top-right / top-left; default bottom-right), optional **info bar** on **`/story/[slug]`**, and optional **featured rails** above the homepage and library grids. **Badge uploads** use the same **`POST /api/upload`** as covers, with **`assetKind=spotlight_badge`** (PNG-only, max 1MB); objects land under **`spotlight-badges/`** in the public bucket. Register a row via **`POST /api/admin/content-calendar/badge-assets`** after upload so spotlights can reference **`badgeAssetId`**. Public rendering uses **`src/lib/content-spotlight/resolve.ts`** (active + published + in-window; priority tie-break).
 
@@ -136,7 +139,7 @@ More detail: [Prisma — production troubleshooting / resolve](https://www.prism
 **Episode (`adminEpisodeSchema`, each row in `episodes`)**
 
 - Required: `id` (non-empty string), `episodeNumber` (int ≥ 1), `title`.
-- Optional: `slug` (unique per story if set), `audioUrl`, `audioStorageKey`, `summary`, durations, `label`, `transcriptLines` (array of `{ id, text }` for the scrolling reader; Story Studio push sets this from script text).
+- Optional: `slug` (unique per story if set), `audioUrl`, `audioStorageKey`, `summary`, durations, `label`, `transcriptLines` (array of `{ id, text }` for the scrolling reader; Story Studio push sets this from script text), `amazonBookUrl` (optional Amazon storefront URL; omit on Studio sync to preserve).
 - Publish: `isPublished` (default false). Premium: `isPremium`, `isFreePreview`, `isFreePreviewRequiresSignup` (signup-only free preview when both free-preview flags apply).
 
 **Upload / media**

@@ -21,6 +21,8 @@ export type EpisodeFormState = {
   isFreePreview: boolean;
   isFreePreviewRequiresSignup: boolean;
   label: string;
+  /** Optional Amazon storefront URL for a matching book. */
+  amazonBookUrl: string;
 };
 
 export type StoryFormState = {
@@ -78,6 +80,7 @@ export function emptyEpisodeForm(id: string, episodeNumber: number): EpisodeForm
     isFreePreview: false,
     isFreePreviewRequiresSignup: false,
     label: '',
+    amazonBookUrl: '',
   };
 }
 

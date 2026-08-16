@@ -66,6 +66,7 @@ export function appStoryToForm(story: AppStory): StoryFormState {
             isFreePreviewRequiresSignup:
               ep.isFreePreviewRequiresSignup ?? false,
             label: ep.label ?? '',
+            amazonBookUrl: ep.amazonBookUrl ?? '',
           };
         })
       : [emptyEpisodeForm(`new-${crypto.randomUUID()}`, 1)];
@@ -159,6 +160,8 @@ export function formToAdminUpsertPayload(form: StoryFormState): AdminStoryUpsert
       isFreePreview: ep.isFreePreview,
       isFreePreviewRequiresSignup: ep.isFreePreviewRequiresSignup,
       label: ep.label.trim() === '' ? null : ep.label,
+      amazonBookUrl:
+        ep.amazonBookUrl.trim() === '' ? null : ep.amazonBookUrl.trim(),
     };
   });
 

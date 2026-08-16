@@ -6,6 +6,10 @@ import {
   MOOD_FILTER_OPTIONS,
 } from '@/constants/storyFilters';
 import { STORY_SLUG_REGEX } from '@/lib/slug';
+import {
+  AMAZON_BOOK_URL_ERROR,
+  parseAmazonBookUrl,
+} from '@/lib/amazonBookUrl';
 
 const slugRegex = STORY_SLUG_REGEX;
 
@@ -74,6 +78,32 @@ export const adminEpisodeSchema = z.object({
       if (s == null || s === '') return null;
       return s.trim().replace(/^\/+/, '');
     }),
+  /**
+   * Optional Amazon book URL. Omit (`undefined`) to preserve DB value (Story Studio sync).
+   * Empty string / null → null. Non-empty must be an allowed Amazon URL.
+   */
+  amazonBookUrl: z.preprocess(
+    (v) => {
+      if (v === undefined) return undefined;
+      if (v === null) return null;
+      if (typeof v === 'string' && v.trim() === '') return null;
+      return v;
+    },
+    z
+      .string()
+      .nullable()
+      .optional()
+      .superRefine((s, ctx) => {
+        if (s == null) return;
+        const parsed = parseAmazonBookUrl(s);
+        if (!parsed.ok) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: parsed.message || AMAZON_BOOK_URL_ERROR,
+          });
+        }
+      })
+  ),
 });
 
 export const adminStoryUpsertSchema = z.object({

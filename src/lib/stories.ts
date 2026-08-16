@@ -57,6 +57,8 @@ export type AppEpisode = {
   isPublished: boolean;
   /** Scrolling transcript lines (DB-backed stories); static catalog uses JSON files. */
   transcriptLines?: TranscriptLineJson[];
+  /** Optional Amazon storefront URL for a matching physical/Kindle book. */
+  amazonBookUrl: string | null;
 };
 
 export type AppStory = {
@@ -127,6 +129,8 @@ export type EpisodeForPlayer = {
   useSignedPlayback: boolean;
   playbackEpisodeId: string | null;
   transcriptLines?: TranscriptLineJson[];
+  /** Optional Amazon storefront URL; safe for client (public link only). */
+  amazonBookUrl: string | null;
 };
 
 export type StoryForPlayer = Omit<AppStory, 'episodes'> & {
@@ -199,6 +203,7 @@ function episodeToPlayerEpisode(
       useSignedPlayback: false,
       playbackEpisodeId: null,
       transcriptLines: ep.transcriptLines,
+      amazonBookUrl: ep.amazonBookUrl,
     };
   }
 
@@ -220,6 +225,7 @@ function episodeToPlayerEpisode(
       useSignedPlayback: true,
       playbackEpisodeId: ep.id,
       transcriptLines: ep.transcriptLines,
+      amazonBookUrl: ep.amazonBookUrl,
     };
   }
 
@@ -240,6 +246,7 @@ function episodeToPlayerEpisode(
     useSignedPlayback: false,
     playbackEpisodeId: null,
     transcriptLines: ep.transcriptLines,
+    amazonBookUrl: ep.amazonBookUrl,
   };
 }
 
@@ -312,6 +319,7 @@ function mapDbStoryToApp(
     isFreePreviewRequiresSignup: ep.isFreePreviewRequiresSignup,
     isPublished: ep.isPublished,
     transcriptLines: parseTranscriptLinesJson(ep.transcriptLines),
+    amazonBookUrl: ep.amazonBookUrl ?? null,
   }));
 
   const ageRange = story.ageRange as AgeRangeId | null;
@@ -419,6 +427,7 @@ function mapStaticToApp(): AppStory[] {
         isFreePreview: false,
         isFreePreviewRequiresSignup: false,
         isPublished: true,
+        amazonBookUrl: null,
       };
     });
     const isSeries = resolveStaticIsSeries(eps.length, seed.isSeries);
@@ -901,6 +910,10 @@ async function syncEpisodesForStory(
             transcriptLines: transcriptLines as Prisma.InputJsonValue,
           }
         : {}),
+      // Omit when undefined so Story Studio sync does not wipe admin-entered URLs.
+      ...(ep.amazonBookUrl !== undefined
+        ? { amazonBookUrl: ep.amazonBookUrl }
+        : {}),
     };
     if (isNumericDbStoryId(ep.id) && existingIds.has(ep.id)) {
       await tx.episode.update({
@@ -1148,6 +1161,7 @@ export async function duplicateStoryAdmin(id: string): Promise<Story> {
           isPremium: ep.isPremium,
           isFreePreview: ep.isFreePreview,
           isFreePreviewRequiresSignup: ep.isFreePreviewRequiresSignup ?? false,
+          amazonBookUrl: ep.amazonBookUrl ?? null,
         })),
       },
     },

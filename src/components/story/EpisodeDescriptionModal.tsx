@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type MutableRefObject } from 'react';
 import { X } from 'lucide-react';
+import { EpisodeAmazonBookLink } from '@/components/story/EpisodeAmazonBookLink';
 
 type Props = {
   open: boolean;
@@ -10,6 +11,9 @@ type Props = {
   onClose: () => void;
   /** Element to restore focus after close (e.g. the “Read more” control). */
   returnFocusRef: MutableRefObject<HTMLElement | null>;
+  /** When set with a URL, shows “Get the Book on Amazon” under the description. */
+  episodeId?: string;
+  amazonBookUrl?: string | null;
 };
 
 export function EpisodeDescriptionModal({
@@ -18,6 +22,8 @@ export function EpisodeDescriptionModal({
   description,
   onClose,
   returnFocusRef,
+  episodeId,
+  amazonBookUrl,
 }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -77,6 +83,14 @@ export function EpisodeDescriptionModal({
           </div>
           <div className="min-h-0 overflow-y-auto px-5 py-4 text-sm leading-relaxed text-slate-600">
             <p className="whitespace-pre-wrap">{description}</p>
+            {episodeId && amazonBookUrl?.trim() ? (
+              <div className="mt-4 border-t border-slate-100 pt-4">
+                <EpisodeAmazonBookLink
+                  episode={{ id: episodeId, amazonBookUrl }}
+                  variant="cta"
+                />
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

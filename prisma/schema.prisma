@@ -880,6 +880,8 @@ model Episode {
   isFreePreviewRequiresSignup Boolean @default(false) @map("is_free_preview_requires_signup")
   /// JSON array of { id: string | number; text: string } for scrolling transcript (Story Studio / admin).
   transcriptLines   Json?    @map("transcript_lines")
+  /** Optional Amazon storefront URL for a physical/Kindle book matching this episode. */
+  amazonBookUrl     String?  @map("amazon_book_url")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 

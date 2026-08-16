@@ -39,7 +39,8 @@ Full definitions: [`prisma/schema.prisma`](prisma/schema.prisma).
 - **Content:** `title`, `label`, `description`
 - **Audio:** `audioUrl` (legacy/public), **`audioStorageKey`** (private R2 key, no leading slash)
 - **Timing:** `duration`, `durationSeconds` (often from audio metadata)
-- **Flags:** `isPublished`, `isPremium`, `isFreePreview`
+- **Flags:** `isPublished`, `isPremium`, `isFreePreview`, `isFreePreviewRequiresSignup`
+- **Book:** optional **`amazonBookUrl`** (Amazon storefront URL for a matching physical/Kindle book; when set, public tracklist shows a book icon for that episode)
 - **Transcript:** **`transcriptLines`** (JSON array of `{ id: string | number; text: string }`) for scrolling transcript in the player / admin; optional on admin PATCH; Story Studio push can populate from script text
 
 ### Customer / admin CRM
@@ -68,7 +69,7 @@ Full definitions: [`prisma/schema.prisma`](prisma/schema.prisma).
 
 - [`src/lib/validation/storySchema.ts`](src/lib/validation/storySchema.ts)
   - **`adminStoryUpsertSchema`** — story + nested `episodes`
-  - **`adminEpisodeSchema`** — per-episode fields (includes optional **`transcriptLines`**)
+  - **`adminEpisodeSchema`** — per-episode fields (includes optional **`transcriptLines`**, optional **`amazonBookUrl`**)
 
 **Story required fields (typical save):** `slug`, `title`, `seriesTitle`, `summary`, `ageRange`, `isSeries`.
 

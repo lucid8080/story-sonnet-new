@@ -226,6 +226,7 @@ describe('draftToAdminUpsertInput', () => {
           isFreePreviewRequiresSignup: false,
           label: 'Part 1',
           slug: null,
+          amazonBookUrl: 'https://www.amazon.com/dp/B0LIBRARY01',
         },
       ],
     } as Parameters<typeof draftToAdminUpsertInput>[0]);
@@ -240,6 +241,9 @@ describe('draftToAdminUpsertInput', () => {
     ]);
     expect(payload.episodes[0].isPublished).toBe(true);
     expect(payload.episodes[0].isFreePreviewRequiresSignup).toBe(false);
+    expect(payload.episodes[0].amazonBookUrl).toBe(
+      'https://www.amazon.com/dp/B0LIBRARY01'
+    );
   });
 
   it('publishes new studio episodes when the linked story is already published', () => {
@@ -310,6 +314,7 @@ describe('draftToAdminUpsertInput', () => {
           isFreePreviewRequiresSignup: false,
           label: null,
           slug: null,
+          amazonBookUrl: null,
         },
       ],
     } as Parameters<typeof draftToAdminUpsertInput>[0]);

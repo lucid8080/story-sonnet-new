@@ -33,6 +33,7 @@ import {
   StorySeriesCommentsPanel,
 } from '@/components/story/StorySeriesEngagement';
 import { EpisodeDescriptionModal } from '@/components/story/EpisodeDescriptionModal';
+import { EpisodeAmazonBookLink } from '@/components/story/EpisodeAmazonBookLink';
 import { useStorySeriesPlayer } from '@/components/story/StorySeriesPlayerProvider';
 import type {
   StorySpotlightBadgeDTO,
@@ -227,6 +228,8 @@ export function StoryPageClient({
   const [episodeDescriptionModal, setEpisodeDescriptionModal] = useState<{
     title: string;
     description: string;
+    episodeId: string;
+    amazonBookUrl: string | null;
   } | null>(null);
   const episodeReadMoreReturnFocusRef = useRef<HTMLElement | null>(null);
   const transcriptScrollerRef = useRef<HTMLDivElement>(null);
@@ -931,12 +934,15 @@ export function StoryPageClient({
                               setEpisodeDescriptionModal({
                                 title: episode.title,
                                 description: desc,
+                                episodeId: episode.id,
+                                amazonBookUrl: episode.amazonBookUrl ?? null,
                               });
                             }}
                           >
                             Read more
                           </button>
                         ) : null}
+                        <EpisodeAmazonBookLink episode={episode} />
                         <span className="shrink-0 pt-0.5 tabular-nums text-sm font-semibold text-slate-500 sm:pt-0">
                           {durationLabel}
                         </span>
@@ -1008,6 +1014,8 @@ export function StoryPageClient({
           open={episodeDescriptionModal != null}
           title={episodeDescriptionModal?.title ?? ''}
           description={episodeDescriptionModal?.description ?? ''}
+          episodeId={episodeDescriptionModal?.episodeId}
+          amazonBookUrl={episodeDescriptionModal?.amazonBookUrl}
           onClose={() => setEpisodeDescriptionModal(null)}
           returnFocusRef={episodeReadMoreReturnFocusRef}
         />
