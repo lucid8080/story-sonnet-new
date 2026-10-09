@@ -232,7 +232,7 @@ export default function StoryEpisodesSection({
                     onChange={(e) =>
                       updateEp(index, { amazonBookUrl: e.target.value })
                     }
-                    placeholder="https://amzn.to/… or amazon.com/dp/…"
+                    placeholder="https://link.amazon/… or any book URL"
                   />
                 </label>
                 {!parseAmazonBookUrl(ep.amazonBookUrl).ok ? (

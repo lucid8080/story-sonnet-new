@@ -85,12 +85,19 @@ describe('parseAmazonBookUrl', () => {
     });
   });
 
-  it('rejects invalid or non-Amazon URLs with a clear message', () => {
-    expect(parseAmazonBookUrl('not-a-url')).toEqual({
-      ok: false,
-      message: AMAZON_BOOK_URL_ERROR,
+  it('accepts any http(s) link, including link.amazon share URLs', () => {
+    expect(parseAmazonBookUrl('https://link.amazon/B0hohASEt')).toEqual({
+      ok: true,
+      url: 'https://link.amazon/B0hohASEt',
     });
     expect(parseAmazonBookUrl('https://example.com/book')).toEqual({
+      ok: true,
+      url: 'https://example.com/book',
+    });
+  });
+
+  it('rejects malformed or non-http URLs with a clear message', () => {
+    expect(parseAmazonBookUrl('not-a-url')).toEqual({
       ok: false,
       message: AMAZON_BOOK_URL_ERROR,
     });

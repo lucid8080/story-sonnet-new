@@ -37,10 +37,24 @@ describe('adminEpisodeSchema amazonBookUrl', () => {
     ).toBe(url);
   });
 
-  it('rejects non-Amazon URLs', () => {
+  it('accepts any http(s) book link', () => {
+    const url = 'https://link.amazon/B0hohASEt';
+    expect(
+      adminEpisodeSchema.parse({ ...baseEpisode, amazonBookUrl: url })
+        .amazonBookUrl
+    ).toBe(url);
+    expect(
+      adminEpisodeSchema.parse({
+        ...baseEpisode,
+        amazonBookUrl: 'https://example.com/book',
+      }).amazonBookUrl
+    ).toBe('https://example.com/book');
+  });
+
+  it('rejects malformed URLs', () => {
     const result = adminEpisodeSchema.safeParse({
       ...baseEpisode,
-      amazonBookUrl: 'https://example.com/book',
+      amazonBookUrl: 'not-a-url',
     });
     expect(result.success).toBe(false);
     if (!result.success) {

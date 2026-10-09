@@ -1,4 +1,4 @@
-/** Shown when an admin enters a non-empty, non-Amazon, or malformed URL. */
+/** Shown when an admin enters a non-empty value that is not an http(s) URL. */
 export const AMAZON_BOOK_URL_ERROR = 'Enter a valid Amazon book URL.';
 
 /** Storefront hosts we accept (with or without leading www.). */
@@ -39,7 +39,7 @@ export type ParseAmazonBookUrlResult =
   | { ok: false; message: string };
 
 /**
- * Empty / whitespace → ok with null. Non-empty must be http(s) Amazon URL.
+ * Empty / whitespace → ok with null. Non-empty must be any http(s) URL.
  */
 export function parseAmazonBookUrl(
   raw: string | null | undefined
@@ -57,10 +57,6 @@ export function parseAmazonBookUrl(
   }
 
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    return { ok: false, message: AMAZON_BOOK_URL_ERROR };
-  }
-
-  if (!isAllowedAmazonBookHostname(parsed.hostname)) {
     return { ok: false, message: AMAZON_BOOK_URL_ERROR };
   }
 

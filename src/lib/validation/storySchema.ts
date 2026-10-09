@@ -79,8 +79,8 @@ export const adminEpisodeSchema = z.object({
       return s.trim().replace(/^\/+/, '');
     }),
   /**
-   * Optional Amazon book URL. Omit (`undefined`) to preserve DB value (Story Studio sync).
-   * Empty string / null → null. Non-empty must be an allowed Amazon URL.
+   * Optional book URL. Omit (`undefined`) to preserve DB value (Story Studio sync).
+   * Empty string / null → null. Non-empty must be any http(s) URL.
    */
   amazonBookUrl: z.preprocess(
     (v) => {
